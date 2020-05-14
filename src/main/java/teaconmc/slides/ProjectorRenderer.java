@@ -11,11 +11,13 @@ import com.mojang.blaze3d.vertex.IVertexBuilder;
 import net.minecraft.client.renderer.IRenderTypeBuffer;
 import net.minecraft.client.renderer.Matrix4f;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.Vector3f;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.NativeImage;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
 import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
+import net.minecraft.state.properties.BlockStateProperties;
 
 public class ProjectorRenderer extends TileEntityRenderer<ProjectorTileEntity> {
 
@@ -41,10 +43,10 @@ public class ProjectorRenderer extends TileEntityRenderer<ProjectorTileEntity> {
     public void render(ProjectorTileEntity tile, float partialTicks, MatrixStack matrixStack, IRenderTypeBuffer buffer, int combinedLight, int combinedOverlay) {
         init(this.renderDispatcher.textureManager);
         matrixStack.push();
-
-        matrixStack.translate(0, 1, 1);
-        matrixStack.scale(1F, -1F, 1F); // OpenGL flips Y for some weird reason. We flip it back here.
-        //matrixStack.rotate(??); // TODO The projector should support rotation
+        matrixStack.translate(0.5, 1, 0.5); // Corner to center, plus move up a block
+        matrixStack.rotate(tile.getBlockState().get(BlockStateProperties.HORIZONTAL_FACING).getRotation()); // Rotate, align with block facing.
+        matrixStack.rotate(Vector3f.XP.rotationDegrees(90F)); // Rotate again to correct
+        matrixStack.translate(-0.5, 0, -0.5); // Center to corner  
 
         matrixStack.push();
         matrixStack.translate(0, -1, 0); // TODO Different offset based on how large we want it to be.
@@ -61,6 +63,7 @@ public class ProjectorRenderer extends TileEntityRenderer<ProjectorTileEntity> {
         }
         matrixStack.pop();
 
+        // TODO Display a nice message saying "No slide show is here" when there is nothing being shown
         /*matrixStack.push();
         matrixStack.scale(0.01F, 0.01F, 0.01F);
         final FontRenderer fontRenderer = this.renderDispatcher.getFontRenderer();
