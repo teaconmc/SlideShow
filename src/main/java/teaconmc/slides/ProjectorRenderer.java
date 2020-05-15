@@ -1,10 +1,5 @@
 package teaconmc.slides;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-
 import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.vertex.IVertexBuilder;
 
@@ -12,36 +7,18 @@ import net.minecraft.client.renderer.IRenderTypeBuffer;
 import net.minecraft.client.renderer.Matrix4f;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.Vector3f;
-import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.client.renderer.texture.NativeImage;
-import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
 import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
 import net.minecraft.state.properties.BlockStateProperties;
 
 public class ProjectorRenderer extends TileEntityRenderer<ProjectorTileEntity> {
 
-    /* TODO: Make a cache, so we allow user to use their own image instead of hard-coding. */
-    private static RenderType slideShow;
-
     public ProjectorRenderer(TileEntityRendererDispatcher dispatcher) {
         super(dispatcher);
     }
 
-    public static void init(TextureManager manager) {
-        if (slideShow == null) {
-            try {
-                NativeImage image = NativeImage.read(Files.newInputStream(Paths.get(".", "test.png"), StandardOpenOption.READ));
-                slideShow = RenderType.getText(manager.getDynamicTextureLocation("slide_test", new DynamicTexture(image)));
-            } catch (IOException e) {
-                e.printStackTrace(System.err);
-            }
-        }
-    }
-
     @Override
     public void render(ProjectorTileEntity tile, float partialTicks, MatrixStack matrixStack, IRenderTypeBuffer buffer, int combinedLight, int combinedOverlay) {
-        init(this.renderDispatcher.textureManager);
         matrixStack.push();
         matrixStack.translate(0.5, 1, 0.5); // Corner to center, plus move up a block
         matrixStack.rotate(tile.getBlockState().get(BlockStateProperties.HORIZONTAL_FACING).getRotation()); // Rotate, align with block facing.
@@ -50,11 +27,12 @@ public class ProjectorRenderer extends TileEntityRenderer<ProjectorTileEntity> {
 
         matrixStack.push();
         matrixStack.translate(0, -1, 0); // TODO Different offset based on how large we want it to be.
-        if (slideShow != null) {
-            IVertexBuilder builder = buffer.getBuffer(slideShow);
+        final RenderType type = ProjectorData.getRenderType(tile, this.renderDispatcher.textureManager);
+        if (type != null) {
+            IVertexBuilder builder = buffer.getBuffer(type);
             final Matrix4f transforms = matrixStack.getLast().getMatrix();
             // We are using GL11.GL_QUAD, vertex format Pos -> Color -> Tex -> Light -> End.
-            // TODO For image with different side, the position should be different.
+            // TODO For image with different size, the position should be different.
             // TODO Allow alpha customization
             builder.pos(transforms, 0F, 1F, -1F / 256F).color(255, 255, 255, 255).tex(0F, 1F).lightmap(combinedLight).endVertex();
             builder.pos(transforms, 1F, 1F, -1F / 256F).color(255, 255, 255, 255).tex(1F, 1F).lightmap(combinedLight).endVertex();
