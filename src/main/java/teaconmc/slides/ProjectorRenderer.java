@@ -27,7 +27,7 @@ public class ProjectorRenderer extends TileEntityRenderer<ProjectorTileEntity> {
 
         matrixStack.push();
         matrixStack.translate(0, -1, 0); // TODO Different offset based on how large we want it to be.
-        final RenderType type = ProjectorData.getRenderType(tile, this.renderDispatcher.textureManager);
+        final RenderType type = ProjectorData.getRenderType(tile.imageLocation, this.renderDispatcher.textureManager);
         if (type != null) {
             IVertexBuilder builder = buffer.getBuffer(type);
             final Matrix4f transforms = matrixStack.getLast().getMatrix();

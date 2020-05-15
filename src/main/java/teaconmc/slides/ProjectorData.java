@@ -1,7 +1,8 @@
 package teaconmc.slides;
 
 import java.net.URL;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.cache.Cache;
@@ -28,22 +29,24 @@ public final class ProjectorData {
         }
     }
 
-    static final Cache<ProjectorTileEntity, Entry> CACHE = CacheBuilder.newBuilder()
-            .expireAfterAccess(20, TimeUnit.MINUTES).weakKeys()
-            .removalListener(new RemovalListener<ProjectorTileEntity, Entry>() {
+    static final Cache<String, Entry> CACHE = CacheBuilder.newBuilder()
+            .expireAfterAccess(20, TimeUnit.MINUTES)
+            .removalListener(new RemovalListener<String, Entry>() {
                 @Override
-                public void onRemoval(RemovalNotification<ProjectorTileEntity, Entry> notification) {
+                public void onRemoval(RemovalNotification<String, Entry> notification) {
                     notification.getValue().texture.close();
                 }
             }).build();
 
-    public static RenderType getRenderType(ProjectorTileEntity tile, TextureManager manager) {
-        Entry entry = CACHE.getIfPresent(tile);
+    static final ExecutorService WORKER = Executors.newSingleThreadExecutor();
+
+    public static RenderType getRenderType(String location, TextureManager manager) {
+        Entry entry = CACHE.getIfPresent(location);
         if (entry == null) {
-            CompletableFuture.runAsync(() -> {
+            WORKER.submit(() -> {
                 try {
-                    NativeImage image = NativeImage.read(new URL(tile.imageLocation).openStream());
-                    Minecraft.getInstance().deferTask(() -> CACHE.put(tile, new Entry(image, manager)));
+                    NativeImage image = NativeImage.read(new URL(location).openStream());
+                    Minecraft.getInstance().deferTask(() -> CACHE.put(location, new Entry(image, manager)));
                 } catch (Exception ignored) {
                     // maybe log this?
                 }
