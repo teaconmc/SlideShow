@@ -1,8 +1,6 @@
 package teaconmc.slides;
 
 import java.net.URL;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.cache.Cache;
@@ -15,6 +13,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.NativeImage;
 import net.minecraft.client.renderer.texture.TextureManager;
+import net.minecraft.util.Util;
 
 public final class ProjectorData {
 
@@ -38,12 +37,10 @@ public final class ProjectorData {
                 }
             }).build();
 
-    static final ExecutorService WORKER = Executors.newSingleThreadExecutor();
-
     public static RenderType getRenderType(String location, TextureManager manager) {
         Entry entry = CACHE.getIfPresent(location);
         if (entry == null) {
-            WORKER.submit(() -> {
+            Util.getServerExecutor().execute(() -> {
                 try {
                     NativeImage image = NativeImage.read(new URL(location).openStream());
                     Minecraft.getInstance().deferTask(() -> CACHE.put(location, new Entry(image, manager)));
