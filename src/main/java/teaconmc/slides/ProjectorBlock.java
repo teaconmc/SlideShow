@@ -3,14 +3,22 @@ package teaconmc.slides;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.BlockItemUseContext;
 import net.minecraft.state.StateContainer.Builder;
 import net.minecraft.state.properties.BlockStateProperties;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ActionResultType;
 import net.minecraft.util.Direction;
+import net.minecraft.util.Hand;
 import net.minecraft.util.Mirror;
 import net.minecraft.util.Rotation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.BlockRayTraceResult;
 import net.minecraft.world.IBlockReader;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.network.NetworkHooks;
 
 public final class ProjectorBlock extends Block {
 
@@ -52,6 +60,22 @@ public final class ProjectorBlock extends Block {
     @Override
     public TileEntity createTileEntity(BlockState state, IBlockReader world) {
         return new ProjectorTileEntity();
+    }
+
+    @Override
+    public ActionResultType onBlockActivated(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockRayTraceResult hit) {
+        TileEntity tile;
+        if (player instanceof ServerPlayerEntity && (tile = world.getTileEntity(pos)) instanceof ProjectorTileEntity) {
+            final ProjectorTileEntity projector = (ProjectorTileEntity) tile;
+            NetworkHooks.openGui((ServerPlayerEntity)player, new ProjectorControlContainer.Provider(), buffer -> {
+                buffer.writeBlockPos(projector.getPos());
+                buffer.writeString(projector.imageLocation);
+                buffer.writeInt(projector.color);
+                buffer.writeFloat(projector.width);
+                buffer.writeFloat(projector.height);
+            });
+        }
+        return ActionResultType.SUCCESS;
     }
     
 }

@@ -7,39 +7,56 @@ import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SUpdateTileEntityPacket;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
+import net.minecraftforge.registries.ObjectHolder;
 
 public final class ProjectorTileEntity extends TileEntity {
 
-    public static TileEntityType<ProjectorTileEntity> TYPE;
+    @ObjectHolder("slide_show:projector")
+    public static TileEntityType<ProjectorTileEntity> theType;
 
-    public String imageLocation = ""; // TODO URL sanity check
+    public String imageLocation = "";
+
+    public int color = 0xFFFFFFFF;
+    public float width = 1F, height = 1F;
 
     public ProjectorTileEntity() {
-        super(Objects.requireNonNull(TYPE));
+        super(Objects.requireNonNull(theType));
+    }
+
+    public CompoundNBT writeOurData(CompoundNBT data) {
+        data.putString("ImageLocation", this.imageLocation);
+        data.putInt("Color", this.color);
+        data.putFloat("Width", this.width);
+        data.putFloat("Height", this.height);
+        return data;
+    }
+
+    public void readOurData(CompoundNBT data) {
+        this.imageLocation = data.getString("ImageLocation");
+        this.color = data.getInt("Color");
+        this.width = data.getFloat("Width");
+        this.height = data.getFloat("Height");
     }
 
     @Override
     public CompoundNBT write(CompoundNBT data) {
-        data.putString("ImageLocation", imageLocation);
-        return super.write(data);
+        return super.write(this.writeOurData(data));
     }
 
     @Override
     public void read(CompoundNBT data) {
         super.read(data);
-        this.imageLocation = data.getString("ImageLocation");
+        this.readOurData(data);
     }
 
     @Override
     public SUpdateTileEntityPacket getUpdatePacket() {
-        final CompoundNBT data = new CompoundNBT();
-        data.putString("ImageLocation", imageLocation);
-        return new SUpdateTileEntityPacket(this.pos, 0, data);
+        return new SUpdateTileEntityPacket(this.pos, 0, this.writeOurData(new CompoundNBT()));
     }
 
     @Override
     public void onDataPacket(NetworkManager net, SUpdateTileEntityPacket packet) {
-        this.imageLocation = packet.getNbtCompound().getString("ImageLocation");
+        this.readOurData(packet.getNbtCompound());
     }
 
     @Override
