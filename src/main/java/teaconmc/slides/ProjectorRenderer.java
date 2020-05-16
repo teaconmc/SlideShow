@@ -25,21 +25,20 @@ public class ProjectorRenderer extends TileEntityRenderer<ProjectorTileEntity> {
         matrixStack.rotate(Vector3f.XP.rotationDegrees(90F)); // Rotate again to correct
         matrixStack.translate(-0.5, 0, -0.5); // Center to corner  
 
-        matrixStack.push();
-        matrixStack.translate(0, -1, 0); // TODO Different offset based on how large we want it to be.
         final RenderType type = ProjectorData.getRenderType(tile.imageLocation, this.renderDispatcher.textureManager);
         if (type != null) {
+            matrixStack.push();
+            matrixStack.translate(0, -tile.height + 1, 0); 
             IVertexBuilder builder = buffer.getBuffer(type);
             final Matrix4f transforms = matrixStack.getLast().getMatrix();
             // We are using GL11.GL_QUAD, vertex format Pos -> Color -> Tex -> Light -> End.
-            // TODO For image with different size, the position should be different.
-            // TODO Allow alpha customization
-            builder.pos(transforms, 0F, 1F, -1F / 256F).color(255, 255, 255, 255).tex(0F, 1F).lightmap(combinedLight).endVertex();
-            builder.pos(transforms, 1F, 1F, -1F / 256F).color(255, 255, 255, 255).tex(1F, 1F).lightmap(combinedLight).endVertex();
-            builder.pos(transforms, 1F, 0F, -1F / 256F).color(255, 255, 255, 255).tex(1F, 0F).lightmap(combinedLight).endVertex();
-            builder.pos(transforms, 0F, 0F, -1F / 256F).color(255, 255, 255, 255).tex(0F, 0F).lightmap(combinedLight).endVertex();
+            final int alpha = (tile.color >>> 24) & 255, red = (tile.color >>> 16) & 255, green = (tile.color >>> 8) & 255, blue = tile.color & 255;
+            builder.pos(transforms, 0F,         tile.height, -1F / 256F).color(red, green, blue, alpha).tex(0F, 1F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, tile.width, tile.height, -1F / 256F).color(red, green, blue, alpha).tex(1F, 1F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, tile.width, 0F,          -1F / 256F).color(red, green, blue, alpha).tex(1F, 0F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, 0F,         0F,          -1F / 256F).color(red, green, blue, alpha).tex(0F, 0F).lightmap(combinedLight).endVertex();
+            matrixStack.pop();
         }
-        matrixStack.pop();
 
         // TODO Display a nice message saying "No slide show is here" when there is nothing being shown
         /*matrixStack.push();
