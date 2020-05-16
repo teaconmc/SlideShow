@@ -1,6 +1,8 @@
 package teaconmc.slides;
 
 import java.net.URL;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.cache.Cache;
@@ -36,18 +38,27 @@ public final class ProjectorData {
                     notification.getValue().texture.close();
                 }
             }).build();
+    
+    static final Set<String> LOADING = ConcurrentHashMap.newKeySet();
 
     public static RenderType getRenderType(String location, TextureManager manager) {
         Entry entry = CACHE.getIfPresent(location);
         if (entry == null) {
-            Util.getServerExecutor().execute(() -> {
-                try {
-                    NativeImage image = NativeImage.read(new URL(location).openStream());
-                    Minecraft.getInstance().deferTask(() -> CACHE.put(location, new Entry(image, manager)));
-                } catch (Exception ignored) {
-                    // maybe log this?
-                }
-            });
+            if (!LOADING.contains(location)) {
+                LOADING.add(location);
+                Util.getServerExecutor().execute(() -> {
+                    try {
+                        NativeImage image = NativeImage.read(new URL(location).openStream());
+                        Minecraft.getInstance().deferTask(() -> {
+                            CACHE.put(location, new Entry(image, manager));
+                            LOADING.remove(location);
+                        });
+                    } catch (Exception ignored) {
+                        LOADING.remove(location);
+                        // maybe log this?
+                    }
+                });
+            }
             return null;
         }
         return entry.renderType;
