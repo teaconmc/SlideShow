@@ -13,6 +13,7 @@ import net.minecraft.item.Rarity;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.common.extensions.IForgeContainerType;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.DistExecutor;
@@ -21,7 +22,6 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.network.IContainerFactory;
 import net.minecraftforge.fml.network.NetworkRegistry;
 import net.minecraftforge.fml.network.simple.SimpleChannel;
 import net.minecraftforge.server.permission.DefaultPermissionLevel;
@@ -65,7 +65,7 @@ public final class SlideShow {
     }
 
     public static void regContainer(final RegistryEvent.Register<ContainerType<?>> event) {
-        event.getRegistry().register(new ContainerType<>((IContainerFactory<ProjectorControlContainer>)ProjectorControlContainer::new)
+        event.getRegistry().register(IForgeContainerType.create(ProjectorControlContainer::new)
             .setRegistryName("slide_show:projector"));
     }
 
