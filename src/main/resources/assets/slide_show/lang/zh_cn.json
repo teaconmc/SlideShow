@@ -1,3 +1,8 @@
 {
-    "block.slide_show.projector": "幻灯片投影仪"
+    "block.slide_show.projector": "幻灯片投影仪",
+
+    "gui.slide_show.url": "图片链接",
+    "gui.slide_show.color": "颜色",
+    "gui.slide_show.width": "宽",
+    "gui.slide_show.height": "高"
 }

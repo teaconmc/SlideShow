@@ -1,3 +1,8 @@
 {
-    "block.slide_show.projector": "Slide Show Projector"
+    "block.slide_show.projector": "Slide Show Projector",
+
+    "gui.slide_show.url": "Image Link",
+    "gui.slide_show.color": "Color",
+    "gui.slide_show.width": "Width",
+    "gui.slide_show.height": "Height"
 }

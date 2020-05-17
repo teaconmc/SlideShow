@@ -4,8 +4,10 @@ import com.mojang.blaze3d.systems.RenderSystem;
 
 import org.lwjgl.glfw.GLFW;
 
+import it.unimi.dsi.fastutil.objects.ObjectArrays;
 import net.minecraft.client.gui.screen.inventory.ContainerScreen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
@@ -45,7 +47,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.urlInput.setText(this.container.url);
         this.urlInput.setVisible(true);
         this.children.add(this.urlInput);
-        this.colorInput = new TextFieldWidget(this.font, this.guiLeft + 10, this.guiTop + 50, 60, 16, "Color");
+        this.colorInput = new TextFieldWidget(this.font, this.guiLeft + 10, this.guiTop + 55, 60, 16, "Color");
         this.colorInput.setMaxStringLength(8);
         this.colorInput.setResponder(input -> {
             try {
@@ -122,13 +124,13 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
     public void render(int mouseX, int mouseY, float partialTicks) {
         this.renderBackground();
         super.render(mouseX, mouseY, partialTicks);
-        this.font.drawString("Image Link", this.guiLeft + 12, this.guiTop + 10, this.invalidURL ? 0xFF5555 : 0x404040);
+        this.font.drawString(I18n.format("gui.slide_show.url", ObjectArrays.EMPTY_ARRAY), this.guiLeft + 12, this.guiTop + 10, this.invalidURL ? 0xFF5555 : 0x404040);
         this.urlInput.render(mouseX, mouseY, partialTicks);
-        this.font.drawString("Color", this.guiLeft + 12, this.guiTop + 40, this.invalidColor ? 0xFF5555 : this.color);
+        this.font.drawString(I18n.format("gui.slide_show.color", ObjectArrays.EMPTY_ARRAY), this.guiLeft + 12, this.guiTop + 45, this.invalidColor ? 0xFF5555 : this.color);
         this.colorInput.render(mouseX, mouseY, partialTicks);
-        this.font.drawString("Width", this.guiLeft + 12, this.guiTop + 80, this.invalidWidth ? 0xFF5555 : 0x404040);
+        this.font.drawString(I18n.format("gui.slide_show.width", ObjectArrays.EMPTY_ARRAY), this.guiLeft + 12, this.guiTop + 80, this.invalidWidth ? 0xFF5555 : 0x404040);
         this.widthInput.render(mouseX, mouseY, partialTicks);
-        this.font.drawString("Height", this.guiLeft + 82, this.guiTop + 80, this.invalidHeight ? 0xFF5555 : 0x404040);
+        this.font.drawString(I18n.format("gui.slide_show.height", ObjectArrays.EMPTY_ARRAY), this.guiLeft + 82, this.guiTop + 80, this.invalidHeight ? 0xFF5555 : 0x404040);
         this.heightInput.render(mouseX, mouseY, partialTicks);
         this.renderHoveredToolTip(mouseX, mouseY);
     }
