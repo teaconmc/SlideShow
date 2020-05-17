@@ -80,7 +80,7 @@ public final class SlideShow {
     }
 
     public static void setup(final FMLCommonSetupEvent event) {
-        PermissionAPI.registerNode("slide_show.interact.projector", DefaultPermissionLevel.OP, "");
+        PermissionAPI.registerNode("slide_show.interact.projector", DefaultPermissionLevel.ALL, "");
         int index = 0;
         channel.registerMessage(index++, UpdateImageInfoPacket.class, UpdateImageInfoPacket::write, UpdateImageInfoPacket::new, UpdateImageInfoPacket::handle);
     }
