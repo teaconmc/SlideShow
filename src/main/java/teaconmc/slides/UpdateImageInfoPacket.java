@@ -56,6 +56,7 @@ public final class UpdateImageInfoPacket {
                 }
             }
         });
+        context.get().setPacketHandled(true);
     }
 
 
