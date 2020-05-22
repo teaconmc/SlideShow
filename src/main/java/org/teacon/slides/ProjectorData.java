@@ -1,4 +1,4 @@
-package teaconmc.slides;
+package org.teacon.slides;
 
 import java.net.URL;
 import java.util.Set;

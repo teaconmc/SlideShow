@@ -1,4 +1,4 @@
-package teaconmc.slides;
+package org.teacon.slides;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 

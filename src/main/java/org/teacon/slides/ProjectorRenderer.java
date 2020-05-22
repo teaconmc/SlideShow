@@ -1,4 +1,4 @@
-package teaconmc.slides;
+package org.teacon.slides;
 
 import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.vertex.IVertexBuilder;

@@ -1,4 +1,4 @@
-package teaconmc.slides;
+package org.teacon.slides;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrays;
 import net.minecraft.entity.player.PlayerEntity;
