@@ -25,7 +25,7 @@ public final class UpdateImageInfoPacket {
 
     public UpdateImageInfoPacket(PacketBuffer buffer) {
         this.pos = buffer.readBlockPos();
-        this.url = buffer.readString();
+        this.url = buffer.readString(Short.MAX_VALUE);
         this.color = buffer.readInt();
         this.width = buffer.readFloat();
         this.height = buffer.readFloat();
