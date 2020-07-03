@@ -1,6 +1,6 @@
 import java.time.Instant
 import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit;
+import java.time.temporal.ChronoUnit
 
 buildscript {
     repositories {
@@ -60,7 +60,7 @@ minecraft {
 }
 
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.15.2-31.1.87'
+    minecraft 'net.minecraftforge:forge:1.15.2-31.2.4'
 }
 
 jar {
@@ -77,3 +77,73 @@ jar {
     }
 }
 
+def reobfFile = file("$buildDir/reobfJar/output.jar")
+def reobfArtifact = artifacts.add('default', reobfFile) {
+    type 'jar'
+    builtBy 'reobfJar'
+}
+publishing {
+    publications {
+        release(MavenPublication) {
+            groupId = "org.teacon"
+            artifactId = "SlideShow-Forge-1.15"
+
+            artifact reobfArtifact
+            pom {
+                name = 'SlideShow for Minecraft 1.15'
+                description = 'Minecraft mod, adding a projector that can display online images.'
+                url = 'https://github.com/teaconmc/SlideShow'
+                licenses {
+                    license {
+                        name = 'BSD-3-Clause'
+                        url = 'https://github.com/teaconmc/SlideShow/blob/1.15-forge/LICENSE'
+                    }
+                }
+                developers {
+                    developer {
+                        id = '3TUSK'
+                        name = '3TUSK'
+                    }
+                }
+                issueManagement {
+                    system = 'GitHub Issues'
+                    url = 'https://github.com/teaconmc/SlideShow/issues'
+                }
+                scm {
+                    url = 'https://github.com/teaconmc/SlideShow'
+                    connection = 'scm:git:git://github.com/teaconmc/SlideShow.git'
+                    developerConnection = 'scm:git:git@github.com:teaconmc/SlideShow.git'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = "archive"
+            url = "https://maven.hub.tritusk.info/releases"
+            credentials {
+                username = System.env.MAVEN_USERNAME
+                password = System.env.MAVEN_PASSWORD
+            }
+        }
+    }
+}
+
+tasks.withType(PublishToMavenRepository) {
+    onlyIf {
+        System.env.MAVEN_USERNAME && System.env.MAVEN_PASSWORD
+    }
+}
+
+/**
+ * A simple task to pass down the artifact name and path to other GitHub actions.
+ */
+task("githubActionOutput") {
+    onlyIf {
+        System.env.GITHUB_ACTIONS
+    }
+    doLast {
+        println "::set-output name=artifact_path::$buildDir/reobfJar/output.jar"
+        println "::set-output name=artifact_name::$archivesBaseName-${version}.jar"
+    }
+}

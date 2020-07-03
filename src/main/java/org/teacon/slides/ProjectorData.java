@@ -9,12 +9,18 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
+import com.mojang.blaze3d.systems.RenderSystem;
+
+import org.lwjgl.opengl.GL11;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderState;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.NativeImage;
 import net.minecraft.client.renderer.texture.TextureManager;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Util;
 
 public final class ProjectorData {
@@ -26,7 +32,7 @@ public final class ProjectorData {
 
         public Entry(NativeImage image, TextureManager manager) {
             this.texture = new DynamicTexture(image);
-            this.renderType = RenderType.getText(manager.getDynamicTextureLocation("slide_show", this.texture));
+            this.renderType = slide(manager.getDynamicTextureLocation("slide_show", this.texture));
         }
     }
 
@@ -40,6 +46,26 @@ public final class ProjectorData {
             }).build();
     
     static final Set<String> LOADING = ConcurrentHashMap.newKeySet();
+
+    private static final RenderState.AlphaState ALPHA = new RenderState.AlphaState(1F / 255F);
+    private static final RenderState.CullState DISABLE_CULL = new RenderState.CullState(false);
+    private static final RenderState.LightmapState ENABLE_LIGHTMAP = new RenderState.LightmapState(true);
+    private static final RenderState.TransparencyState TRANSLUCENT = new RenderState.TransparencyState("translucent", () -> {
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+     }, () -> RenderSystem.disableBlend());
+
+    // Similar to RenderType.getText but without culling.
+    private static RenderType slide(final ResourceLocation loc) {
+        return RenderType.makeType("slide_show", DefaultVertexFormats.POSITION_COLOR_TEX_LIGHTMAP, GL11.GL_QUADS, 256, 
+            /*no delegate*/false, /*need sorting data*/true, RenderType.State.getBuilder()
+            .alpha(ALPHA)
+            .cull(DISABLE_CULL)
+            .lightmap(ENABLE_LIGHTMAP)
+            .texture(new RenderState.TextureState(loc, /*blur*/false, /*mipmap*/true))
+            .transparency(TRANSLUCENT)
+            .build(false));
+    }
 
     public static RenderType getRenderType(String location, TextureManager manager) {
         Entry entry = CACHE.getIfPresent(location);
