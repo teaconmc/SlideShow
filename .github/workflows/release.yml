@@ -39,7 +39,7 @@ jobs:
           if [ last_tag ]; then
           changelog=`git log --pretty="format:%H: %s" ${last_tag}..$current_tag`
           else
-          changelog=`git log --pretty="format:%H: %s" $current_tag`
+          changelog=`git log --pretty="format:%H: %s"`
           fi
           changelog="${changelog//'%'/'%25'}"
           changelog="${changelog//$'\n'/'  %0A'}"
