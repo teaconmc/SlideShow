@@ -67,6 +67,9 @@ public final class ProjectorBlock extends Block {
                 buffer.writeInt(projector.color);
                 buffer.writeFloat(projector.width);
                 buffer.writeFloat(projector.height);
+                buffer.writeFloat(projector.offsetX);
+                buffer.writeFloat(projector.offsetY);
+                buffer.writeFloat(projector.offsetZ);
             });
         }
         return ActionResultType.SUCCESS;

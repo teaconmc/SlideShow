@@ -4,5 +4,8 @@
     "gui.slide_show.url": "图片链接",
     "gui.slide_show.color": "颜色",
     "gui.slide_show.width": "宽",
-    "gui.slide_show.height": "高"
+    "gui.slide_show.height": "高",
+    "gui.slide_show.offset_x": "X 轴平移",
+    "gui.slide_show.offset_y": "Y 轴平移",
+    "gui.slide_show.offset_z": "Z 轴平移"
 }

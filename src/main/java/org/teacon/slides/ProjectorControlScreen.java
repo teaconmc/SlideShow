@@ -20,11 +20,15 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
     private TextFieldWidget colorInput;
     private TextFieldWidget widthInput;
     private TextFieldWidget heightInput;
+    private TextFieldWidget offsetXInput;
+    private TextFieldWidget offsetYInput;
+    private TextFieldWidget offsetZInput;
 
     private String url = "";
     private int color = 0;
-    private float width = 0F, height = 0F;
-    private boolean invalidURL = false, invalidColor = false, invalidWidth = false, invalidHeight = false;
+    private float width = 0F, height = 0F, offsetX = 0F, offsetY = 0F, offsetZ = 0F;
+    private boolean invalidURL = false, invalidColor = false, invalidWidth = false, invalidHeight = false,
+        invalidOffsetX = false, invalidOffsetY = false, invalidOffsetZ = false;
 
     protected ProjectorControlScreen(ProjectorControlContainer container, PlayerInventory inv, ITextComponent title) {
         super(container, inv, title);
@@ -60,6 +64,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.colorInput.setText(Integer.toUnsignedString(this.container.color, 16));
         this.colorInput.setVisible(true);
         this.children.add(this.colorInput);
+        
         this.widthInput = new TextFieldWidget(this.font, this.guiLeft + 10, this.guiTop + 90, 40, 16, "Width");
         this.widthInput.setResponder(input -> {
             try {
@@ -84,6 +89,43 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.heightInput.setText(Float.toString(this.container.height));
         this.heightInput.setVisible(true);
         this.children.add(this.heightInput);
+
+        this.offsetXInput = new TextFieldWidget(this.font, this.guiLeft + 10, this.guiTop + 130, 40, 16, "OffsetX");
+        this.offsetXInput.setResponder(input -> {
+            try {
+                this.offsetX = Float.parseFloat(input);
+                this.invalidOffsetX = false;
+            } catch (Exception e) {
+                this.invalidOffsetX = true;
+            }
+        });
+        this.offsetXInput.setText(Float.toString(this.container.offsetX));
+        this.offsetXInput.setVisible(true);
+        this.children.add(this.offsetXInput);
+        this.offsetYInput = new TextFieldWidget(this.font, this.guiLeft + 60, this.guiTop + 130, 40, 16, "OffsetY");
+        this.offsetYInput.setResponder(input -> {
+            try {
+                this.offsetY = Float.parseFloat(input);
+                this.invalidOffsetY = false;
+            } catch (Exception e) {
+                this.invalidOffsetY = true;
+            }
+        });
+        this.offsetYInput.setText(Float.toString(this.container.offsetY));
+        this.offsetYInput.setVisible(true);
+        this.children.add(this.offsetYInput);
+        this.offsetZInput = new TextFieldWidget(this.font, this.guiLeft + 110, this.guiTop + 130, 40, 16, "OffsetZ");
+        this.offsetZInput.setResponder(input -> {
+            try {
+                this.offsetZ = Float.parseFloat(input);
+                this.invalidOffsetZ = false;
+            } catch (Exception e) {
+                this.invalidOffsetZ = true;
+            }
+        });
+        this.offsetZInput.setText(Float.toString(this.container.offsetZ));
+        this.offsetZInput.setVisible(true);
+        this.children.add(this.offsetZInput);
     }
 
     @Override
@@ -93,6 +135,9 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.colorInput.tick();
         this.widthInput.tick();
         this.heightInput.tick();
+        this.offsetXInput.tick();
+        this.offsetYInput.tick();
+        this.offsetZInput.tick();
     }
 
     @Override
@@ -103,6 +148,9 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         packet.color = this.invalidColor ? this.container.color : this.color;
         packet.width = this.invalidWidth ? this.container.width : this.width;
         packet.height = this.invalidHeight ? this.container.height : this.height;
+        packet.offsetX = this.invalidOffsetX ? this.container.offsetX : this.offsetX;
+        packet.offsetY = this.invalidOffsetY ? this.container.offsetY : this.offsetY;
+        packet.offsetZ = this.invalidOffsetZ ? this.container.offsetZ : this.offsetZ;
         SlideShow.channel.sendToServer(packet);
         super.removed();
     }
@@ -117,6 +165,9 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
             || this.colorInput.keyPressed(keyCode, scanCode, modifier) || this.colorInput.canWrite()
             || this.widthInput.keyPressed(keyCode, scanCode, modifier) || this.widthInput.canWrite()
             || this.heightInput.keyPressed(keyCode, scanCode, modifier) || this.heightInput.canWrite()
+            || this.offsetXInput.keyPressed(keyCode, scanCode, modifier) || this.offsetXInput.canWrite()
+            || this.offsetYInput.keyPressed(keyCode, scanCode, modifier) || this.offsetYInput.canWrite()
+            || this.offsetZInput.keyPressed(keyCode, scanCode, modifier) || this.offsetZInput.canWrite()
             || super.keyPressed(keyCode, scanCode, modifier);
     }
 
@@ -132,6 +183,12 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.widthInput.render(mouseX, mouseY, partialTicks);
         this.font.drawString(I18n.format("gui.slide_show.height", ObjectArrays.EMPTY_ARRAY), this.guiLeft + 82, this.guiTop + 80, this.invalidHeight ? 0xFF5555 : 0x404040);
         this.heightInput.render(mouseX, mouseY, partialTicks);
+        this.font.drawString(I18n.format("gui.slide_show.offset_x", ObjectArrays.EMPTY_ARRAY), this.guiLeft + 12, this.guiTop + 120, this.invalidOffsetX ? 0xFF5555 : 0x404040);
+        this.offsetXInput.render(mouseX, mouseY, partialTicks);
+        this.font.drawString(I18n.format("gui.slide_show.offset_y", ObjectArrays.EMPTY_ARRAY), this.guiLeft + 62, this.guiTop + 120, this.invalidOffsetY ? 0xFF5555 : 0x404040);
+        this.offsetYInput.render(mouseX, mouseY, partialTicks);
+        this.font.drawString(I18n.format("gui.slide_show.offset_z", ObjectArrays.EMPTY_ARRAY), this.guiLeft + 112, this.guiTop + 120, this.invalidOffsetZ ? 0xFF5555 : 0x404040);
+        this.offsetZInput.render(mouseX, mouseY, partialTicks);
         this.renderHoveredToolTip(mouseX, mouseY);
     }
 

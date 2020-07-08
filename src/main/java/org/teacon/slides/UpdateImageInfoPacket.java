@@ -17,7 +17,7 @@ public final class UpdateImageInfoPacket {
     BlockPos pos;
     String url;
     int color;
-    float width, height;
+    float width, height, offsetX, offsetY, offsetZ;
 
     public UpdateImageInfoPacket() {
         // No-op because we need it.
@@ -29,6 +29,9 @@ public final class UpdateImageInfoPacket {
         this.color = buffer.readInt();
         this.width = buffer.readFloat();
         this.height = buffer.readFloat();
+        this.offsetX = buffer.readFloat();
+        this.offsetY = buffer.readFloat();
+        this.offsetZ = buffer.readFloat();
     }
 
     public void write(PacketBuffer buffer) {
@@ -37,6 +40,9 @@ public final class UpdateImageInfoPacket {
         buffer.writeInt(this.color);
         buffer.writeFloat(this.width);
         buffer.writeFloat(this.height);
+        buffer.writeFloat(this.offsetX);
+        buffer.writeFloat(this.offsetY);
+        buffer.writeFloat(this.offsetZ);
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {
@@ -50,6 +56,9 @@ public final class UpdateImageInfoPacket {
                     projector.color = this.color;
                     projector.width = this.width;
                     projector.height = this.height;
+                    projector.offsetX = this.offsetX;
+                    projector.offsetY = this.offsetY;
+                    projector.offsetZ = this.offsetZ;
                     final SUpdateTileEntityPacket packet = tile.getUpdatePacket();
                     final ServerChunkProvider chunkProvider = player.getServerWorld().getChunkProvider();
                     chunkProvider.chunkManager.getTrackingPlayers(new ChunkPos(this.pos), false).forEach(p -> p.connection.sendPacket(packet));

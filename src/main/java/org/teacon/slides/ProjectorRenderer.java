@@ -28,7 +28,8 @@ public class ProjectorRenderer extends TileEntityRenderer<ProjectorTileEntity> {
         final RenderType type = ProjectorData.getRenderType(tile.imageLocation, this.renderDispatcher.textureManager);
         if (type != null) {
             matrixStack.push();
-            matrixStack.translate(0, -tile.height + 1, 0); 
+            matrixStack.translate(0, -tile.height + 1, 0);
+            matrixStack.translate(tile.offsetX, tile.offsetY, tile.offsetZ);
             IVertexBuilder builder = buffer.getBuffer(type);
             final Matrix4f transforms = matrixStack.getLast().getMatrix();
             // We are using GL11.GL_QUAD, vertex format Pos -> Color -> Tex -> Light -> End.

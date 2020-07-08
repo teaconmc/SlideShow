@@ -18,6 +18,7 @@ public final class ProjectorTileEntity extends TileEntity {
 
     public int color = 0xFFFFFFFF;
     public float width = 1F, height = 1F;
+    public float offsetX = 0F, offsetY = 0F, offsetZ = 0F;
 
     public ProjectorTileEntity() {
         super(Objects.requireNonNull(theType));
@@ -28,6 +29,9 @@ public final class ProjectorTileEntity extends TileEntity {
         data.putInt("Color", this.color);
         data.putFloat("Width", this.width);
         data.putFloat("Height", this.height);
+        data.putFloat("OffsetX", this.offsetX);
+        data.putFloat("OffsetY", this.offsetY);
+        data.putFloat("OffsetZ", this.offsetZ);
         return data;
     }
 
@@ -36,6 +40,9 @@ public final class ProjectorTileEntity extends TileEntity {
         this.color = data.getInt("Color");
         this.width = data.getFloat("Width");
         this.height = data.getFloat("Height");
+        this.offsetX = data.getFloat("OffsetX");
+        this.offsetY = data.getFloat("OffsetY");
+        this.offsetZ = data.getFloat("OffsetZ");
     }
 
     @Override

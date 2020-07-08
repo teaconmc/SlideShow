@@ -37,7 +37,7 @@ public final class ProjectorControlContainer extends Container {
     BlockPos pos;
     String url;
     int color;
-    float width, height;
+    float width, height, offsetX, offsetY, offsetZ;
 
     ProjectorControlContainer(int id, PlayerInventory inv, PacketBuffer buffer) {
         this(theType, id);
@@ -46,6 +46,9 @@ public final class ProjectorControlContainer extends Container {
         this.color = buffer.readInt();
         this.width = buffer.readFloat();
         this.height = buffer.readFloat();
+        this.offsetX = buffer.readFloat();
+        this.offsetY = buffer.readFloat();
+        this.offsetZ = buffer.readFloat();
     }
 
     protected ProjectorControlContainer(ContainerType<?> type, int id) {

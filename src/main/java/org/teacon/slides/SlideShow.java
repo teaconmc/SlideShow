@@ -16,7 +16,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.extensions.IForgeContainerType;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -51,7 +51,6 @@ public final class SlideShow {
         bus.addGenericListener(TileEntityType.class, SlideShow::regTile);
         bus.addGenericListener(ContainerType.class, SlideShow::regContainer);
         bus.addListener(SlideShow::setup);
-        DistExecutor.runWhenOn(Dist.CLIENT, () -> () -> bus.addListener(ClientSetup::setup));
     }
 
     public static void regBlock(final RegistryEvent.Register<Block> event) {
@@ -85,7 +84,9 @@ public final class SlideShow {
         channel.registerMessage(index++, UpdateImageInfoPacket.class, UpdateImageInfoPacket::write, UpdateImageInfoPacket::new, UpdateImageInfoPacket::handle);
     }
 
+    @Mod.EventBusSubscriber(modid = "slide_show", value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
     public static final class ClientSetup {
+        @SubscribeEvent
         public static void setup(final FMLClientSetupEvent event) {
             RenderTypeLookup.setRenderLayer(projector, RenderType.getCutout());
             ClientRegistry.bindTileEntityRenderer(ProjectorTileEntity.theType, ProjectorRenderer::new);
