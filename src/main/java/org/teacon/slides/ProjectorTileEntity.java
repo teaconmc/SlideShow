@@ -14,35 +14,18 @@ public final class ProjectorTileEntity extends TileEntity {
     @ObjectHolder("slide_show:projector")
     public static TileEntityType<ProjectorTileEntity> theType;
 
-    public String imageLocation = "";
-
-    public int color = 0xFFFFFFFF;
-    public float width = 1F, height = 1F;
-    public float offsetX = 0F, offsetY = 0F, offsetZ = 0F;
+    public SlideData currentSlide = new SlideData();
 
     public ProjectorTileEntity() {
         super(Objects.requireNonNull(theType));
     }
 
     public CompoundNBT writeOurData(CompoundNBT data) {
-        data.putString("ImageLocation", this.imageLocation);
-        data.putInt("Color", this.color);
-        data.putFloat("Width", this.width);
-        data.putFloat("Height", this.height);
-        data.putFloat("OffsetX", this.offsetX);
-        data.putFloat("OffsetY", this.offsetY);
-        data.putFloat("OffsetZ", this.offsetZ);
-        return data;
+        return SlideDataUtils.writeTo(this.currentSlide, data);
     }
 
     public void readOurData(CompoundNBT data) {
-        this.imageLocation = data.getString("ImageLocation");
-        this.color = data.getInt("Color");
-        this.width = data.getFloat("Width");
-        this.height = data.getFloat("Height");
-        this.offsetX = data.getFloat("OffsetX");
-        this.offsetY = data.getFloat("OffsetY");
-        this.offsetZ = data.getFloat("OffsetZ");
+        SlideDataUtils.readFrom(this.currentSlide, data);
     }
 
     @Override

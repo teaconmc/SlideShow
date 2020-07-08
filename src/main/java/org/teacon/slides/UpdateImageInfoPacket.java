@@ -15,9 +15,7 @@ import net.minecraftforge.server.permission.PermissionAPI;
 public final class UpdateImageInfoPacket {
 
     BlockPos pos;
-    String url;
-    int color;
-    float width, height, offsetX, offsetY, offsetZ;
+    SlideData data = new SlideData();
 
     public UpdateImageInfoPacket() {
         // No-op because we need it.
@@ -25,24 +23,12 @@ public final class UpdateImageInfoPacket {
 
     public UpdateImageInfoPacket(PacketBuffer buffer) {
         this.pos = buffer.readBlockPos();
-        this.url = buffer.readString(Short.MAX_VALUE);
-        this.color = buffer.readInt();
-        this.width = buffer.readFloat();
-        this.height = buffer.readFloat();
-        this.offsetX = buffer.readFloat();
-        this.offsetY = buffer.readFloat();
-        this.offsetZ = buffer.readFloat();
+        SlideDataUtils.readFrom(this.data, buffer);
     }
 
     public void write(PacketBuffer buffer) {
         buffer.writeBlockPos(this.pos);
-        buffer.writeString(this.url);
-        buffer.writeInt(this.color);
-        buffer.writeFloat(this.width);
-        buffer.writeFloat(this.height);
-        buffer.writeFloat(this.offsetX);
-        buffer.writeFloat(this.offsetY);
-        buffer.writeFloat(this.offsetZ);
+        SlideDataUtils.writeTo(this.data, buffer);
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {
@@ -52,13 +38,7 @@ public final class UpdateImageInfoPacket {
                 final TileEntity tile = player.world.getTileEntity(this.pos);
                 if (tile instanceof ProjectorTileEntity) {
                     final ProjectorTileEntity projector = (ProjectorTileEntity) tile;
-                    projector.imageLocation = this.url;
-                    projector.color = this.color;
-                    projector.width = this.width;
-                    projector.height = this.height;
-                    projector.offsetX = this.offsetX;
-                    projector.offsetY = this.offsetY;
-                    projector.offsetZ = this.offsetZ;
+                    projector.currentSlide = this.data;
                     final SUpdateTileEntityPacket packet = tile.getUpdatePacket();
                     final ServerChunkProvider chunkProvider = player.getServerWorld().getChunkProvider();
                     chunkProvider.chunkManager.getTrackingPlayers(new ChunkPos(this.pos), false).forEach(p -> p.connection.sendPacket(packet));

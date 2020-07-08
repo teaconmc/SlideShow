@@ -25,19 +25,20 @@ public class ProjectorRenderer extends TileEntityRenderer<ProjectorTileEntity> {
         matrixStack.rotate(Vector3f.XP.rotationDegrees(90F)); // Rotate again to correct
         matrixStack.translate(-0.5, 0, -0.5); // Center to corner  
 
-        final RenderType type = ProjectorData.getRenderType(tile.imageLocation, this.renderDispatcher.textureManager);
+        final RenderType type = ProjectorData.getRenderType(tile.currentSlide.imageLocation, this.renderDispatcher.textureManager);
         if (type != null) {
             matrixStack.push();
-            matrixStack.translate(0, -tile.height + 1, 0);
-            matrixStack.translate(tile.offsetX, tile.offsetY, tile.offsetZ);
+            matrixStack.translate(0, -tile.currentSlide.height + 1, 0);
+            matrixStack.translate(tile.currentSlide.offsetX, tile.currentSlide.offsetY, tile.currentSlide.offsetZ);
             IVertexBuilder builder = buffer.getBuffer(type);
             final Matrix4f transforms = matrixStack.getLast().getMatrix();
             // We are using GL11.GL_QUAD, vertex format Pos -> Color -> Tex -> Light -> End.
-            final int alpha = (tile.color >>> 24) & 255, red = (tile.color >>> 16) & 255, green = (tile.color >>> 8) & 255, blue = tile.color & 255;
-            builder.pos(transforms, 0F,         tile.height, -1F / 256F).color(red, green, blue, alpha).tex(0F, 1F).lightmap(combinedLight).endVertex();
-            builder.pos(transforms, tile.width, tile.height, -1F / 256F).color(red, green, blue, alpha).tex(1F, 1F).lightmap(combinedLight).endVertex();
-            builder.pos(transforms, tile.width, 0F,          -1F / 256F).color(red, green, blue, alpha).tex(1F, 0F).lightmap(combinedLight).endVertex();
-            builder.pos(transforms, 0F,         0F,          -1F / 256F).color(red, green, blue, alpha).tex(0F, 0F).lightmap(combinedLight).endVertex();
+            final int color = tile.currentSlide.color;
+            final int alpha = (color >>> 24) & 255, red = (color >>> 16) & 255, green = (color >>> 8) & 255, blue = color & 255;
+            builder.pos(transforms, 0F,                      tile.currentSlide.height, -1F / 256F).color(red, green, blue, alpha).tex(0F, 1F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, tile.currentSlide.width, tile.currentSlide.height, -1F / 256F).color(red, green, blue, alpha).tex(1F, 1F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, tile.currentSlide.width, 0F,                       -1F / 256F).color(red, green, blue, alpha).tex(1F, 0F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, 0F,                      0F,                       -1F / 256F).color(red, green, blue, alpha).tex(0F, 0F).lightmap(combinedLight).endVertex();
             matrixStack.pop();
         }
 

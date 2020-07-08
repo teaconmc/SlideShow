@@ -144,13 +144,13 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
     public void removed() {
         final UpdateImageInfoPacket packet = new UpdateImageInfoPacket();
         packet.pos = this.container.pos;
-        packet.url = this.invalidURL ? this.container.url : this.url;
-        packet.color = this.invalidColor ? this.container.color : this.color;
-        packet.width = this.invalidWidth ? this.container.width : this.width;
-        packet.height = this.invalidHeight ? this.container.height : this.height;
-        packet.offsetX = this.invalidOffsetX ? this.container.offsetX : this.offsetX;
-        packet.offsetY = this.invalidOffsetY ? this.container.offsetY : this.offsetY;
-        packet.offsetZ = this.invalidOffsetZ ? this.container.offsetZ : this.offsetZ;
+        packet.data.imageLocation = this.invalidURL ? this.container.url : this.url;
+        packet.data.color = this.invalidColor ? this.container.color : this.color;
+        packet.data.width = this.invalidWidth ? this.container.width : this.width;
+        packet.data.height = this.invalidHeight ? this.container.height : this.height;
+        packet.data.offsetX = this.invalidOffsetX ? this.container.offsetX : this.offsetX;
+        packet.data.offsetY = this.invalidOffsetY ? this.container.offsetY : this.offsetY;
+        packet.data.offsetZ = this.invalidOffsetZ ? this.container.offsetZ : this.offsetZ;
         SlideShow.channel.sendToServer(packet);
         super.removed();
     }
