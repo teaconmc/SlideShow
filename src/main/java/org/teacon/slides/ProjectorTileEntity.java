@@ -63,6 +63,7 @@ public final class ProjectorTileEntity extends TileEntity {
     }
 
     @OnlyIn(Dist.CLIENT)
+    @Override
     public AxisAlignedBB getRenderBoundingBox() {
         // Vanilla structure block has similar issue of "rendering at any far distance",
         // so we just throw it here as a bandaid solution.
