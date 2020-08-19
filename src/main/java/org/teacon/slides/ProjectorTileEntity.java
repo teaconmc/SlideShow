@@ -7,6 +7,9 @@ import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SUpdateTileEntityPacket;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.registries.ObjectHolder;
 
 public final class ProjectorTileEntity extends TileEntity {
@@ -59,4 +62,11 @@ public final class ProjectorTileEntity extends TileEntity {
         this.read(data);
     }
 
+    @OnlyIn(Dist.CLIENT)
+    public AxisAlignedBB getRenderBoundingBox() {
+        // Vanilla structure block has similar issue of "rendering at any far distance",
+        // so we just throw it here as a bandaid solution.
+        // TODO: See if we can narrow down it
+        return INFINITE_EXTENT_AABB;
+    }
 }
