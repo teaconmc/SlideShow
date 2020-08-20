@@ -48,7 +48,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
                 this.invalidURL = true;
             }
         });
-        this.urlInput.setText(this.container.url);
+        this.urlInput.setText(this.container.currentSlide.imageLocation);
         this.urlInput.setVisible(true);
         this.children.add(this.urlInput);
         this.colorInput = new TextFieldWidget(this.font, this.guiLeft + 10, this.guiTop + 55, 60, 16, "Color");
@@ -61,7 +61,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
                 this.invalidColor = true;
             }
         });
-        this.colorInput.setText(Integer.toUnsignedString(this.container.color, 16));
+        this.colorInput.setText(Integer.toUnsignedString(this.container.currentSlide.color, 16));
         this.colorInput.setVisible(true);
         this.children.add(this.colorInput);
         
@@ -74,7 +74,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
                 this.invalidWidth = true;
             }
         });
-        this.widthInput.setText(Float.toString(this.container.width));
+        this.widthInput.setText(Float.toString(this.container.currentSlide.width));
         this.widthInput.setVisible(true);
         this.children.add(this.widthInput);
         this.heightInput = new TextFieldWidget(this.font, this.guiLeft + 80, this.guiTop + 90, 40, 16, "Height");
@@ -86,7 +86,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
                 this.invalidHeight = true;
             }
         });
-        this.heightInput.setText(Float.toString(this.container.height));
+        this.heightInput.setText(Float.toString(this.container.currentSlide.height));
         this.heightInput.setVisible(true);
         this.children.add(this.heightInput);
 
@@ -99,7 +99,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
                 this.invalidOffsetX = true;
             }
         });
-        this.offsetXInput.setText(Float.toString(this.container.offsetX));
+        this.offsetXInput.setText(Float.toString(this.container.currentSlide.offsetX));
         this.offsetXInput.setVisible(true);
         this.children.add(this.offsetXInput);
         this.offsetYInput = new TextFieldWidget(this.font, this.guiLeft + 60, this.guiTop + 130, 40, 16, "OffsetY");
@@ -111,7 +111,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
                 this.invalidOffsetY = true;
             }
         });
-        this.offsetYInput.setText(Float.toString(this.container.offsetY));
+        this.offsetYInput.setText(Float.toString(this.container.currentSlide.offsetY));
         this.offsetYInput.setVisible(true);
         this.children.add(this.offsetYInput);
         this.offsetZInput = new TextFieldWidget(this.font, this.guiLeft + 110, this.guiTop + 130, 40, 16, "OffsetZ");
@@ -123,7 +123,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
                 this.invalidOffsetZ = true;
             }
         });
-        this.offsetZInput.setText(Float.toString(this.container.offsetZ));
+        this.offsetZInput.setText(Float.toString(this.container.currentSlide.offsetZ));
         this.offsetZInput.setVisible(true);
         this.children.add(this.offsetZInput);
     }
@@ -144,13 +144,13 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
     public void removed() {
         final UpdateImageInfoPacket packet = new UpdateImageInfoPacket();
         packet.pos = this.container.pos;
-        packet.data.imageLocation = this.invalidURL ? this.container.url : this.url;
-        packet.data.color = this.invalidColor ? this.container.color : this.color;
-        packet.data.width = this.invalidWidth ? this.container.width : this.width;
-        packet.data.height = this.invalidHeight ? this.container.height : this.height;
-        packet.data.offsetX = this.invalidOffsetX ? this.container.offsetX : this.offsetX;
-        packet.data.offsetY = this.invalidOffsetY ? this.container.offsetY : this.offsetY;
-        packet.data.offsetZ = this.invalidOffsetZ ? this.container.offsetZ : this.offsetZ;
+        packet.data.imageLocation = this.invalidURL ? this.container.currentSlide.imageLocation : this.url;
+        packet.data.color = this.invalidColor ? this.container.currentSlide.color : this.color;
+        packet.data.width = this.invalidWidth ? this.container.currentSlide.width : this.width;
+        packet.data.height = this.invalidHeight ? this.container.currentSlide.height : this.height;
+        packet.data.offsetX = this.invalidOffsetX ? this.container.currentSlide.offsetX : this.offsetX;
+        packet.data.offsetY = this.invalidOffsetY ? this.container.currentSlide.offsetY : this.offsetY;
+        packet.data.offsetZ = this.invalidOffsetZ ? this.container.currentSlide.offsetZ : this.offsetZ;
         SlideShow.channel.sendToServer(packet);
         super.removed();
     }

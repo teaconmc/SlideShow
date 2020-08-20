@@ -58,7 +58,7 @@ public final class SlideShow {
             (projector = new ProjectorBlock(Block.Properties.create(Material.IRON)
                 .hardnessAndResistance(20F)
                 .harvestLevel(0)
-                .lightValue(8)
+                .lightValue(15) // TODO Configurable
                 .notSolid())).setRegistryName("slide_show:projector")
         );
     }

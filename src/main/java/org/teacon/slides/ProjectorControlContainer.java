@@ -35,20 +35,12 @@ public final class ProjectorControlContainer extends Container {
     }
 
     BlockPos pos;
-    String url;
-    int color;
-    float width, height, offsetX, offsetY, offsetZ;
+    SlideData currentSlide = new SlideData();
 
     ProjectorControlContainer(int id, PlayerInventory inv, PacketBuffer buffer) {
         this(theType, id);
         this.pos = buffer.readBlockPos();
-        this.url = buffer.readString();
-        this.color = buffer.readInt();
-        this.width = buffer.readFloat();
-        this.height = buffer.readFloat();
-        this.offsetX = buffer.readFloat();
-        this.offsetY = buffer.readFloat();
-        this.offsetZ = buffer.readFloat();
+        SlideDataUtils.readFrom(currentSlide, buffer);
     }
 
     protected ProjectorControlContainer(ContainerType<?> type, int id) {
