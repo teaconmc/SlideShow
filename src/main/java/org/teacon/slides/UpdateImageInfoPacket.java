@@ -31,10 +31,11 @@ public final class UpdateImageInfoPacket {
         SlideDataUtils.writeTo(this.data, buffer);
     }
 
+    @SuppressWarnings("deprecation") // Heck, Mojang what do you mean by this @Deprecated here this time?
     public void handle(Supplier<NetworkEvent.Context> context) {
-        final ServerPlayerEntity player = context.get().getSender();
         context.get().enqueueWork(() -> {
-            if (PermissionAPI.hasPermission(player, "slide_show.interact.projector")) {
+            final ServerPlayerEntity player = context.get().getSender();
+            if (PermissionAPI.hasPermission(player, "slide_show.interact.projector") && player.world.isBlockLoaded(pos)) {
                 final TileEntity tile = player.world.getTileEntity(this.pos);
                 if (tile instanceof ProjectorTileEntity) {
                     final ProjectorTileEntity projector = (ProjectorTileEntity) tile;
@@ -44,6 +45,8 @@ public final class UpdateImageInfoPacket {
                     chunkProvider.chunkManager.getTrackingPlayers(new ChunkPos(this.pos), false).forEach(p -> p.connection.sendPacket(packet));
                 }
             }
+            // Silently drop invalid packets
+            // TODO Maybe we can log them...
         });
         context.get().setPacketHandled(true);
     }
