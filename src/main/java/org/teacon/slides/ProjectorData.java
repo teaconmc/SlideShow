@@ -29,7 +29,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -115,7 +114,7 @@ public final class ProjectorData {
                     Util.getServerExecutor().execute(() -> {
                         try {
                             if (LOCAL_CACHE_MAP.containsKey(location)) {
-                                System.out.println("Local cache available for " + location);
+                                // System.out.println("Local cache available for " + location);
                                 try {
                                     NativeImage image = readNativeImage(Files.readAllBytes(Paths.get(LOCAL_CACHE_MAP.get(location))));
                                     Minecraft.getInstance().deferTask(() -> CACHE.put(location, new Entry(image, manager)));
@@ -124,7 +123,7 @@ public final class ProjectorData {
                                     LOCAL_CACHE_MAP.remove(location);
                                 }
                             } else {
-                                System.out.println("Downloading " + location);
+                                // System.out.println("Downloading " + location);
                                 byte[] imageBytes;
                                 try {
                                     imageBytes = IOUtils.toByteArray(new URI(location));
