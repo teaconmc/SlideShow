@@ -44,5 +44,9 @@ public class ProjectorRenderer extends TileEntityRenderer<ProjectorTileEntity> {
 
         matrixStack.pop();
     }
-    
+
+    @Override
+    public boolean isGlobalRenderer(ProjectorTileEntity tile) {
+        return true;
+    }
 }
