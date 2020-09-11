@@ -39,10 +39,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -221,7 +218,7 @@ public final class ProjectorRenderData {
             Path path = Files.createDirectories(LOCAL_CACHE_PATH).resolve(LOCAL_CACHE_MAP_JSON_PATH);
             try (FileChannel channel = FileChannel.open(path, options)) {
                 try (Writer writer = Channels.newWriter(channel, StandardCharsets.UTF_8.name())) {
-                    GSON.toJson(map, LOCAL_CACHE_MAP_TYPE.getType(), writer);
+                    GSON.toJson(new TreeMap<>(map), LOCAL_CACHE_MAP_TYPE.getType(), writer);
                     return map;
                 }
             }
