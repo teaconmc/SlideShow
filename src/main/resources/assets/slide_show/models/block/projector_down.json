@@ -1,0 +1,9 @@
+{
+    "parent": "minecraft:block/orientable_with_bottom",
+    "textures": {
+        "top": "minecraft:block/blast_furnace_top",
+        "bottom": "minecraft:entity/end_portal",
+        "front": "minecraft:block/blast_furnace_front",
+        "side": "minecraft:block/blast_furnace_front"
+    }
+}

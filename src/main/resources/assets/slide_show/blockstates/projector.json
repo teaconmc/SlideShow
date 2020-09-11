@@ -1,5 +1,7 @@
 {
     "variants": {
+        "facing=down": { "model": "slide_show:block/projector_down" },
+        "facing=up": { "model": "slide_show:block/projector_up" },
         "facing=north": { "model": "slide_show:block/projector" },
         "facing=south": { "model": "slide_show:block/projector", "y": 180 },
         "facing=west":  { "model": "slide_show:block/projector", "y": 270 },

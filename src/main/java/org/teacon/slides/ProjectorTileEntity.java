@@ -9,12 +9,7 @@ import net.minecraft.network.play.server.SUpdateTileEntityPacket;
 import net.minecraft.state.properties.BlockStateProperties;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
-import net.minecraft.util.Direction;
 import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.shapes.VoxelShape;
-import net.minecraft.util.math.shapes.VoxelShapes;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.registries.ObjectHolder;
@@ -93,12 +88,14 @@ public final class ProjectorTileEntity extends TileEntity {
         // matrix 1: translation to block center
         final Matrix4f result = Matrix4f.makeTranslate(0.5F, 0.5F, 0.5F);
         // matrix 2: rotation
-        result.mul(this.getBlockState().get(BlockStateProperties.HORIZONTAL_FACING).getRotation());
-        // matrix 3: translation for slide
+        result.mul(this.getBlockState().get(BlockStateProperties.FACING).getRotation());
+        // matrix 3: internal rotation
+        result.mul(this.getBlockState().get(ProjectorBlock.ROTATION).getTransformation());
+        // matrix 4: translation for slide
         result.mul(Matrix4f.makeTranslate(-0.5F, 0.5F + 1.0F / 256.0F, 0.5F - data.height));
-        // matrix 4: offset for slide
+        // matrix 5: offset for slide
         result.mul(Matrix4f.makeTranslate(data.offsetX, -data.offsetZ, data.offsetY));
-        // matrix 5: scaling
+        // matrix 6: scaling
         result.mul(Matrix4f.makeScale(data.width, 1.0F, data.height));
         // TODO: cache transformation
         return result;

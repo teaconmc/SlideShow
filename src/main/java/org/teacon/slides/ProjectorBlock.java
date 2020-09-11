@@ -2,48 +2,78 @@ package org.teacon.slides;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
+import net.minecraft.client.renderer.Quaternion;
+import net.minecraft.client.renderer.Vector3f;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.BlockItemUseContext;
+import net.minecraft.state.EnumProperty;
 import net.minecraft.state.StateContainer.Builder;
 import net.minecraft.state.properties.BlockStateProperties;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.ActionResultType;
-import net.minecraft.util.Direction;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Mirror;
-import net.minecraft.util.Rotation;
+import net.minecraft.util.*;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.BlockRayTraceResult;
 import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.network.NetworkHooks;
 
+import java.util.Locale;
+
 public final class ProjectorBlock extends Block {
+    public static final EnumProperty<InternalRotation> ROTATION = EnumProperty.create("rotation", InternalRotation.class);
 
     public ProjectorBlock(Properties properties) {
         super(properties);
-        this.setDefaultState(this.stateContainer.getBaseState().with(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST));
+        this.setDefaultState(this.stateContainer.getBaseState()
+                .with(ROTATION, InternalRotation.NONE).with(BlockStateProperties.FACING, Direction.EAST));
     }
 
     @Override
     protected void fillStateContainer(Builder<Block, BlockState> builder) {
-        builder.add(BlockStateProperties.HORIZONTAL_FACING);
+        builder.add(ROTATION, BlockStateProperties.FACING);
     }
 
     @Override
     public BlockState getStateForPlacement(BlockItemUseContext context) {
-        return this.getDefaultState().with(BlockStateProperties.HORIZONTAL_FACING, context.getPlacementHorizontalFacing().getOpposite());
+        Direction direction = context.getNearestLookingDirection().getOpposite(), directionHorizontal;
+        switch (direction) {
+            case UP:
+                directionHorizontal = context.getPlacementHorizontalFacing().getOpposite();
+                break;
+            case DOWN:
+                directionHorizontal = context.getPlacementHorizontalFacing();
+                break;
+            default:
+                directionHorizontal = Direction.SOUTH;
+        }
+        return this.getDefaultState()
+                .with(BlockStateProperties.FACING, direction)
+                .with(ROTATION, InternalRotation.values()[directionHorizontal.getHorizontalIndex()]);
     }
 
     @Override
     public BlockState mirror(BlockState state, Mirror mirror) {
-        return state.rotate(mirror.toRotation(state.get(BlockStateProperties.HORIZONTAL_FACING)));
+        Direction direction = state.get(BlockStateProperties.FACING);
+        switch (direction) {
+            case DOWN:
+            case UP:
+                return state.with(ROTATION, state.get(ROTATION).compose(Rotation.CLOCKWISE_180));
+            default:
+                return state.rotate(mirror.toRotation(direction));
+        }
     }
 
     @Override
     public BlockState rotate(BlockState state, Rotation rotation) {
-        return state.with(BlockStateProperties.HORIZONTAL_FACING, rotation.rotate(state.get(BlockStateProperties.HORIZONTAL_FACING)));
+        Direction direction = state.get(BlockStateProperties.FACING);
+        switch (direction) {
+            case DOWN:
+            case UP:
+                return state.with(ROTATION, state.get(ROTATION).compose(rotation));
+            default:
+                return state.with(BlockStateProperties.FACING, rotation.rotate(state.get(BlockStateProperties.FACING)));
+        }
     }
 
     @Override
@@ -68,5 +98,25 @@ public final class ProjectorBlock extends Block {
         }
         return ActionResultType.SUCCESS;
     }
-    
+
+    public enum InternalRotation implements IStringSerializable {
+        NONE, CLOCKWISE_90, CLOCKWISE_180, COUNTERCLOCKWISE_90;
+
+        private final String name = this.name().toLowerCase(Locale.ENGLISH);
+
+        private final Quaternion transformation = new Quaternion(Vector3f.YN, 90F * this.ordinal(), true);
+
+        public InternalRotation compose(Rotation rotation) {
+            return InternalRotation.values()[(this.ordinal() + rotation.ordinal()) % 4];
+        }
+
+        public Quaternion getTransformation() {
+            return this.transformation;
+        }
+
+        @Override
+        public String getName() {
+            return this.name;
+        }
+    }
 }
