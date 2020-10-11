@@ -49,8 +49,6 @@ public final class ProjectorRenderData {
     public static final class Entry {
         private static final RenderState.AlphaState ALPHA = new RenderState.AlphaState(1F / 255F);
 
-        private static final RenderState.CullState DISABLE_CULL = new RenderState.CullState(false);
-
         private static final RenderState.LightmapState ENABLE_LIGHTMAP = new RenderState.LightmapState(true);
 
         private static final RenderState.TransparencyState TRANSLUCENT = new RenderState.TransparencyState("translucent", () -> {
@@ -58,10 +56,9 @@ public final class ProjectorRenderData {
             RenderSystem.defaultBlendFunc();
         }, RenderSystem::disableBlend);
 
-        // Similar to RenderType.getText but without culling.
         private static RenderType slide(ResourceLocation loc) {
             RenderType.State renderState = RenderType.State.getBuilder()
-                    .alpha(ALPHA).cull(DISABLE_CULL).lightmap(ENABLE_LIGHTMAP).transparency(TRANSLUCENT)
+                    .alpha(ALPHA).lightmap(ENABLE_LIGHTMAP).transparency(TRANSLUCENT)
                     .texture(new RenderState.TextureState(loc, /*blur*/false, /*mipmap*/true)).build(/*outline*/false);
             return RenderType.makeType("slide_show",
                     DefaultVertexFormats.POSITION_COLOR_TEX_LIGHTMAP, GL11.GL_QUADS,

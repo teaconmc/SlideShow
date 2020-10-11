@@ -25,10 +25,14 @@ public class ProjectorRenderer extends TileEntityRenderer<ProjectorTileEntity> {
             // We are using GL11.GL_QUAD, vertex format Pos -> Color -> Tex -> Light -> End.
             final int color = tile.currentSlide.color;
             final int alpha = (color >>> 24) & 255, red = (color >>> 16) & 255, green = (color >>> 8) & 255, blue = color & 255;
-            builder.pos(transforms, 0F, 0F, 1F).color(red, green, blue, alpha).tex(0F, 1F).lightmap(combinedLight).endVertex();
-            builder.pos(transforms, 1F, 0F, 1F).color(red, green, blue, alpha).tex(1F, 1F).lightmap(combinedLight).endVertex();
-            builder.pos(transforms, 1F, 0F, 0F).color(red, green, blue, alpha).tex(1F, 0F).lightmap(combinedLight).endVertex();
-            builder.pos(transforms, 0F, 0F, 0F).color(red, green, blue, alpha).tex(0F, 0F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, 0F, 1F / 256F, 1F).color(red, green, blue, alpha).tex(0F, 1F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, 1F, 1F / 256F, 1F).color(red, green, blue, alpha).tex(1F, 1F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, 1F, 1F / 256F, 0F).color(red, green, blue, alpha).tex(1F, 0F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, 0F, 1F / 256F, 0F).color(red, green, blue, alpha).tex(0F, 0F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, 0F, -1F / 256F, 0F).color(red, green, blue, alpha).tex(0F, 0F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, 1F, -1F / 256F, 0F).color(red, green, blue, alpha).tex(1F, 0F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, 1F, -1F / 256F, 1F).color(red, green, blue, alpha).tex(1F, 1F).lightmap(combinedLight).endVertex();
+            builder.pos(transforms, 0F, -1F / 256F, 1F).color(red, green, blue, alpha).tex(0F, 1F).lightmap(combinedLight).endVertex();
         }
 
         // TODO Display a nice message saying "No slide show is here" when there is nothing being shown

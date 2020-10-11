@@ -92,7 +92,7 @@ public final class ProjectorTileEntity extends TileEntity {
         // matrix 3: internal rotation
         result.mul(this.getBlockState().get(ProjectorBlock.ROTATION).getTransformation());
         // matrix 4: translation for slide
-        result.mul(Matrix4f.makeTranslate(-0.5F, 0.5F + 1.0F / 256.0F, 0.5F - data.height));
+        result.mul(Matrix4f.makeTranslate(-0.5F, 0.5F, 0.5F - data.height));
         // matrix 5: offset for slide
         result.mul(Matrix4f.makeTranslate(data.offsetX, -data.offsetZ, data.offsetY));
         // matrix 6: scaling
