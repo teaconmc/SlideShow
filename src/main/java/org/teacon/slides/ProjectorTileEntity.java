@@ -1,8 +1,7 @@
 package org.teacon.slides;
 
-import java.util.Objects;
-
-import net.minecraft.client.renderer.*;
+import net.minecraft.client.renderer.Matrix4f;
+import net.minecraft.client.renderer.Vector4f;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SUpdateTileEntityPacket;
@@ -10,9 +9,12 @@ import net.minecraft.state.properties.BlockStateProperties;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.registries.ObjectHolder;
+
+import java.util.Objects;
 
 public final class ProjectorTileEntity extends TileEntity {
 
@@ -79,7 +81,7 @@ public final class ProjectorTileEntity extends TileEntity {
         v00.transform(transformation);
         v11.transform(transformation);
         AxisAlignedBB base = new AxisAlignedBB(v00.getX(), v00.getY(), v00.getZ(), v11.getX(), v11.getY(), v11.getZ());
-        return base.offset(this.getPos()).grow(0.5);
+        return base.union(new AxisAlignedBB(BlockPos.ZERO)).offset(this.getPos()).grow(0.5);
     }
 
     @OnlyIn(Dist.CLIENT)
