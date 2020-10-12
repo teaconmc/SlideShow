@@ -99,6 +99,8 @@ public class ProjectorRenderer extends TileEntityRenderer<ProjectorTileEntity> {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.world != null && mc.playerController.getCurrentGameType() == GameType.CREATIVE) {
                     renderOutline = Streams.stream(mc.player.getHeldEquipment()).anyMatch(ClientTick::isProjector);
+                } else {
+                    renderOutline = false;
                 }
             }
         }
