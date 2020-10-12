@@ -1,5 +1,7 @@
 package org.teacon.slides;
 
+import java.util.Objects;
+
 import net.minecraft.client.renderer.Matrix4f;
 import net.minecraft.client.renderer.Vector4f;
 import net.minecraft.nbt.CompoundNBT;
@@ -13,8 +15,6 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.registries.ObjectHolder;
-
-import java.util.Objects;
 
 public final class ProjectorTileEntity extends TileEntity {
 
