@@ -7,7 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.player.ClientPlayerEntity;
 import net.minecraft.client.renderer.IRenderTypeBuffer;
 import net.minecraft.client.renderer.Matrix4f;
-import net.minecraft.item.Items;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
@@ -16,6 +16,7 @@ import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.teacon.slides.ProjectorTileEntity;
+import org.teacon.slides.SlideShow;
 
 //Source: https://github.com/McJty/YouTubeModding14/blob/master/src/main/java/com/mcjty/mytutorial/client/InWorldRenderer.java
 @Mod.EventBusSubscriber(Dist.CLIENT)
@@ -23,10 +24,15 @@ public class ProjectorWorldRender {
     @SubscribeEvent
     public static void worldRender(final RenderWorldLastEvent event) {
         ClientPlayerEntity player = Minecraft.getInstance().player;
-        if (player.getHeldItemMainhand().getItem() == Items.STICK) {
+        if (player.isCreative() && isProjector(player.getHeldItemMainhand())) {
             locateProjectorTileEntities(player, event.getMatrixStack());
         }
     }
+
+    private static boolean isProjector(ItemStack i) {
+        return SlideShow.projector.asItem().equals(i.getItem());
+    }
+
 
     //To draw the line.
     private static void drawLine(IVertexBuilder builder, Matrix4f positionMatrix, BlockPos pos, float dx1, float dy1, float dz1, float dx2, float dy2, float dz2, float red, float green, float blue, float alpha) {
@@ -38,7 +44,7 @@ public class ProjectorWorldRender {
                 .endVertex();
     }
 
-    private static void drawBlueLine(IVertexBuilder builder, Matrix4f positionMatrix, BlockPos pos, float dx1, float dy1, float dz1, float dx2, float dy2, float dz2) {
+    private static void drawWhiteLine(IVertexBuilder builder, Matrix4f positionMatrix, BlockPos pos, float dx1, float dy1, float dz1, float dx2, float dy2, float dz2) {
         drawLine(builder, positionMatrix, pos, dx1, dy1, dz1, dx2, dy2, dz2, 1.0f, 1.0f, 1.0f, 1.0f);
     }
 
@@ -60,27 +66,27 @@ public class ProjectorWorldRender {
         Matrix4f matrix = matrixStack.getLast().getMatrix();
 
         BlockPos.Mutable pos = new BlockPos.Mutable();
-        for (int dx = -10; dx <= 10; dx++) {
-            for (int dy = -10; dy <= 10; dy++) {
-                for (int dz = -10; dz <= 10; dz++) {
+        for (int dx = -16; dx <= 16; dx++) {
+            for (int dy = -256; dy <= 256; dy++) {
+                for (int dz = -16; dz <= 16; dz++) {
                     pos.setPos(px + dx, py + dy, pz + dz);
                     //Check ProjectorTileEntity
                     if (world.getTileEntity(pos) != null && world.getTileEntity(pos).getType() == ProjectorTileEntity.theType) {
                         //For a Block, there are twelve lines should be drawn.
-                        drawBlueLine(builder, matrix, pos, 0, 0, 0, 1, 0, 0);
-                        drawBlueLine(builder, matrix, pos, 0, 1, 0, 1, 1, 0);
-                        drawBlueLine(builder, matrix, pos, 0, 0, 1, 1, 0, 1);
-                        drawBlueLine(builder, matrix, pos, 0, 1, 1, 1, 1, 1);
+                        drawWhiteLine(builder, matrix, pos, 0, 0, 0, 1, 0, 0);
+                        drawWhiteLine(builder, matrix, pos, 0, 1, 0, 1, 1, 0);
+                        drawWhiteLine(builder, matrix, pos, 0, 0, 1, 1, 0, 1);
+                        drawWhiteLine(builder, matrix, pos, 0, 1, 1, 1, 1, 1);
 
-                        drawBlueLine(builder, matrix, pos, 0, 0, 0, 0, 0, 1);
-                        drawBlueLine(builder, matrix, pos, 1, 0, 0, 1, 0, 1);
-                        drawBlueLine(builder, matrix, pos, 0, 1, 0, 0, 1, 1);
-                        drawBlueLine(builder, matrix, pos, 1, 1, 0, 1, 1, 1);
+                        drawWhiteLine(builder, matrix, pos, 0, 0, 0, 0, 0, 1);
+                        drawWhiteLine(builder, matrix, pos, 1, 0, 0, 1, 0, 1);
+                        drawWhiteLine(builder, matrix, pos, 0, 1, 0, 0, 1, 1);
+                        drawWhiteLine(builder, matrix, pos, 1, 1, 0, 1, 1, 1);
 
-                        drawBlueLine(builder, matrix, pos, 0, 0, 0, 0, 1, 0);
-                        drawBlueLine(builder, matrix, pos, 1, 0, 0, 1, 1, 0);
-                        drawBlueLine(builder, matrix, pos, 0, 0, 1, 0, 1, 1);
-                        drawBlueLine(builder, matrix, pos, 1, 0, 1, 1, 1, 1);
+                        drawWhiteLine(builder, matrix, pos, 0, 0, 0, 0, 1, 0);
+                        drawWhiteLine(builder, matrix, pos, 1, 0, 0, 1, 1, 0);
+                        drawWhiteLine(builder, matrix, pos, 0, 0, 1, 0, 1, 1);
+                        drawWhiteLine(builder, matrix, pos, 1, 0, 1, 1, 1, 1);
                     }
                 }
             }
