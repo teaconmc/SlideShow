@@ -1,5 +1,6 @@
 package org.teacon.slides;
 
+import com.mojang.datafixers.DSL;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.gui.ScreenManager;
@@ -75,7 +76,7 @@ public final class SlideShow {
 
     public static void regTile(final RegistryEvent.Register<TileEntityType<?>> event) {
         event.getRegistry().register(TileEntityType.Builder.create(ProjectorTileEntity::new, projector)
-            .build(null).setRegistryName("slide_show:projector"));
+            .build(DSL.remainderType()).setRegistryName("slide_show:projector"));
     }
 
     public static void setup(final FMLCommonSetupEvent event) {
