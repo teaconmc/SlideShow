@@ -1,10 +1,16 @@
 {
     "variants": {
-        "facing=north": { "model": "slide_show:block/projector" },
-        "facing=east":  { "model": "slide_show:block/projector", "y": 90 },
-        "facing=south": { "model": "slide_show:block/projector", "y": 180 },
-        "facing=west":  { "model": "slide_show:block/projector", "y": 270 },
-        "facing=up": { "model": "slide_show:block/projector_up", "y": 180 },
-        "facing=down": { "model": "slide_show:block/projector_down", "y": 180 }
+        "base=up,facing=north": { "model": "slide_show:block/projector_inverted", "x": 180 },
+        "base=down,facing=north": { "model": "slide_show:block/projector" },
+        "base=up,facing=east":  { "model": "slide_show:block/projector_inverted", "x": 180, "y": 90 },
+        "base=down,facing=east":  { "model": "slide_show:block/projector", "y": 90 },
+        "base=up,facing=south": { "model": "slide_show:block/projector_inverted", "x": 180, "y": 180 },
+        "base=down,facing=south": { "model": "slide_show:block/projector", "y": 180 },
+        "base=up,facing=west":  { "model": "slide_show:block/projector_inverted", "x": 180, "y": 270 },
+        "base=down,facing=west":  { "model": "slide_show:block/projector", "y": 270 },
+        "base=up,facing=up": { "model": "slide_show:block/projector_down", "x": 180, "y": 180 },
+        "base=down,facing=up": { "model": "slide_show:block/projector_up", "y": 180 },
+        "base=up,facing=down": { "model": "slide_show:block/projector_up", "x": 180, "y": 180 },
+        "base=down,facing=down": { "model": "slide_show:block/projector_down", "y": 180 }
     }
 }

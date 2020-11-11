@@ -11,45 +11,40 @@ import net.minecraft.state.EnumProperty;
 import net.minecraft.state.StateContainer.Builder;
 import net.minecraft.state.properties.BlockStateProperties;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.*;
+import net.minecraft.util.ActionResultType;
+import net.minecraft.util.Direction;
+import net.minecraft.util.Hand;
+import net.minecraft.util.IStringSerializable;
+import net.minecraft.util.Mirror;
+import net.minecraft.util.Rotation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.BlockRayTraceResult;
 import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.network.NetworkHooks;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 public final class ProjectorBlock extends Block {
     public static final EnumProperty<InternalRotation> ROTATION = EnumProperty.create("rotation", InternalRotation.class);
+    public static final EnumProperty<Direction> BASE = EnumProperty.create("base", Direction.class, Direction.Plane.VERTICAL);
 
     public ProjectorBlock(Properties properties) {
         super(properties);
-        this.setDefaultState(this.stateContainer.getBaseState()
-                .with(ROTATION, InternalRotation.NONE).with(BlockStateProperties.FACING, Direction.EAST));
+        this.setDefaultState(this.stateContainer.getBaseState().with(BASE, Direction.DOWN).with(BlockStateProperties.FACING, Direction.EAST).with(ROTATION, InternalRotation.NONE));
     }
 
     @Override
     protected void fillStateContainer(Builder<Block, BlockState> builder) {
-        builder.add(ROTATION, BlockStateProperties.FACING);
+        builder.add(BASE, BlockStateProperties.FACING, ROTATION);
     }
 
     @Override
     public BlockState getStateForPlacement(BlockItemUseContext context) {
-        Direction direction = context.getNearestLookingDirection().getOpposite(), directionHorizontal;
-        switch (direction) {
-            case UP:
-                directionHorizontal = context.getPlacementHorizontalFacing().getOpposite();
-                break;
-            case DOWN:
-                directionHorizontal = context.getPlacementHorizontalFacing();
-                break;
-            default:
-                directionHorizontal = Direction.SOUTH;
-        }
-        return this.getDefaultState()
-                .with(BlockStateProperties.FACING, direction)
-                .with(ROTATION, InternalRotation.values()[directionHorizontal.getHorizontalIndex()]);
+        Direction[] directions = context.getNearestLookingDirections();
+        Direction base = Arrays.stream(directions).filter(Direction.Plane.VERTICAL).findFirst().orElse(Direction.DOWN);
+        return this.getDefaultState().with(BASE, base).with(BlockStateProperties.FACING, directions[0].getOpposite()).with(ROTATION, InternalRotation.HORIZONTAL_FLIPPED);
     }
 
     @Override
@@ -100,14 +95,20 @@ public final class ProjectorBlock extends Block {
     }
 
     public enum InternalRotation implements IStringSerializable {
-        NONE, CLOCKWISE_90, CLOCKWISE_180, COUNTERCLOCKWISE_90;
+        NONE, CLOCKWISE_90, CLOCKWISE_180, COUNTERCLOCKWISE_90,
+        HORIZONTAL_FLIPPED, DIAGONAL_FLIPPED, VERTICAL_FLIPPED, ANTI_DIAGONAL_FLIPPED;
 
-        private final String name = this.name().toLowerCase(Locale.ENGLISH);
+        private final String name;
+        private final Quaternion transformation;
 
-        private final Quaternion transformation = new Quaternion(Vector3f.YN, 90F * this.ordinal(), true);
+        InternalRotation() {
+            this.name = this.name().toLowerCase(Locale.ENGLISH);
+            this.transformation = new Quaternion(Vector3f.YN, 90F * (this.ordinal() % 4), true);
+            this.transformation.multiply(new Quaternion(Vector3f.ZN, this.ordinal() < 4 ? 0F : 180F, true));
+        }
 
         public InternalRotation compose(Rotation rotation) {
-            return InternalRotation.values()[(this.ordinal() + rotation.ordinal()) % 4];
+            return InternalRotation.values()[this.ordinal() / 4 * 4 + (this.ordinal() + rotation.ordinal()) % 4];
         }
 
         public Quaternion getTransformation() {
