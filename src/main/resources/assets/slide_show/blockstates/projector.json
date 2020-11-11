@@ -1,10 +1,10 @@
 {
     "variants": {
-        "facing=down": { "model": "slide_show:block/projector_down" },
-        "facing=up": { "model": "slide_show:block/projector_up" },
         "facing=north": { "model": "slide_show:block/projector" },
+        "facing=east":  { "model": "slide_show:block/projector", "y": 90 },
         "facing=south": { "model": "slide_show:block/projector", "y": 180 },
         "facing=west":  { "model": "slide_show:block/projector", "y": 270 },
-        "facing=east":  { "model": "slide_show:block/projector", "y": 90 }
+        "facing=up": { "model": "slide_show:block/projector_up", "y": 180 },
+        "facing=down": { "model": "slide_show:block/projector_down", "y": 180 }
     }
 }
