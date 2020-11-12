@@ -1,6 +1,7 @@
 package org.teacon.slides;
 
 import com.mojang.datafixers.DSL;
+import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.client.gui.ScreenManager;
@@ -28,7 +29,11 @@ import net.minecraftforge.fml.network.simple.SimpleChannel;
 import net.minecraftforge.server.permission.DefaultPermissionLevel;
 import net.minecraftforge.server.permission.PermissionAPI;
 
+import javax.annotation.ParametersAreNonnullByDefault;
+
 @Mod("slide_show")
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public final class SlideShow {
 
     public static Block projector;

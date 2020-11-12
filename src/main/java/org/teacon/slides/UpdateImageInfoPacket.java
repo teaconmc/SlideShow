@@ -2,6 +2,7 @@ package org.teacon.slides;
 
 import java.util.function.Supplier;
 
+import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.network.play.server.SUpdateTileEntityPacket;
@@ -12,6 +13,10 @@ import net.minecraft.world.server.ServerChunkProvider;
 import net.minecraftforge.fml.network.NetworkEvent;
 import net.minecraftforge.server.permission.PermissionAPI;
 
+import javax.annotation.ParametersAreNonnullByDefault;
+
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public final class UpdateImageInfoPacket {
 
     BlockPos pos;

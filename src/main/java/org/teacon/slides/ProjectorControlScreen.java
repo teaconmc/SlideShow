@@ -2,6 +2,7 @@ package org.teacon.slides;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 
+import mcp.MethodsReturnNonnullByDefault;
 import org.lwjgl.glfw.GLFW;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrays;
@@ -12,6 +13,11 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
 
+import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Objects;
+
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public final class ProjectorControlScreen extends ContainerScreen<ProjectorControlContainer> {
 
     private static final ResourceLocation GUI_BG = new ResourceLocation("slide_show", "textures/gui/projector.png");
@@ -37,7 +43,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
     @Override
     protected void init() {
         super.init();
-        this.minecraft.keyboardListener.enableRepeatEvents(true);
+        Objects.requireNonNull(this.minecraft).keyboardListener.enableRepeatEvents(true);
         this.urlInput = new TextFieldWidget(this.font, this.guiLeft + 10, this.guiTop + 20, 120, 16, "Image URL");
         this.urlInput.setMaxStringLength(32767);
         this.urlInput.setResponder(input -> {
@@ -158,7 +164,8 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifier) {
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-            this.minecraft.player.closeScreen();
+            Objects.requireNonNull(Objects.requireNonNull(this.minecraft).player).closeScreen();
+            return true;
         }
 
         return this.urlInput.keyPressed(keyCode, scanCode, modifier) || this.urlInput.canWrite()
@@ -195,7 +202,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
     @Override
     protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-        this.minecraft.getTextureManager().bindTexture(GUI_BG);
+        Objects.requireNonNull(this.minecraft).getTextureManager().bindTexture(GUI_BG);
         this.blit(this.guiLeft, this.guiTop, 0, 0, this.xSize, this.ySize);
     }
     

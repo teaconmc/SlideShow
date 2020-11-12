@@ -1,6 +1,7 @@
 package org.teacon.slides;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrays;
+import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.container.Container;
@@ -13,6 +14,10 @@ import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.registries.ObjectHolder;
 import net.minecraftforge.server.permission.PermissionAPI;
 
+import javax.annotation.ParametersAreNonnullByDefault;
+
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public final class ProjectorControlContainer extends Container {
 
     @ObjectHolder("slide_show:projector")

@@ -1,8 +1,13 @@
 package org.teacon.slides;
 
+import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.PacketBuffer;
 
+import javax.annotation.ParametersAreNonnullByDefault;
+
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public final class SlideDataUtils {
 
     public static void readFrom(SlideData data, CompoundNBT source) {

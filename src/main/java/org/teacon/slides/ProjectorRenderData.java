@@ -10,6 +10,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.mojang.blaze3d.systems.RenderSystem;
+import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderState;
 import net.minecraft.client.renderer.RenderType;
@@ -28,6 +29,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.opengl.GL11;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -44,6 +46,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public final class ProjectorRenderData {
 
     public static final class Entry {
@@ -105,7 +109,6 @@ public final class ProjectorRenderData {
             })
             .build(new CacheLoader<String, AtomicReference<Entry>>() {
                 @Override
-                @ParametersAreNonnullByDefault
                 public AtomicReference<Entry> load(String location) {
                     AtomicReference<Entry> ref = new AtomicReference<>(null);
                     Util.getServerExecutor().execute(() -> {
@@ -126,7 +129,6 @@ public final class ProjectorRenderData {
                 }
 
                 @Override
-                @ParametersAreNonnullByDefault
                 public ListenableFuture<AtomicReference<Entry>> reload(String location, AtomicReference<Entry> old) {
                     SettableFuture<AtomicReference<Entry>> future = SettableFuture.create();
                     Util.getServerExecutor().execute(() -> {
@@ -154,6 +156,7 @@ public final class ProjectorRenderData {
                 }
             });
 
+    @Nullable
     public static RenderType getRenderType(String location) {
         final Entry entry = RENDER_CACHE.getUnchecked(location).get();
         return entry == null ? null : entry.getRenderType();

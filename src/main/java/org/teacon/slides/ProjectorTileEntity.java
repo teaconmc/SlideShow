@@ -2,6 +2,7 @@ package org.teacon.slides;
 
 import java.util.Objects;
 
+import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.*;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.NetworkManager;
@@ -15,6 +16,10 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.registries.ObjectHolder;
 
+import javax.annotation.ParametersAreNonnullByDefault;
+
+@ParametersAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 public final class ProjectorTileEntity extends TileEntity {
 
     @ObjectHolder("slide_show:projector")
