@@ -3,6 +3,7 @@ package org.teacon.slides;
 import com.mojang.blaze3d.systems.RenderSystem;
 
 import mcp.MethodsReturnNonnullByDefault;
+import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.glfw.GLFW;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrays;
@@ -51,7 +52,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
                 new java.net.URL(this.url = input);
                 this.invalidURL = false;
             } catch(Exception e) {
-                this.invalidURL = true;
+                this.invalidURL = StringUtils.isNotBlank(input);
             }
         });
         this.urlInput.setText(this.container.currentSlide.imageLocation);
@@ -67,7 +68,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
                 this.invalidColor = true;
             }
         });
-        this.colorInput.setText(Integer.toUnsignedString(this.container.currentSlide.color, 16));
+        this.colorInput.setText(String.format("%08X", this.container.currentSlide.color));
         this.colorInput.setVisible(true);
         this.children.add(this.colorInput);
         
@@ -205,5 +206,5 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         Objects.requireNonNull(this.minecraft).getTextureManager().bindTexture(GUI_BG);
         this.blit(this.guiLeft, this.guiTop, 0, 0, this.xSize, this.ySize);
     }
-    
+
 }

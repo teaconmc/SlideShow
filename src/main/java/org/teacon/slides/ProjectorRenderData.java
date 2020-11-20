@@ -3,7 +3,6 @@ package org.teacon.slides;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.cache.RemovalNotification;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.gson.Gson;
@@ -12,30 +11,23 @@ import com.google.gson.reflect.TypeToken;
 import com.mojang.blaze3d.systems.RenderSystem;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.RenderState;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.NativeImage;
 import net.minecraft.client.renderer.texture.TextureManager;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.crash.CrashReport;
 import net.minecraft.crash.ReportedException;
-import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Util;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.lwjgl.opengl.GL11;
 
-import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import java.io.*;
-import java.net.URI;
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
@@ -50,44 +42,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @MethodsReturnNonnullByDefault
 public final class ProjectorRenderData {
 
-    public static final class Entry {
-        private static final RenderState.AlphaState ALPHA = new RenderState.AlphaState(1F / 255F);
-
-        private static final RenderState.LightmapState ENABLE_LIGHTMAP = new RenderState.LightmapState(true);
-
-        private static final RenderState.TransparencyState TRANSLUCENT = new RenderState.TransparencyState("translucent", () -> {
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-        }, RenderSystem::disableBlend);
-
-        private static RenderType slide(ResourceLocation loc) {
-            RenderType.State renderState = RenderType.State.getBuilder()
-                    .alpha(ALPHA).lightmap(ENABLE_LIGHTMAP).transparency(TRANSLUCENT)
-                    .texture(new RenderState.TextureState(loc, /*blur*/false, /*mipmap*/true)).build(/*outline*/false);
-            return RenderType.makeType("slide_show",
-                    DefaultVertexFormats.POSITION_COLOR_TEX_LIGHTMAP, GL11.GL_QUADS,
-                    256, /*no delegate*/false, /*need sorting data*/true, renderState);
-        }
-
-        private final DynamicTexture texture;
-
-        private final RenderType renderType;
-
-        public Entry(NativeImage nativeImage) {
-            this.texture = new DynamicTexture(nativeImage);
-            TextureManager textureManager = Minecraft.getInstance().getTextureManager();
-            this.renderType = slide(textureManager.getDynamicTextureLocation("slide_show", this.texture));
-        }
-
-        public RenderType getRenderType() {
-            return this.renderType;
-        }
-
-        public DynamicTexture getTexture() {
-            return this.texture;
-        }
-    }
-
     static final Path LOCAL_CACHE_PATH = Paths.get("slideshow");
     static final Path LOCAL_CACHE_MAP_JSON_PATH = Paths.get("map.json");
 
@@ -99,26 +53,22 @@ public final class ProjectorRenderData {
 
     static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
 
-    static final LoadingCache<String, AtomicReference<Entry>> RENDER_CACHE = CacheBuilder.newBuilder()
+    static final LoadingCache<String, AtomicReference<ProjectorRenderEntry>> RENDER_CACHE = CacheBuilder.newBuilder()
             .expireAfterAccess(20, TimeUnit.MINUTES).refreshAfterWrite(15, TimeUnit.MINUTES)
-            .removalListener((RemovalNotification<String, AtomicReference<Entry>> old) -> {
-                Entry entry = old.getValue().getAndSet(null);
-                if (entry != null) {
-                    entry.getTexture().close();
-                }
-            })
-            .build(new CacheLoader<String, AtomicReference<Entry>>() {
+            .<String, AtomicReference<ProjectorRenderEntry>>removalListener(old -> old.getValue().get().close())
+            .build(new CacheLoader<String, AtomicReference<ProjectorRenderEntry>>() {
                 @Override
-                public AtomicReference<Entry> load(String location) {
-                    AtomicReference<Entry> ref = new AtomicReference<>(null);
+                public AtomicReference<ProjectorRenderEntry> load(String location) {
+                    AtomicReference<ProjectorRenderEntry> ref = new AtomicReference<>(ProjectorRenderEntry.loading());
                     Util.getServerExecutor().execute(() -> {
                         try {
                             Path path = Paths.get(LOCAL_CACHE.get(location));
                             NativeImage image = readImage(path);
                             RenderSystem.recordRenderCall(() -> {
+                                TextureManager manager = Minecraft.getInstance().getTextureManager();
+                                ref.compareAndSet(ProjectorRenderEntry.loading(), ProjectorRenderEntry.of(image, manager));
                                 LOGGER.debug("Try attaching to slide show from local path '" + path + "'");
                                 LOGGER.debug("(which corresponds to '" + location + "')");
-                                ref.compareAndSet(null, new Entry(image));
                                 RENDER_CACHE.refresh(location);
                             });
                         } catch (Exception ignored) {
@@ -129,11 +79,11 @@ public final class ProjectorRenderData {
                 }
 
                 @Override
-                public ListenableFuture<AtomicReference<Entry>> reload(String location, AtomicReference<Entry> old) {
-                    SettableFuture<AtomicReference<Entry>> future = SettableFuture.create();
+                public ListenableFuture<AtomicReference<ProjectorRenderEntry>> reload(String location, AtomicReference<ProjectorRenderEntry> old) {
+                    SettableFuture<AtomicReference<ProjectorRenderEntry>> future = SettableFuture.create();
                     Util.getServerExecutor().execute(() -> {
                         try {
-                            URL url = new URI(location).toURL();
+                            URL url = new URL(location);
                             byte[] imageBytes = readImageBytes(url);
                             String extension = readImageExtension(imageBytes, url.getPath());
                             NativeImage image = NativeImage.read(new ByteArrayInputStream(imageBytes));
@@ -141,12 +91,14 @@ public final class ProjectorRenderData {
                             LOCAL_CACHE.put(location, path.toString());
                             saveToCacheJson(LOCAL_CACHE);
                             RenderSystem.recordRenderCall(() -> {
+                                TextureManager manager = Minecraft.getInstance().getTextureManager();
+                                future.set(new AtomicReference<>(ProjectorRenderEntry.of(image, manager)));
                                 LOGGER.debug("Try attaching to slide show from '" + location + "'");
                                 LOGGER.debug("(which corresponds to local path '" + path + "')");
-                                future.set(new AtomicReference<>(new Entry(image)));
                             });
                         } catch (Exception e) {
-                            future.set(new AtomicReference<>(old.getAndSet(null)));
+                            old.compareAndSet(ProjectorRenderEntry.loading(), ProjectorRenderEntry.failed());
+                            future.set(new AtomicReference<>(old.getAndSet(ProjectorRenderEntry.failed())));
                             // Maybe can be refreshed manually via some client-side command?
                             LOGGER.info("Failed to load slide show from '" + location + "'");
                             LOGGER.debug("Failed to load slide show from '" + location + "'", e);
@@ -156,10 +108,8 @@ public final class ProjectorRenderData {
                 }
             });
 
-    @Nullable
-    public static RenderType getRenderType(String location) {
-        final Entry entry = RENDER_CACHE.getUnchecked(location).get();
-        return entry == null ? null : entry.getRenderType();
+    public static ProjectorRenderEntry getEntry(String location) {
+        return StringUtils.isNotBlank(location) ? RENDER_CACHE.getUnchecked(location).get() : ProjectorRenderEntry.empty();
     }
 
     private static NativeImage readImage(Path location) throws IOException {
@@ -226,4 +176,5 @@ public final class ProjectorRenderData {
             throw new ReportedException(new CrashReport("Failed to save slideshow cache map", e));
         }
     }
+
 }
