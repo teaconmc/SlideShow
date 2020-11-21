@@ -1,9 +1,12 @@
 package org.teacon.slides;
 
-import java.util.Objects;
-
 import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.client.renderer.*;
+import net.minecraft.client.renderer.Matrix4f;
+import net.minecraft.client.renderer.Vector4f;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.inventory.container.Container;
+import net.minecraft.inventory.container.INamedContainerProvider;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SUpdateTileEntityPacket;
@@ -12,15 +15,19 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.Direction;
 import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.registries.ObjectHolder;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Objects;
 
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-public final class ProjectorTileEntity extends TileEntity {
+public final class ProjectorTileEntity extends TileEntity implements INamedContainerProvider {
+    private static final ITextComponent TITLE = new TranslationTextComponent("gui.slide_show.title");
 
     @ObjectHolder("slide_show:projector")
     public static TileEntityType<ProjectorTileEntity> theType;
@@ -37,6 +44,16 @@ public final class ProjectorTileEntity extends TileEntity {
 
     public void readOurData(CompoundNBT data) {
         SlideDataUtils.readFrom(this.currentSlide, data);
+    }
+
+    @Override
+    public ITextComponent getDisplayName() {
+        return TITLE;
+    }
+
+    @Override
+    public Container createMenu(int id, PlayerInventory inv, PlayerEntity player) {
+        return ProjectorControlContainer.fromServer(id, inv, this);
     }
 
     @Override

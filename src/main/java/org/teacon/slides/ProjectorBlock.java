@@ -90,7 +90,7 @@ public final class ProjectorBlock extends Block {
         TileEntity tile;
         if (player instanceof ServerPlayerEntity && (tile = world.getTileEntity(pos)) instanceof ProjectorTileEntity) {
             final ProjectorTileEntity projector = (ProjectorTileEntity) tile;
-            NetworkHooks.openGui((ServerPlayerEntity)player, new ProjectorControlContainer.Provider(), buffer -> {
+            NetworkHooks.openGui((ServerPlayerEntity) player, projector, buffer -> {
                 buffer.writeBlockPos(pos);
                 SlideDataUtils.writeTo(projector.currentSlide, buffer);
             });

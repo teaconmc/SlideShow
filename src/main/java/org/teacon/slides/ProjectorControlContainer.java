@@ -1,55 +1,54 @@
 package org.teacon.slides;
 
-import it.unimi.dsi.fastutil.objects.ObjectArrays;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.container.Container;
 import net.minecraft.inventory.container.ContainerType;
-import net.minecraft.inventory.container.INamedContainerProvider;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.registries.ObjectHolder;
 import net.minecraftforge.server.permission.PermissionAPI;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Objects;
 
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 public final class ProjectorControlContainer extends Container {
 
+    private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
+
     @ObjectHolder("slide_show:projector")
     public static ContainerType<ProjectorControlContainer> theType;
 
-    public static final class Provider implements INamedContainerProvider {
-
-        static final ITextComponent TITLE = new TranslationTextComponent("gui.slide_show.title", ObjectArrays.EMPTY_ARRAY);
-
-        @Override
-        public Container createMenu(int id, PlayerInventory inv, PlayerEntity player) {
-            return new ProjectorControlContainer(theType, id);
-        }
-
-        @Override
-        public ITextComponent getDisplayName() {
-            return TITLE;
-        }
-
+    public static ProjectorControlContainer fromServer(int id, PlayerInventory inv, ProjectorTileEntity tileEntity) {
+        return new ProjectorControlContainer(id, tileEntity.getPos(), tileEntity.currentSlide);
     }
 
-    BlockPos pos;
-    SlideData currentSlide = new SlideData();
-
-    ProjectorControlContainer(int id, PlayerInventory inv, PacketBuffer buffer) {
-        this(theType, id);
-        this.pos = buffer.readBlockPos();
-        SlideDataUtils.readFrom(currentSlide, buffer);
+    public static ProjectorControlContainer fromClient(int id, PlayerInventory inv, @Nullable PacketBuffer buffer) {
+        try {
+            Objects.requireNonNull(buffer);
+            SlideData data = new SlideData();
+            BlockPos pos = buffer.readBlockPos();
+            SlideDataUtils.readFrom(data, buffer);
+            return new ProjectorControlContainer(id, pos, data);
+        } catch (Exception e) {
+            LOGGER.warn("Invalid data in packet buffer", e);
+            return new ProjectorControlContainer(id, BlockPos.ZERO, new SlideData());
+        }
     }
 
-    protected ProjectorControlContainer(ContainerType<?> type, int id) {
-        super(type, id);
+    final BlockPos pos;
+    final SlideData currentSlide;
+
+    private ProjectorControlContainer(int id, BlockPos pos, SlideData data) {
+        super(theType, id);
+        this.pos = pos;
+        this.currentSlide = data;
     }
 
     @Override

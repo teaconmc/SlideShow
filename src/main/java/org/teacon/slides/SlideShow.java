@@ -70,7 +70,7 @@ public final class SlideShow {
     }
 
     public static void regContainer(final RegistryEvent.Register<ContainerType<?>> event) {
-        event.getRegistry().register(IForgeContainerType.create(ProjectorControlContainer::new)
+        event.getRegistry().register(IForgeContainerType.create(ProjectorControlContainer::fromClient)
             .setRegistryName("slide_show:projector"));
     }
 
