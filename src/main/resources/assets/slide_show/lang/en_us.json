@@ -2,10 +2,16 @@
     "block.slide_show.projector": "Slide Show Projector",
 
     "gui.slide_show.url": "Image Link",
-    "gui.slide_show.color": "Color",
-    "gui.slide_show.width": "Width",
-    "gui.slide_show.height": "Height",
-    "gui.slide_show.offset_x": "Offset X",
-    "gui.slide_show.offset_y": "Offset Y",
-    "gui.slide_show.offset_z": "Offset Z"
+    "gui.slide_show.color": "Slide Color",
+    "gui.slide_show.width": "Slide Width",
+    "gui.slide_show.height": "Slide Height",
+    "gui.slide_show.offset_x": "Move Left/Right",
+    "gui.slide_show.offset_y": "Move Up/Down",
+    "gui.slide_show.offset_z": "Move Backward/Forward",
+    "gui.slide_show.flip": "Flip Horizontally",
+    "gui.slide_show.rotate": "Rotate Clockwise",
+
+    "gui.slide_show.section.image": "Image Properties",
+    "gui.slide_show.section.offset": "Slide Offset",
+    "gui.slide_show.section.others": "Others"
 }

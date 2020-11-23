@@ -2,10 +2,16 @@
     "block.slide_show.projector": "幻灯片投影仪",
 
     "gui.slide_show.url": "图片链接",
-    "gui.slide_show.color": "颜色",
-    "gui.slide_show.width": "宽",
-    "gui.slide_show.height": "高",
-    "gui.slide_show.offset_x": "X 轴平移",
-    "gui.slide_show.offset_y": "Y 轴平移",
-    "gui.slide_show.offset_z": "Z 轴平移"
+    "gui.slide_show.color": "幻灯片颜色",
+    "gui.slide_show.width": "幻灯片宽度",
+    "gui.slide_show.height": "幻灯片高度",
+    "gui.slide_show.offset_x": "左右平移",
+    "gui.slide_show.offset_y": "上下平移",
+    "gui.slide_show.offset_z": "前后平移",
+    "gui.slide_show.flip": "水平翻转",
+    "gui.slide_show.rotate": "顺时针旋转",
+
+    "gui.slide_show.section.image": "图片属性",
+    "gui.slide_show.section.offset": "幻灯片平移",
+    "gui.slide_show.section.others": "其他"
 }

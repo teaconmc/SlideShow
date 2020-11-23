@@ -3,8 +3,7 @@ package org.teacon.slides;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
-import net.minecraft.client.renderer.Quaternion;
-import net.minecraft.client.renderer.Vector3f;
+import net.minecraft.client.renderer.Matrix4f;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.BlockItemUseContext;
@@ -12,12 +11,7 @@ import net.minecraft.state.EnumProperty;
 import net.minecraft.state.StateContainer.Builder;
 import net.minecraft.state.properties.BlockStateProperties;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.ActionResultType;
-import net.minecraft.util.Direction;
-import net.minecraft.util.Hand;
-import net.minecraft.util.IStringSerializable;
-import net.minecraft.util.Mirror;
-import net.minecraft.util.Rotation;
+import net.minecraft.util.*;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.BlockRayTraceResult;
 import net.minecraft.world.IBlockReader;
@@ -26,7 +20,6 @@ import net.minecraftforge.fml.network.NetworkHooks;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
-import java.util.Locale;
 
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -93,29 +86,49 @@ public final class ProjectorBlock extends Block {
             NetworkHooks.openGui((ServerPlayerEntity) player, projector, buffer -> {
                 buffer.writeBlockPos(pos);
                 SlideDataUtils.writeTo(projector.currentSlide, buffer);
+                buffer.writeEnumValue(state.get(ROTATION));
             });
         }
         return ActionResultType.SUCCESS;
     }
 
     public enum InternalRotation implements IStringSerializable {
-        NONE, CLOCKWISE_90, CLOCKWISE_180, COUNTERCLOCKWISE_90,
-        HORIZONTAL_FLIPPED, DIAGONAL_FLIPPED, VERTICAL_FLIPPED, ANTI_DIAGONAL_FLIPPED;
+        NONE("none", new float[]{1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F}),
+        CLOCKWISE_90("clockwise_90", new float[]{0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F}),
+        CLOCKWISE_180("clockwise_180", new float[]{-1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F}),
+        COUNTERCLOCKWISE_90("counterclockwise_90", new float[]{0F, 0F, 1F, 0F, 0F, 1F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F}),
+        HORIZONTAL_FLIPPED("horizontal_flipped", new float[]{-1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F}),
+        DIAGONAL_FLIPPED("diagonal_flipped", new float[]{0F, 0F, -1F, 0F, 0F, -1F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F}),
+        VERTICAL_FLIPPED("vertical_flipped", new float[]{1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F}),
+        ANTI_DIAGONAL_FLIPPED("anti_diagonal_flipped", new float[]{0F, 0F, 1F, 0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F});
+
+        private static final int[] INV_ORDINALS = {0, 3, 2, 1, 4, 5, 6, 7};
+        private static final int[] FLIP_ORDINALS = {4, 7, 6, 5, 0, 3, 2, 1};
+        private static final int[][] ROTATION_ORDINALS = {
+                {0, 1, 2, 3, 4, 5, 6, 7}, {1, 2, 3, 0, 5, 6, 7, 4}, {2, 3, 0, 1, 6, 7, 4, 5}, {3, 0, 1, 2, 7, 4, 5, 6}
+        };
 
         private final String name;
-        private final Quaternion transformation;
+        private final Matrix4f transformation;
 
-        InternalRotation() {
-            this.name = this.name().toLowerCase(Locale.ENGLISH);
-            this.transformation = new Quaternion(Vector3f.YN, 90F * (this.ordinal() % 4), true);
-            this.transformation.multiply(new Quaternion(Vector3f.ZN, this.ordinal() < 4 ? 0F : 180F, true));
+        InternalRotation(String name, float[] matrix) {
+            this.name = name;
+            this.transformation = new Matrix4f(matrix);
         }
 
         public InternalRotation compose(Rotation rotation) {
-            return InternalRotation.values()[this.ordinal() / 4 * 4 + (this.ordinal() + rotation.ordinal()) % 4];
+            return InternalRotation.values()[ROTATION_ORDINALS[rotation.ordinal()][this.ordinal()]];
         }
 
-        public Quaternion getTransformation() {
+        public InternalRotation flip() {
+            return InternalRotation.values()[FLIP_ORDINALS[this.ordinal()]];
+        }
+
+        public InternalRotation invert() {
+            return InternalRotation.values()[INV_ORDINALS[this.ordinal()]];
+        }
+
+        public Matrix4f getTransformation() {
             return this.transformation;
         }
 

@@ -26,7 +26,10 @@ public final class ProjectorControlContainer extends Container {
     public static ContainerType<ProjectorControlContainer> theType;
 
     public static ProjectorControlContainer fromServer(int id, PlayerInventory inv, ProjectorTileEntity tileEntity) {
-        return new ProjectorControlContainer(id, tileEntity.getPos(), tileEntity.currentSlide);
+        BlockPos pos = tileEntity.getPos();
+        SlideData data = tileEntity.currentSlide;
+        ProjectorBlock.InternalRotation rotation = tileEntity.getBlockState().get(ProjectorBlock.ROTATION);
+        return new ProjectorControlContainer(id, pos, data, rotation);
     }
 
     public static ProjectorControlContainer fromClient(int id, PlayerInventory inv, @Nullable PacketBuffer buffer) {
@@ -35,20 +38,23 @@ public final class ProjectorControlContainer extends Container {
             SlideData data = new SlideData();
             BlockPos pos = buffer.readBlockPos();
             SlideDataUtils.readFrom(data, buffer);
-            return new ProjectorControlContainer(id, pos, data);
+            ProjectorBlock.InternalRotation rotation = buffer.readEnumValue(ProjectorBlock.InternalRotation.class);
+            return new ProjectorControlContainer(id, pos, data, rotation);
         } catch (Exception e) {
             LOGGER.warn("Invalid data in packet buffer", e);
-            return new ProjectorControlContainer(id, BlockPos.ZERO, new SlideData());
+            return new ProjectorControlContainer(id, BlockPos.ZERO, new SlideData(), ProjectorBlock.InternalRotation.NONE);
         }
     }
 
     final BlockPos pos;
     final SlideData currentSlide;
+    final ProjectorBlock.InternalRotation rotation;
 
-    private ProjectorControlContainer(int id, BlockPos pos, SlideData data) {
+    private ProjectorControlContainer(int id, BlockPos pos, SlideData data, ProjectorBlock.InternalRotation rotation) {
         super(theType, id);
         this.pos = pos;
         this.currentSlide = data;
+        this.rotation = rotation;
     }
 
     @Override
