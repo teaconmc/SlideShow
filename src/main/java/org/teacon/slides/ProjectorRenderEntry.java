@@ -109,8 +109,7 @@ public abstract class ProjectorRenderEntry implements Closeable {
         }
 
         private float getFactor(float width, float height) {
-            float min = Math.min(width, height);
-            return min / (24 + 8 * MathHelper.sqrt(min));
+            return Math.min(width, height) / (24 + MathHelper.fastInvCubeRoot(0.00390625F / (width * width + height * height)));
         }
 
         @Override
