@@ -1,4 +1,4 @@
-package org.teacon.slides.render;
+package org.teacon.slides;
 
 import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -15,8 +15,6 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import org.teacon.slides.ProjectorTileEntity;
-import org.teacon.slides.SlideShow;
 
 //Source: https://github.com/McJty/YouTubeModding14/blob/master/src/main/java/com/mcjty/mytutorial/client/InWorldRenderer.java
 @Mod.EventBusSubscriber(Dist.CLIENT)
@@ -24,7 +22,7 @@ public class ProjectorWorldRender {
     @SubscribeEvent
     public static void worldRender(final RenderWorldLastEvent event) {
         ClientPlayerEntity player = Minecraft.getInstance().player;
-        if (player.isCreative() && isProjector(player.getHeldItemMainhand())) {
+        if (player != null && player.isCreative() && isProjector(player.getHeldItemMainhand())) {
             locateProjectorTileEntities(player, event.getMatrixStack());
         }
     }
@@ -33,24 +31,18 @@ public class ProjectorWorldRender {
         return SlideShow.projector.asItem().equals(i.getItem());
     }
 
-
-    //To draw the line.
-    private static void drawLine(IVertexBuilder builder, Matrix4f positionMatrix, BlockPos pos, float dx1, float dy1, float dz1, float dx2, float dy2, float dz2, float red, float green, float blue, float alpha) {
+    private static void drawWhiteLine(IVertexBuilder builder, Matrix4f positionMatrix, BlockPos pos, float dx1, float dy1, float dz1, float dx2, float dy2, float dz2) {
         builder.pos(positionMatrix, pos.getX() + dx1, pos.getY() + dy1, pos.getZ() + dz1)
-                .color(red, green, blue, alpha)
+                .color(1.0f, 1.0f, 1.0f, 1.0f)
                 .endVertex();
         builder.pos(positionMatrix, pos.getX() + dx2, pos.getY() + dy2, pos.getZ() + dz2)
-                .color(red, green, blue, alpha)
+                .color(1.0f, 1.0f, 1.0f, 1.0f)
                 .endVertex();
-    }
-
-    private static void drawWhiteLine(IVertexBuilder builder, Matrix4f positionMatrix, BlockPos pos, float dx1, float dy1, float dz1, float dx2, float dy2, float dz2) {
-        drawLine(builder, positionMatrix, pos, dx1, dy1, dz1, dx2, dy2, dz2, 1.0f, 1.0f, 1.0f, 1.0f);
     }
 
     private static void locateProjectorTileEntities(ClientPlayerEntity player, MatrixStack matrixStack) {
         IRenderTypeBuffer.Impl buffer = Minecraft.getInstance().getRenderTypeBuffers().getBufferSource();
-        IVertexBuilder builder = buffer.getBuffer(ModRenderType.OVERLAY_LINES);
+        IVertexBuilder builder = buffer.getBuffer(SlideRenderType.OVERLAY_LINES);
 
         BlockPos playerPos = player.getPosition();
         int px = playerPos.getX();
@@ -71,7 +63,7 @@ public class ProjectorWorldRender {
                 for (int dz = -16; dz <= 16; dz++) {
                     pos.setPos(px + dx, py + dy, pz + dz);
                     //Check ProjectorTileEntity
-                    if (world.getTileEntity(pos) != null && world.getTileEntity(pos).getType() == ProjectorTileEntity.theType) {
+                    if (world.getTileEntity(pos) != null && world.getTileEntity(pos) instanceof ProjectorTileEntity) {
                         //For a Block, there are twelve lines should be drawn.
                         drawWhiteLine(builder, matrix, pos, 0, 0, 0, 1, 0, 0);
                         drawWhiteLine(builder, matrix, pos, 0, 1, 0, 1, 1, 0);
@@ -95,6 +87,6 @@ public class ProjectorWorldRender {
         matrixStack.pop();
 
         RenderSystem.disableDepthTest();
-        buffer.finish(ModRenderType.OVERLAY_LINES);
+        buffer.finish(SlideRenderType.OVERLAY_LINES);
     }
 }
