@@ -65,7 +65,7 @@ public final class SlideShow {
                 .hardnessAndResistance(20F)
                 .harvestLevel(0)
                 .lightValue(15) // TODO Configurable
-                .notSolid())).setRegistryName("slide_show:projector")
+                .doesNotBlockMovement())).setRegistryName("slide_show:projector")
         );
     }
 

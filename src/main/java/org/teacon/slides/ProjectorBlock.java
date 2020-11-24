@@ -14,6 +14,8 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.*;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.BlockRayTraceResult;
+import net.minecraft.util.math.shapes.ISelectionContext;
+import net.minecraft.util.math.shapes.VoxelShape;
 import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.network.NetworkHooks;
@@ -27,9 +29,24 @@ public final class ProjectorBlock extends Block {
     public static final EnumProperty<InternalRotation> ROTATION = EnumProperty.create("rotation", InternalRotation.class);
     public static final EnumProperty<Direction> BASE = EnumProperty.create("base", Direction.class, Direction.Plane.VERTICAL);
 
+    private static final VoxelShape SHAPE_WITH_BASE_UP = Block.makeCuboidShape(0.0, 4.0, 0.0, 16.0, 16.0, 16.0);
+    private static final VoxelShape SHAPE_WITH_BASE_DOWN = Block.makeCuboidShape(0.0, 0.0, 0.0, 16.0, 12.0, 16.0);
+
     public ProjectorBlock(Properties properties) {
         super(properties);
         this.setDefaultState(this.stateContainer.getBaseState().with(BASE, Direction.DOWN).with(BlockStateProperties.FACING, Direction.EAST).with(ROTATION, InternalRotation.NONE));
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public VoxelShape getShape(BlockState state, IBlockReader worldIn, BlockPos pos, ISelectionContext context) {
+        switch (state.get(BASE)) {
+            case DOWN:
+                return SHAPE_WITH_BASE_DOWN;
+            case UP:
+                return SHAPE_WITH_BASE_UP;
+        }
+        throw new IllegalStateException("The direction of the projector base is neither down nor up");
     }
 
     @Override
@@ -45,6 +62,7 @@ public final class ProjectorBlock extends Block {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public BlockState mirror(BlockState state, Mirror mirror) {
         Direction direction = state.get(BlockStateProperties.FACING);
         switch (direction) {
