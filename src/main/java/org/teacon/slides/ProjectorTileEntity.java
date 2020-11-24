@@ -57,6 +57,30 @@ public final class ProjectorTileEntity extends TileEntity implements INamedConta
     }
 
     @Override
+    public void onLoad() {
+        super.onLoad();
+        if (Objects.requireNonNull(this.world).isRemote) {
+            ProjectorWorldRender.add(this);
+        }
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        super.onChunkUnloaded();
+        if (Objects.requireNonNull(this.world).isRemote) {
+            ProjectorWorldRender.remove(this);
+        }
+    }
+
+    @Override
+    public void remove() {
+        super.remove();
+        if (Objects.requireNonNull(this.world).isRemote) {
+            ProjectorWorldRender.remove(this);
+        }
+    }
+
+    @Override
     public CompoundNBT write(CompoundNBT data) {
         return super.write(this.writeOurData(data));
     }

@@ -17,7 +17,7 @@ public class SlideRenderType extends RenderType {
     private static final LineState THICK_LINES = new LineState(OptionalDouble.of(3.0D)); // Set the line's width in here.
 
     public static final RenderType OVERLAY_LINES = makeType("overlay_lines",
-            DefaultVertexFormats.POSITION_COLOR, GL11.GL_LINES, 256,
+            DefaultVertexFormats.POSITION, GL11.GL_LINES, 256,
             RenderType.State.getBuilder().line(THICK_LINES)
                     .layer(PROJECTION_LAYERING)
                     .transparency(TRANSLUCENT_TRANSPARENCY)
