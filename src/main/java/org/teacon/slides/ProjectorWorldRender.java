@@ -5,22 +5,32 @@ import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.IVertexBuilder;
+import net.minecraft.block.BlockState;
+import net.minecraft.client.MainWindow;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.player.ClientPlayerEntity;
+import net.minecraft.client.renderer.BlockRendererDispatcher;
 import net.minecraft.client.renderer.IRenderTypeBuffer;
-import net.minecraft.client.renderer.Matrix4f;
+import net.minecraft.client.renderer.model.IBakedModel;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.shader.Framebuffer;
+import net.minecraft.client.shader.ShaderGroup;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Vec3i;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
+import net.minecraftforge.client.model.data.EmptyModelData;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
+import java.io.IOException;
 import java.util.Map;
 
-//Source: https://github.com/McJty/YouTubeModding14/blob/master/src/main/java/com/mcjty/mytutorial/client/InWorldRenderer.java
 @Mod.EventBusSubscriber(Dist.CLIENT)
 public class ProjectorWorldRender {
     @SubscribeEvent
@@ -28,10 +38,29 @@ public class ProjectorWorldRender {
         ClientPlayerEntity player = Minecraft.getInstance().player;
         if (player != null && player.isCreative()) {
             if (isProjector(player.getHeldItemMainhand())) {
-                locateProjectorTileEntities(event.getMatrixStack());
+                locateProjectorTileEntities(event.getMatrixStack(), event.getPartialTicks());
             }
         }
     }
+
+    @SubscribeEvent
+    public static void renderTick(final TickEvent.RenderTickEvent event) {
+        if (event.phase == TickEvent.Phase.START && framebuffer != null) {
+            final Minecraft mc = Minecraft.getInstance();
+            final MainWindow mainWindow = mc.getMainWindow();
+            final int width = mainWindow.getFramebufferWidth();
+            final int height = mainWindow.getFramebufferHeight();
+            if (width != framebuffer.framebufferWidth || height != framebuffer.framebufferHeight) {
+                shaderGroup.createBindFramebuffers(width, height);
+                framebuffer = shaderGroup.getFramebufferRaw("slide_show:final");
+            }
+        }
+    }
+
+    private static ShaderGroup shaderGroup;
+    private static Framebuffer framebuffer;
+
+    private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
 
     private static final Map<BlockPos, ProjectorTileEntity> projectors = new MapMaker().weakValues().makeMap();
 
@@ -43,51 +72,72 @@ public class ProjectorWorldRender {
         projectors.remove(tileEntity.getPos(), tileEntity);
     }
 
+    static void loadShader() {
+        if (shaderGroup != null) {
+            shaderGroup.close();
+        }
+
+        final ResourceLocation location = new ResourceLocation("slide_show", "shaders/post/projector_outline.json");
+
+        try {
+            final Minecraft mc = Minecraft.getInstance();
+            final MainWindow mainWindow = mc.getMainWindow();
+            shaderGroup = new ShaderGroup(mc.getTextureManager(), mc.getResourceManager(), mc.getFramebuffer(), location);
+            shaderGroup.createBindFramebuffers(mainWindow.getFramebufferWidth(), mainWindow.getFramebufferHeight());
+            framebuffer = shaderGroup.getFramebufferRaw("slide_show:final");
+        } catch (IOException e) {
+            LOGGER.warn("Failed to load shader: {}", location, e);
+            shaderGroup = null;
+            framebuffer = null;
+        }
+    }
+
     private static boolean isProjector(ItemStack i) {
         return SlideShow.projector.asItem().equals(i.getItem());
     }
 
-    private static void drawWhiteLine(IVertexBuilder builder, Matrix4f positionMatrix, Vec3i from, Vec3i to) {
-        builder.pos(positionMatrix, from.getX(), from.getY(), from.getZ()).endVertex();
-        builder.pos(positionMatrix, to.getX(), to.getY(), to.getZ()).endVertex();
-    }
+    private static void locateProjectorTileEntities(MatrixStack matrixStack, float partialTicks) {
+        if (framebuffer != null && !projectors.isEmpty()) {
+            final Minecraft mc = Minecraft.getInstance();
+            final MainWindow mainWindow = mc.getMainWindow();
+            final BlockRendererDispatcher dispatcher = mc.getBlockRendererDispatcher();
 
-    private static void locateProjectorTileEntities(MatrixStack matrixStack) {
-        IRenderTypeBuffer.Impl buffer = Minecraft.getInstance().getRenderTypeBuffers().getBufferSource();
-        IVertexBuilder builder = buffer.getBuffer(SlideRenderType.OVERLAY_LINES);
+            final IRenderTypeBuffer.Impl buffer = mc.getRenderTypeBuffers().getBufferSource();
+            final IVertexBuilder builder = buffer.getBuffer(SlideRenderType.BLOCK_OVERLAY);
+            final Vec3d viewPos = mc.gameRenderer.getActiveRenderInfo().getProjectedView();
 
-        matrixStack.push();
+            // step 1: prepare vertices and faces
+            for (Map.Entry<BlockPos, ProjectorTileEntity> entry : projectors.entrySet()) {
+                BlockPos pos = entry.getKey();
+                BlockState state = entry.getValue().getBlockState();
+                IBakedModel model = dispatcher.getModelForState(state);
 
-        Vec3d projectedView = Minecraft.getInstance().gameRenderer.getActiveRenderInfo().getProjectedView();
-        matrixStack.translate(-projectedView.x, -projectedView.y, -projectedView.z); // In default situation, the original position of matrix in world origin point. We should translate it.
+                matrixStack.push();
+                matrixStack.translate(pos.getX() - viewPos.x, pos.getY() - viewPos.y, pos.getZ() - viewPos.z);
+                dispatcher.getBlockModelRenderer().renderModel(matrixStack.getLast(), builder, state, model, 1.0F, 1.0F, 1.0F, 0xF000F0, OverlayTexture.NO_OVERLAY, EmptyModelData.INSTANCE);
+                matrixStack.pop();
+            }
 
-        Matrix4f matrix = matrixStack.getLast().getMatrix();
+            // step 2: bind our frame buffer
+            framebuffer.framebufferClear(Minecraft.IS_RUNNING_ON_MAC);
+            framebuffer.bindFramebuffer(false);
 
-        for (BlockPos pos000 : projectors.keySet()) {
-            BlockPos pos100 = pos000.east(), pos010 = pos000.up(), pos110 = pos100.up();
-            BlockPos pos001 = pos000.south(), pos101 = pos100.south(), pos011 = pos010.south(), pos111 = pos110.south();
+            // step 3: render
+            RenderSystem.color3f(1.0F, 1.0F, 1.0F);
+            buffer.finish(SlideRenderType.BLOCK_OVERLAY);
 
-            // For a Block, there are 12 lines to be drawn.
-            drawWhiteLine(builder, matrix, pos000, pos100);
-            drawWhiteLine(builder, matrix, pos010, pos110);
-            drawWhiteLine(builder, matrix, pos001, pos101);
-            drawWhiteLine(builder, matrix, pos011, pos111);
+            // step 4: apply shaders
+            shaderGroup.render(partialTicks);
 
-            drawWhiteLine(builder, matrix, pos000, pos010);
-            drawWhiteLine(builder, matrix, pos100, pos110);
-            drawWhiteLine(builder, matrix, pos001, pos011);
-            drawWhiteLine(builder, matrix, pos101, pos111);
+            // step 5: bind main frame buffer
+            Framebuffer main = mc.getFramebuffer();
+            main.bindFramebuffer(false);
 
-            drawWhiteLine(builder, matrix, pos000, pos001);
-            drawWhiteLine(builder, matrix, pos100, pos101);
-            drawWhiteLine(builder, matrix, pos010, pos011);
-            drawWhiteLine(builder, matrix, pos110, pos111);
+            // step 6: render our frame buffer to main frame buffer
+            RenderSystem.enableBlend();
+            RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE);
+            framebuffer.framebufferRenderExt(mainWindow.getFramebufferWidth(), mainWindow.getFramebufferHeight(), false);
+            RenderSystem.disableBlend();
         }
-
-        matrixStack.pop();
-
-        RenderSystem.disableDepthTest();
-        RenderSystem.color3f(1.0F, 1.0F, 1.0F);
-        buffer.finish(SlideRenderType.OVERLAY_LINES);
     }
 }
