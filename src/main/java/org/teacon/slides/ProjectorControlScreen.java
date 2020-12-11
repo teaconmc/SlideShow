@@ -1,5 +1,6 @@
 package org.teacon.slides;
 
+import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import mcp.MethodsReturnNonnullByDefault;
@@ -7,14 +8,14 @@ import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.screen.inventory.ContainerScreen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.gui.widget.button.AbstractButton;
-import net.minecraft.client.renderer.Matrix4f;
-import net.minecraft.client.renderer.Vector3f;
-import net.minecraft.client.renderer.Vector4f;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Rotation;
+import net.minecraft.util.math.vector.Matrix4f;
+import net.minecraft.util.math.vector.Vector3f;
+import net.minecraft.util.math.vector.Vector4f;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
 import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.glfw.GLFW;
 
@@ -58,7 +59,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         Objects.requireNonNull(this.minecraft).keyboardListener.enableRepeatEvents(true);
 
         // url input
-        this.urlInput = new TextFieldWidget(this.font, this.guiLeft + 30, this.guiTop + 29, 137, 16, I18n.format("gui.slide_show.url"));
+        this.urlInput = new TextFieldWidget(this.font, this.guiLeft + 30, this.guiTop + 29, 137, 16, new TranslationTextComponent("gui.slide_show.url"));
         this.urlInput.setMaxStringLength(32767);
         this.urlInput.setResponder(input -> {
             try {
@@ -74,7 +75,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.children.add(this.urlInput);
 
         // color input
-        this.colorInput = new TextFieldWidget(this.font, this.guiLeft + 38, this.guiTop + 155, 56, 16, I18n.format("gui.slide_show.color"));
+        this.colorInput = new TextFieldWidget(this.font, this.guiLeft + 38, this.guiTop + 155, 56, 16, new TranslationTextComponent("gui.slide_show.color"));
         this.colorInput.setMaxStringLength(8);
         this.colorInput.setResponder(input -> {
             try {
@@ -90,7 +91,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.children.add(this.colorInput);
 
         // width input
-        this.widthInput = new TextFieldWidget(this.font, this.guiLeft + 30, this.guiTop + 51, 56, 16, I18n.format("gui.slide_show.width"));
+        this.widthInput = new TextFieldWidget(this.font, this.guiLeft + 30, this.guiTop + 51, 56, 16, new TranslationTextComponent("gui.slide_show.width"));
         this.widthInput.setResponder(input -> {
             try {
                 float newWidth = Float.parseFloat(input);
@@ -114,7 +115,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.children.add(this.widthInput);
 
         // height input
-        this.heightInput = new TextFieldWidget(this.font, this.guiLeft + 111, this.guiTop + 51, 56, 16, I18n.format("gui.slide_show.height"));
+        this.heightInput = new TextFieldWidget(this.font, this.guiLeft + 111, this.guiTop + 51, 56, 16, new TranslationTextComponent("gui.slide_show.height"));
         this.heightInput.setResponder(input -> {
             try {
                 float newHeight = Float.parseFloat(input);
@@ -138,7 +139,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.children.add(this.heightInput);
 
         // offset x input
-        this.offsetXInput = new TextFieldWidget(this.font, this.guiLeft + 30, this.guiTop + 103, 29, 16, I18n.format("gui.slide_show.offset_x"));
+        this.offsetXInput = new TextFieldWidget(this.font, this.guiLeft + 30, this.guiTop + 103, 29, 16, new TranslationTextComponent("gui.slide_show.offset_x"));
         this.offsetXInput.setResponder(input -> {
             try {
                 this.offsetX = Float.parseFloat(input);
@@ -153,7 +154,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.children.add(this.offsetXInput);
 
         // offset y input
-        this.offsetYInput = new TextFieldWidget(this.font, this.guiLeft + 84, this.guiTop + 103, 29, 16, I18n.format("gui.slide_show.offset_y"));
+        this.offsetYInput = new TextFieldWidget(this.font, this.guiLeft + 84, this.guiTop + 103, 29, 16, new TranslationTextComponent("gui.slide_show.offset_y"));
         this.offsetYInput.setResponder(input -> {
             try {
                 this.offsetY = Float.parseFloat(input);
@@ -168,7 +169,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.children.add(this.offsetYInput);
 
         // offset z input
-        this.offsetZInput = new TextFieldWidget(this.font, this.guiLeft + 138, this.guiTop + 103, 29, 16, I18n.format("gui.slide_show.offset_z"));
+        this.offsetZInput = new TextFieldWidget(this.font, this.guiLeft + 138, this.guiTop + 103, 29, 16, new TranslationTextComponent("gui.slide_show.offset_z"));
         this.offsetZInput.setResponder(input -> {
             try {
                 this.offsetZ = Float.parseFloat(input);
@@ -183,7 +184,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.children.add(this.offsetZInput);
 
         // internal rotation buttons
-        this.addButton(new Button(this.guiLeft + 117, this.guiTop + 153, 179, 153, 18, 19, I18n.format("gui.slide_show.flip"), () -> {
+        this.addButton(new Button(this.guiLeft + 117, this.guiTop + 153, 179, 153, 18, 19, new TranslationTextComponent("gui.slide_show.flip"), () -> {
             ProjectorBlock.InternalRotation newRotation = this.rotation.flip();
             if (!this.invalidOffsetX && !this.invalidOffsetY && !this.invalidOffsetZ) {
                 Vector3f relative = new Vector3f(this.offsetX, this.offsetY, this.offsetZ);
@@ -195,7 +196,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
             }
             this.rotation = newRotation;
         }));
-        this.addButton(new Button(this.guiLeft + 142, this.guiTop + 153, 179, 173, 18, 19, I18n.format("gui.slide_show.rotate"), () -> {
+        this.addButton(new Button(this.guiLeft + 142, this.guiTop + 153, 179, 173, 18, 19, new TranslationTextComponent("gui.slide_show.rotate"), () -> {
             ProjectorBlock.InternalRotation newRotation = this.rotation.compose(Rotation.CLOCKWISE_90);
             if (!this.invalidOffsetX && !this.invalidOffsetY && !this.invalidOffsetZ) {
                 Vector3f relative = new Vector3f(this.offsetX, this.offsetY, this.offsetZ);
@@ -223,7 +224,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
     }
 
     @Override
-    public void removed() {
+    public void onClose() {
         final UpdateImageInfoPacket packet = new UpdateImageInfoPacket();
         packet.pos = this.container.pos;
         packet.data.imageLocation = this.invalidURL ? this.container.currentSlide.imageLocation : this.url;
@@ -235,7 +236,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         packet.data.offsetZ = this.invalidOffsetZ ? this.container.currentSlide.offsetZ : this.offsetZ;
         packet.rotation = this.rotation;
         SlideShow.channel.sendToServer(packet);
-        super.removed();
+        super.onClose();
     }
 
     @Override
@@ -256,61 +257,63 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
     }
 
     @Override
-    public void render(int mouseX, int mouseY, float partialTicks) {
-        this.renderBackground();
-        super.render(mouseX, mouseY, partialTicks);
-        this.urlInput.render(mouseX, mouseY, partialTicks);
-        this.colorInput.render(mouseX, mouseY, partialTicks);
-        this.widthInput.render(mouseX, mouseY, partialTicks);
-        this.heightInput.render(mouseX, mouseY, partialTicks);
-        this.offsetXInput.render(mouseX, mouseY, partialTicks);
-        this.offsetYInput.render(mouseX, mouseY, partialTicks);
-        this.offsetZInput.render(mouseX, mouseY, partialTicks);
-        this.renderHoveredToolTip(mouseX, mouseY);
+    public void render(MatrixStack stack, int mouseX, int mouseY, float partialTicks) {
+        this.renderBackground(stack);
+        super.render(stack, mouseX, mouseY, partialTicks);
+        this.urlInput.render(stack, mouseX, mouseY, partialTicks);
+        this.colorInput.render(stack, mouseX, mouseY, partialTicks);
+        this.widthInput.render(stack, mouseX, mouseY, partialTicks);
+        this.heightInput.render(stack, mouseX, mouseY, partialTicks);
+        this.offsetXInput.render(stack, mouseX, mouseY, partialTicks);
+        this.offsetYInput.render(stack, mouseX, mouseY, partialTicks);
+        this.offsetZInput.render(stack, mouseX, mouseY, partialTicks);
+        this.renderHoveredTooltip(stack, mouseX, mouseY);
     }
 
     @Override
-    protected void renderHoveredToolTip(int mouseX, int mouseY) {
-        super.renderHoveredToolTip(mouseX, mouseY);
+    protected void renderHoveredTooltip(MatrixStack stack, int mouseX, int mouseY) {
+        super.renderHoveredTooltip(stack, mouseX, mouseY);
         int offsetX = mouseX - this.guiLeft, offsetY = mouseY - this.guiTop;
         if (offsetX >= 9 && offsetY >= 27 && offsetX < 27 && offsetY < 46) {
-            this.renderTooltip(I18n.format("gui.slide_show.url"), mouseX, mouseY);
+            this.renderTooltip(stack, new TranslationTextComponent("gui.slide_show.url"), mouseX, mouseY);
         }
         if (offsetX >= 17 && offsetY >= 153 && offsetX < 35 && offsetY < 172) {
-            this.renderTooltip(I18n.format("gui.slide_show.color"), mouseX, mouseY);
+            this.renderTooltip(stack, new TranslationTextComponent("gui.slide_show.color"), mouseX, mouseY);
         }
         if (offsetX >= 9 && offsetY >= 49 && offsetX < 27 && offsetY < 68) {
-            this.renderTooltip(I18n.format("gui.slide_show.width"), mouseX, mouseY);
+            this.renderTooltip(stack, new TranslationTextComponent("gui.slide_show.width"), mouseX, mouseY);
         }
         if (offsetX >= 90 && offsetY >= 49 && offsetX < 108 && offsetY < 68) {
-            this.renderTooltip(I18n.format("gui.slide_show.height"), mouseX, mouseY);
+            this.renderTooltip(stack, new TranslationTextComponent("gui.slide_show.height"), mouseX, mouseY);
         }
         if (offsetX >= 9 && offsetY >= 101 && offsetX < 27 && offsetY < 120) {
-            this.renderTooltip(I18n.format("gui.slide_show.offset_x"), mouseX, mouseY);
+            this.renderTooltip(stack, new TranslationTextComponent("gui.slide_show.offset_x"), mouseX, mouseY);
         }
         if (offsetX >= 63 && offsetY >= 101 && offsetX < 81 && offsetY < 120) {
-            this.renderTooltip(I18n.format("gui.slide_show.offset_y"), mouseX, mouseY);
+            this.renderTooltip(stack, new TranslationTextComponent("gui.slide_show.offset_y"), mouseX, mouseY);
         }
         if (offsetX >= 117 && offsetY >= 101 && offsetX < 135 && offsetY < 120) {
-            this.renderTooltip(I18n.format("gui.slide_show.offset_z"), mouseX, mouseY);
+            this.renderTooltip(stack, new TranslationTextComponent("gui.slide_show.offset_z"), mouseX, mouseY);
         }
         if (offsetX >= 117 && offsetY >= 153 && offsetX < 135 && offsetY < 172) {
-            this.renderTooltip(I18n.format("gui.slide_show.flip"), mouseX, mouseY);
+            this.renderTooltip(stack, new TranslationTextComponent("gui.slide_show.flip"), mouseX, mouseY);
         }
         if (offsetX >= 142 && offsetY >= 153 && offsetX < 160 && offsetY < 172) {
-            this.renderTooltip(I18n.format("gui.slide_show.rotate"), mouseX, mouseY);
+            this.renderTooltip(stack, new TranslationTextComponent("gui.slide_show.rotate"), mouseX, mouseY);
         }
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
+    @SuppressWarnings("deprecation")
+    protected void drawGuiContainerBackgroundLayer(MatrixStack stack, float partialTicks, int mouseX, int mouseY) {
         RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
         Objects.requireNonNull(this.minecraft).getTextureManager().bindTexture(GUI_TEXTURE);
-        this.blit(this.guiLeft, this.guiTop, 0, 0, this.xSize, this.ySize);
+        this.blit(stack, this.guiLeft, this.guiTop, 0, 0, this.xSize, this.ySize);
     }
 
     @Override
-    protected void drawGuiContainerForegroundLayer(int mouseX, int mouseY) {
+    @SuppressWarnings("deprecation")
+    protected void drawGuiContainerForegroundLayer(MatrixStack stack, int mouseX, int mouseY) {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
@@ -320,20 +323,20 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
             int red = (this.color >>> 16) & 255, green = (this.color >>> 8) & 255, blue = this.color & 255;
             Objects.requireNonNull(this.minecraft).getTextureManager().bindTexture(GUI_TEXTURE);
             RenderSystem.color4f(red / 255.0F, green / 255.0F, blue / 255.0F, alpha / 255.0F);
-            this.blit(21, 157, 180, 194, 10, 10);
-            this.blit(82, 185, 180, 194, 17, 17);
+            this.blit(stack, 21, 157, 180, 194, 10, 10);
+            this.blit(stack, 82, 185, 180, 194, 17, 17);
         }
 
         RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-        this.blit(82, 185, 202, 194 - this.rotation.ordinal() * 20, 17, 17);
+        this.blit(stack, 82, 185, 202, 194 - this.rotation.ordinal() * 20, 17, 17);
 
-        drawCenteredStringWithoutShadow(this.font, I18n.format("gui.slide_show.section.image"), 12);
-        drawCenteredStringWithoutShadow(this.font, I18n.format("gui.slide_show.section.offset"), 86);
-        drawCenteredStringWithoutShadow(this.font, I18n.format("gui.slide_show.section.others"), 138);
+        drawCenteredStringWithoutShadow(stack, this.font, new TranslationTextComponent("gui.slide_show.section.image"), 12);
+        drawCenteredStringWithoutShadow(stack, this.font, new TranslationTextComponent("gui.slide_show.section.offset"), 86);
+        drawCenteredStringWithoutShadow(stack, this.font, new TranslationTextComponent("gui.slide_show.section.others"), 138);
     }
 
-    private static void drawCenteredStringWithoutShadow(FontRenderer renderer, String string, int y) {
-        renderer.drawString(string, 88 - renderer.getStringWidth(string) / 2.0F, y, 0x404040);
+    private static void drawCenteredStringWithoutShadow(MatrixStack stack, FontRenderer renderer, ITextComponent string, int y) {
+        renderer.func_243246_a(stack, string, 88 - renderer.getStringPropertyWidth(string) / 2.0F, y, 0x404040);
     }
 
     private static String toSignedString(float f) {
@@ -369,7 +372,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         private final int u;
         private final int v;
 
-        public Button(int x, int y, int u, int v, int width, int height, String msg, Runnable callback) {
+        public Button(int x, int y, int u, int v, int width, int height, ITextComponent msg, Runnable callback) {
             super(x, y, width, height, msg);
             this.callback = callback;
             this.u = u;
@@ -382,14 +385,15 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         }
 
         @Override
-        public void renderButton(int p_renderButton_1_, int p_renderButton_2_, float p_renderButton_3_) {
+        @SuppressWarnings("deprecation")
+        public void renderButton(MatrixStack stack, int mouseX, int mouseY, float partialTicks) {
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
             RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
 
             Objects.requireNonNull(ProjectorControlScreen.this.minecraft).getTextureManager().bindTexture(GUI_TEXTURE);
             RenderSystem.color4f(1.0F, 1.0F, 1.0F, this.alpha);
-            this.blit(this.x, this.y, this.u, this.v, this.width, this.height);
+            this.blit(stack, this.x, this.y, this.u, this.v, this.width, this.height);
         }
     }
 }

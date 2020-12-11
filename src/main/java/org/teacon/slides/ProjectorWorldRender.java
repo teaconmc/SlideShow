@@ -2,17 +2,16 @@ package org.teacon.slides;
 
 import com.google.common.collect.MapMaker;
 import com.mojang.blaze3d.matrix.MatrixStack;
-import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.IVertexBuilder;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.player.ClientPlayerEntity;
 import net.minecraft.client.renderer.IRenderTypeBuffer;
-import net.minecraft.client.renderer.Matrix4f;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Vec3i;
+import net.minecraft.util.math.vector.Matrix4f;
+import net.minecraft.util.math.vector.Vector3d;
+import net.minecraft.util.math.vector.Vector3i;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -47,18 +46,19 @@ public class ProjectorWorldRender {
         return SlideShow.projector.asItem().equals(i.getItem());
     }
 
-    private static void drawWhiteLine(IVertexBuilder builder, Matrix4f positionMatrix, Vec3i from, Vec3i to) {
+    private static void drawWhiteLine(IVertexBuilder builder, Matrix4f positionMatrix, Vector3i from, Vector3i to) {
         builder.pos(positionMatrix, from.getX(), from.getY(), from.getZ()).endVertex();
         builder.pos(positionMatrix, to.getX(), to.getY(), to.getZ()).endVertex();
     }
 
+    @SuppressWarnings("deprecation")
     private static void locateProjectorTileEntities(MatrixStack matrixStack) {
         IRenderTypeBuffer.Impl buffer = Minecraft.getInstance().getRenderTypeBuffers().getBufferSource();
         IVertexBuilder builder = buffer.getBuffer(SlideRenderType.OVERLAY_LINES);
 
         matrixStack.push();
 
-        Vec3d projectedView = Minecraft.getInstance().gameRenderer.getActiveRenderInfo().getProjectedView();
+        Vector3d projectedView = Minecraft.getInstance().gameRenderer.getActiveRenderInfo().getProjectedView();
         matrixStack.translate(-projectedView.x, -projectedView.y, -projectedView.z); // In default situation, the original position of matrix in world origin point. We should translate it.
 
         Matrix4f matrix = matrixStack.getLast().getMatrix();

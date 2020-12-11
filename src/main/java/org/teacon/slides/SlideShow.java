@@ -64,7 +64,7 @@ public final class SlideShow {
             (projector = new ProjectorBlock(Block.Properties.create(Material.IRON)
                 .hardnessAndResistance(20F)
                 .harvestLevel(0)
-                .lightValue(15) // TODO Configurable
+                .setLightLevel(s -> 15) // TODO Configurable
                 .doesNotBlockMovement())).setRegistryName("slide_show:projector")
         );
     }
@@ -87,6 +87,7 @@ public final class SlideShow {
     public static void setup(final FMLCommonSetupEvent event) {
         PermissionAPI.registerNode("slide_show.interact.projector", DefaultPermissionLevel.ALL, "");
         int index = 0;
+        // noinspection UnusedAssignment
         channel.registerMessage(index++, UpdateImageInfoPacket.class, UpdateImageInfoPacket::write, UpdateImageInfoPacket::new, UpdateImageInfoPacket::handle);
     }
 

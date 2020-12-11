@@ -16,14 +16,14 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '0.3.2'
+version = '0.4.0'
 group = 'org.teaconmc'
 archivesBaseName = 'SlideShow'
 
 sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
 
 minecraft {
-    mappings channel: 'snapshot', version: '20200513-1.15.1'
+    mappings channel: 'snapshot', version: '20201028-1.16.3'
     
     runs {
         client {
@@ -60,7 +60,7 @@ minecraft {
 }
 
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.15.2-31.2.4'
+    minecraft 'net.minecraftforge:forge:1.16.4-35.1.0'
 }
 
 jar {
@@ -86,17 +86,17 @@ publishing {
     publications {
         release(MavenPublication) {
             groupId = "org.teacon"
-            artifactId = "SlideShow-Forge-1.15"
+            artifactId = "SlideShow-Forge-1.16"
 
             artifact reobfArtifact
             pom {
-                name = 'SlideShow for Minecraft 1.15'
+                name = 'SlideShow for Minecraft 1.16'
                 description = 'Minecraft mod, adding a projector that can display online images.'
                 url = 'https://github.com/teaconmc/SlideShow'
                 licenses {
                     license {
                         name = 'BSD-3-Clause'
-                        url = 'https://github.com/teaconmc/SlideShow/blob/1.15-forge/LICENSE'
+                        url = 'https://github.com/teaconmc/SlideShow/blob/1.16-forge/LICENSE'
                     }
                 }
                 developers {

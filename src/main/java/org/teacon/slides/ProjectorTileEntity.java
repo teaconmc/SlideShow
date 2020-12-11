@@ -1,8 +1,7 @@
 package org.teacon.slides;
 
 import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.client.renderer.Matrix4f;
-import net.minecraft.client.renderer.Vector4f;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.container.Container;
@@ -15,6 +14,8 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.Direction;
 import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.vector.Matrix4f;
+import net.minecraft.util.math.vector.Vector4f;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
@@ -86,8 +87,8 @@ public final class ProjectorTileEntity extends TileEntity implements INamedConta
     }
 
     @Override
-    public void read(CompoundNBT data) {
-        super.read(data);
+    public void read(BlockState state, CompoundNBT data) {
+        super.read(state, data);
         this.readOurData(data);
     }
 
@@ -107,8 +108,8 @@ public final class ProjectorTileEntity extends TileEntity implements INamedConta
     }
 
     @Override
-    public void handleUpdateTag(CompoundNBT data) {
-        this.read(data);
+    public void handleUpdateTag(BlockState state, CompoundNBT data) {
+        this.read(state, data);
     }
 
     @OnlyIn(Dist.CLIENT)

@@ -1,6 +1,7 @@
 modLoader="javafml"
 
-loaderVersion="[31,)"
+loaderVersion="[35,)"
+license="BSD-3-Clause"
 
 [[mods]]
 modId="slide_show"
