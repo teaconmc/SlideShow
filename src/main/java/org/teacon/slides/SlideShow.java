@@ -1,5 +1,6 @@
 package org.teacon.slides;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.datafixers.DSL;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.block.Block;
@@ -15,6 +16,7 @@ import net.minecraft.item.Rarity;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ModelRegistryEvent;
 import net.minecraftforge.common.extensions.IForgeContainerType;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -98,6 +100,11 @@ public final class SlideShow {
             RenderTypeLookup.setRenderLayer(projector, RenderType.getCutout());
             ClientRegistry.bindTileEntityRenderer(ProjectorTileEntity.theType, ProjectorRenderer::new);
             ScreenManager.registerFactory(ProjectorControlContainer.theType, ProjectorControlScreen::new);
+        }
+
+        @SubscribeEvent
+        public static void modelLoad(final ModelRegistryEvent event) {
+            RenderSystem.recordRenderCall(ProjectorWorldRender::loadShader);
         }
     }
 }
