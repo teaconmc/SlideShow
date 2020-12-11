@@ -336,7 +336,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
     }
 
     private static void drawCenteredStringWithoutShadow(MatrixStack stack, FontRenderer renderer, ITextComponent string, int y) {
-        renderer.func_243246_a(stack, string, 88 - renderer.getStringPropertyWidth(string) / 2.0F, y, 0x404040);
+        renderer.func_243248_b(stack, string, 88 - renderer.getStringPropertyWidth(string) / 2.0F, y, 0x404040);
     }
 
     private static String toSignedString(float f) {
