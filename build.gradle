@@ -16,7 +16,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '0.3.2'
+version = '0.3.3'
 group = 'org.teaconmc'
 archivesBaseName = 'SlideShow'
 
