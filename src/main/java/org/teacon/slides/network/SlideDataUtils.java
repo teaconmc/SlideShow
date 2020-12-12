@@ -1,4 +1,4 @@
-package org.teacon.slides;
+package org.teacon.slides.network;
 
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.nbt.CompoundNBT;

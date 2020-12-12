@@ -1,39 +1,20 @@
-package org.teacon.slides;
+package org.teacon.slides.renderer;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.IVertexBuilder;
 import net.minecraft.client.renderer.IRenderTypeBuffer;
-import net.minecraft.client.renderer.RenderState;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.NativeImage;
 import net.minecraft.client.renderer.texture.TextureManager;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.vector.Matrix4f;
-import org.lwjgl.opengl.GL11;
 
 import java.io.Closeable;
 
-public abstract class ProjectorRenderEntry implements Closeable {
-    private static final RenderState.AlphaState ALPHA = new RenderState.AlphaState(1F / 255F);
-    private static final RenderState.LightmapState ENABLE_LIGHTMAP = new RenderState.LightmapState(true);
-    private static final RenderState.TransparencyState TRANSLUCENT = new RenderState.TransparencyState("translucent", () -> {
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-    }, RenderSystem::disableBlend);
+public abstract class SlideRenderEntry implements Closeable {
 
-    protected static RenderType slide(ResourceLocation loc) {
-        RenderType.State renderState = RenderType.State.getBuilder()
-                .alpha(ALPHA).lightmap(ENABLE_LIGHTMAP).transparency(TRANSLUCENT)
-                .texture(new RenderState.TextureState(loc, /*blur*/false, /*mipmap*/true)).build(/*outline*/false);
-        return RenderType.makeType("slide_show",
-                DefaultVertexFormats.POSITION_COLOR_TEX_LIGHTMAP, GL11.GL_QUADS,
-                /*buffer size*/256, /*no delegate*/false, /*need sorting data*/true, renderState);
-    }
-
-    protected abstract void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light);
+    public abstract void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light);
 
     public abstract void close();
 
@@ -53,17 +34,17 @@ public abstract class ProjectorRenderEntry implements Closeable {
         return Default.DEFAULT_LOADING;
     }
 
-    private static final class Impl extends ProjectorRenderEntry {
+    private static final class Impl extends SlideRenderEntry {
         private final DynamicTexture texture;
         protected final RenderType renderType;
 
         private Impl(NativeImage nativeImage, TextureManager manager) {
             this.texture = new DynamicTexture(nativeImage);
-            this.renderType = slide(manager.getDynamicTextureLocation("slide_show", this.texture));
+            this.renderType = SlideRenderType.slide(manager.getDynamicTextureLocation("slide_show", this.texture));
         }
 
         @Override
-        protected void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light) {
+        public void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light) {
             int alpha = (color >>> 24) & 255;
             if (alpha > 0) {
                 int red = (color >>> 16) & 255, green = (color >>> 8) & 255, blue = color & 255;
@@ -90,7 +71,7 @@ public abstract class ProjectorRenderEntry implements Closeable {
         }
     }
 
-    private static final class Default extends ProjectorRenderEntry {
+    private static final class Default extends SlideRenderEntry {
         private static final ResourceLocation BACKGROUND = new ResourceLocation("slide_show", "textures/gui/slide_default.png");
         private static final ResourceLocation ICON_EMPTY = new ResourceLocation("slide_show", "textures/gui/slide_icon_empty.png");
         private static final ResourceLocation ICON_FAILED = new ResourceLocation("slide_show", "textures/gui/slide_icon_failed.png");
@@ -104,8 +85,8 @@ public abstract class ProjectorRenderEntry implements Closeable {
         private final RenderType backgroundRenderType;
 
         private Default(ResourceLocation iconLocation, ResourceLocation backgroundLocation) {
-            this.iconRenderType = slide(iconLocation);
-            this.backgroundRenderType = slide(backgroundLocation);
+            this.iconRenderType = SlideRenderType.slide(iconLocation);
+            this.backgroundRenderType = SlideRenderType.slide(backgroundLocation);
         }
 
         private float getFactor(float width, float height) {
@@ -113,7 +94,7 @@ public abstract class ProjectorRenderEntry implements Closeable {
         }
 
         @Override
-        protected void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light) {
+        public void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light) {
             int alpha = (color >>> 24) & 255;
             if (alpha > 0) {
                 float factor = this.getFactor(width, height);

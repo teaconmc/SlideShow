@@ -1,4 +1,4 @@
-package org.teacon.slides;
+package org.teacon.slides.projector;
 
 import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.platform.GlStateManager;
@@ -18,6 +18,8 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.glfw.GLFW;
+import org.teacon.slides.SlideShow;
+import org.teacon.slides.network.UpdateImageInfoPacket;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
@@ -47,7 +49,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
     private boolean invalidWidth = true, invalidHeight = true;
     private boolean invalidOffsetX = true, invalidOffsetY = true, invalidOffsetZ = true;
 
-    protected ProjectorControlScreen(ProjectorControlContainer container, PlayerInventory inv, ITextComponent title) {
+    public ProjectorControlScreen(ProjectorControlContainer container, PlayerInventory inv, ITextComponent title) {
         super(container, inv, title);
         this.xSize = 176;
         this.ySize = 217;

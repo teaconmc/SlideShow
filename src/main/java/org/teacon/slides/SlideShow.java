@@ -30,6 +30,10 @@ import net.minecraftforge.fml.network.NetworkRegistry;
 import net.minecraftforge.fml.network.simple.SimpleChannel;
 import net.minecraftforge.server.permission.DefaultPermissionLevel;
 import net.minecraftforge.server.permission.PermissionAPI;
+import org.teacon.slides.network.UpdateImageInfoPacket;
+import org.teacon.slides.projector.*;
+import org.teacon.slides.renderer.ProjectorTileEntityRenderer;
+import org.teacon.slides.renderer.ProjectorWorldRender;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -98,8 +102,8 @@ public final class SlideShow {
         @SubscribeEvent
         public static void setup(final FMLClientSetupEvent event) {
             RenderTypeLookup.setRenderLayer(projector, RenderType.getCutout());
-            ClientRegistry.bindTileEntityRenderer(ProjectorTileEntity.theType, ProjectorRenderer::new);
             ScreenManager.registerFactory(ProjectorControlContainer.theType, ProjectorControlScreen::new);
+            ClientRegistry.bindTileEntityRenderer(ProjectorTileEntity.theType, ProjectorTileEntityRenderer::new);
         }
 
         @SubscribeEvent

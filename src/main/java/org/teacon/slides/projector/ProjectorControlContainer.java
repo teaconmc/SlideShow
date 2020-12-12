@@ -1,4 +1,4 @@
-package org.teacon.slides;
+package org.teacon.slides.projector;
 
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.entity.player.PlayerEntity;
@@ -11,6 +11,9 @@ import net.minecraftforge.registries.ObjectHolder;
 import net.minecraftforge.server.permission.PermissionAPI;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.teacon.slides.network.SlideData;
+import org.teacon.slides.network.SlideDataUtils;
+import org.teacon.slides.SlideShow;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;

@@ -1,4 +1,4 @@
-package org.teacon.slides;
+package org.teacon.slides.renderer;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -22,6 +22,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.teacon.slides.SlideShow;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.imageio.ImageIO;
@@ -52,7 +53,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
-public final class ProjectorRenderData {
+public final class SlideRenderData {
 
     static final Path LOCAL_CACHE_PATH = Paths.get("slideshow");
     static final Path LOCAL_CACHE_MAP_JSON_PATH = Paths.get("map.json");
@@ -65,20 +66,20 @@ public final class ProjectorRenderData {
 
     static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
 
-    static final LoadingCache<String, AtomicReference<ProjectorRenderEntry>> RENDER_CACHE = CacheBuilder.newBuilder()
+    static final LoadingCache<String, AtomicReference<SlideRenderEntry>> RENDER_CACHE = CacheBuilder.newBuilder()
             .expireAfterAccess(20, TimeUnit.MINUTES).refreshAfterWrite(15, TimeUnit.MINUTES)
-            .<String, AtomicReference<ProjectorRenderEntry>>removalListener(old -> old.getValue().get().close())
-            .build(new CacheLoader<String, AtomicReference<ProjectorRenderEntry>>() {
+            .<String, AtomicReference<SlideRenderEntry>>removalListener(old -> old.getValue().get().close())
+            .build(new CacheLoader<String, AtomicReference<SlideRenderEntry>>() {
                 @Override
-                public AtomicReference<ProjectorRenderEntry> load(String location) {
-                    AtomicReference<ProjectorRenderEntry> ref = new AtomicReference<>(ProjectorRenderEntry.loading());
+                public AtomicReference<SlideRenderEntry> load(String location) {
+                    AtomicReference<SlideRenderEntry> ref = new AtomicReference<>(SlideRenderEntry.loading());
                     Util.getServerExecutor().execute(() -> {
                         try {
                             Path path = Paths.get(LOCAL_CACHE.get(location));
                             NativeImage image = readImage(path);
                             RenderSystem.recordRenderCall(() -> {
                                 TextureManager manager = Minecraft.getInstance().getTextureManager();
-                                ref.compareAndSet(ProjectorRenderEntry.loading(), ProjectorRenderEntry.of(image, manager));
+                                ref.compareAndSet(SlideRenderEntry.loading(), SlideRenderEntry.of(image, manager));
                                 LOGGER.debug("Try attaching to slide show from local path '" + path + "'");
                                 LOGGER.debug("(which corresponds to '" + location + "')");
                                 RENDER_CACHE.refresh(location);
@@ -91,8 +92,8 @@ public final class ProjectorRenderData {
                 }
 
                 @Override
-                public ListenableFuture<AtomicReference<ProjectorRenderEntry>> reload(String location, AtomicReference<ProjectorRenderEntry> old) {
-                    SettableFuture<AtomicReference<ProjectorRenderEntry>> future = SettableFuture.create();
+                public ListenableFuture<AtomicReference<SlideRenderEntry>> reload(String location, AtomicReference<SlideRenderEntry> old) {
+                    SettableFuture<AtomicReference<SlideRenderEntry>> future = SettableFuture.create();
                     Util.getServerExecutor().execute(() -> {
                         try {
                             URL url = new URL(location);
@@ -104,13 +105,13 @@ public final class ProjectorRenderData {
                             saveToCacheJson(LOCAL_CACHE);
                             RenderSystem.recordRenderCall(() -> {
                                 TextureManager manager = Minecraft.getInstance().getTextureManager();
-                                future.set(new AtomicReference<>(ProjectorRenderEntry.of(image, manager)));
+                                future.set(new AtomicReference<>(SlideRenderEntry.of(image, manager)));
                                 LOGGER.debug("Try attaching to slide show from '" + location + "'");
                                 LOGGER.debug("(which corresponds to local path '" + path + "')");
                             });
                         } catch (Exception e) {
-                            old.compareAndSet(ProjectorRenderEntry.loading(), ProjectorRenderEntry.failed());
-                            future.set(new AtomicReference<>(old.getAndSet(ProjectorRenderEntry.failed())));
+                            old.compareAndSet(SlideRenderEntry.loading(), SlideRenderEntry.failed());
+                            future.set(new AtomicReference<>(old.getAndSet(SlideRenderEntry.failed())));
                             // Maybe can be refreshed manually via some client-side command?
                             LOGGER.info("Failed to load slide show from '" + location + "'");
                             LOGGER.debug("Failed to load slide show from '" + location + "'", e);
@@ -120,8 +121,8 @@ public final class ProjectorRenderData {
                 }
             });
 
-    public static ProjectorRenderEntry getEntry(String location) {
-        return StringUtils.isNotBlank(location) ? RENDER_CACHE.getUnchecked(location).get() : ProjectorRenderEntry.empty();
+    public static SlideRenderEntry getEntry(String location) {
+        return StringUtils.isNotBlank(location) ? RENDER_CACHE.getUnchecked(location).get() : SlideRenderEntry.empty();
     }
 
     private static NativeImage readImage(Path location) throws IOException {
@@ -188,5 +189,4 @@ public final class ProjectorRenderData {
             throw new ReportedException(new CrashReport("Failed to save slideshow cache map", e));
         }
     }
-
 }

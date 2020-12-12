@@ -1,4 +1,4 @@
-package org.teacon.slides;
+package org.teacon.slides.network;
 
 import java.util.function.Supplier;
 
@@ -11,6 +11,8 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.fml.network.NetworkEvent;
 import net.minecraftforge.server.permission.PermissionAPI;
+import org.teacon.slides.projector.ProjectorBlock;
+import org.teacon.slides.projector.ProjectorTileEntity;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -18,9 +20,9 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @MethodsReturnNonnullByDefault
 public final class UpdateImageInfoPacket {
 
-    BlockPos pos = BlockPos.ZERO;
-    SlideData data = new SlideData();
-    ProjectorBlock.InternalRotation rotation = ProjectorBlock.InternalRotation.NONE;
+    public BlockPos pos = BlockPos.ZERO;
+    public SlideData data = new SlideData();
+    public ProjectorBlock.InternalRotation rotation = ProjectorBlock.InternalRotation.NONE;
 
     public UpdateImageInfoPacket() {
         // No-op because we need it.

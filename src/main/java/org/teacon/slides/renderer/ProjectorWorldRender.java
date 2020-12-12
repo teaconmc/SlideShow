@@ -1,4 +1,4 @@
-package org.teacon.slides;
+package org.teacon.slides.renderer;
 
 import com.google.common.collect.MapMaker;
 import com.mojang.blaze3d.matrix.MatrixStack;
@@ -27,6 +27,9 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.teacon.slides.SlideShow;
+import org.teacon.slides.projector.ProjectorTileEntity;
+import org.teacon.slides.renderer.SlideRenderType;
 
 import java.io.IOException;
 import java.util.Map;
@@ -64,15 +67,15 @@ public class ProjectorWorldRender {
 
     private static final Map<BlockPos, ProjectorTileEntity> projectors = new MapMaker().weakValues().makeMap();
 
-    static void add(ProjectorTileEntity tileEntity) {
+    public static void add(ProjectorTileEntity tileEntity) {
         projectors.put(tileEntity.getPos(), tileEntity);
     }
 
-    static void remove(ProjectorTileEntity tileEntity) {
+    public static void remove(ProjectorTileEntity tileEntity) {
         projectors.remove(tileEntity.getPos(), tileEntity);
     }
 
-    static void loadShader() {
+    public static void loadShader() {
         if (shaderGroup != null) {
             shaderGroup.close();
         }
@@ -104,7 +107,7 @@ public class ProjectorWorldRender {
             final BlockRendererDispatcher dispatcher = mc.getBlockRendererDispatcher();
 
             final IRenderTypeBuffer.Impl buffer = mc.getRenderTypeBuffers().getBufferSource();
-            final IVertexBuilder builder = buffer.getBuffer(SlideRenderType.BLOCK_OVERLAY);
+            final IVertexBuilder builder = buffer.getBuffer(SlideRenderType.highlight());
             final Vector3d viewPos = mc.gameRenderer.getActiveRenderInfo().getProjectedView();
 
             // step 1: prepare vertices and faces
@@ -125,7 +128,7 @@ public class ProjectorWorldRender {
 
             // step 3: render
             RenderSystem.color3f(1.0F, 1.0F, 1.0F);
-            buffer.finish(SlideRenderType.BLOCK_OVERLAY);
+            buffer.finish(SlideRenderType.highlight());
 
             // step 4: apply shaders
             shaderGroup.render(partialTicks);

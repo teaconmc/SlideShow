@@ -1,4 +1,4 @@
-package org.teacon.slides;
+package org.teacon.slides.projector;
 
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.block.BlockState;
@@ -21,6 +21,9 @@ import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.registries.ObjectHolder;
+import org.teacon.slides.network.SlideData;
+import org.teacon.slides.network.SlideDataUtils;
+import org.teacon.slides.renderer.ProjectorWorldRender;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;

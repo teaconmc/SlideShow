@@ -1,4 +1,4 @@
-package org.teacon.slides;
+package org.teacon.slides.projector;
 
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.block.Block;
@@ -24,6 +24,7 @@ import net.minecraft.util.math.vector.Matrix4f;
 import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.network.NetworkHooks;
+import org.teacon.slides.network.SlideDataUtils;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
