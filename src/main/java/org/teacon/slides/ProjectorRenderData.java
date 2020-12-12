@@ -33,6 +33,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.io.Writer;
 import java.net.URL;
+import java.net.URLConnection;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
@@ -53,6 +54,9 @@ import java.util.concurrent.atomic.AtomicReference;
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 public final class ProjectorRenderData {
+    static final String DEFAULT_REFERER = "https://github.com/teaconmc/SlideShow";
+    // copied from forge gradle 2.3 (class: net.minecraftforge.gradle.common.Constants)
+    static final String DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.95 Safari/537.11";
 
     static final Path LOCAL_CACHE_PATH = Paths.get("slideshow");
     static final Path LOCAL_CACHE_MAP_JSON_PATH = Paths.get("map.json");
@@ -131,7 +135,11 @@ public final class ProjectorRenderData {
     }
 
     private static byte[] readImageBytes(URL location) throws IOException {
-        try (InputStream stream = location.openStream()) {
+        URLConnection connection = location.openConnection();
+        connection.setRequestProperty("Referer", DEFAULT_REFERER);
+        connection.setRequestProperty("User-Agent", DEFAULT_USER_AGENT);
+        connection.setRequestProperty("Accept", String.join(", ", ImageIO.getReaderMIMETypes()));
+        try (InputStream stream = connection.getInputStream()) {
             return IOUtils.toByteArray(stream);
         }
     }
