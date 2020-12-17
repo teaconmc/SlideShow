@@ -12,6 +12,7 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Rotation;
 import net.minecraft.util.math.vector.Matrix4f;
+import net.minecraft.util.math.vector.Vector2f;
 import net.minecraft.util.math.vector.Vector3f;
 import net.minecraft.util.math.vector.Vector4f;
 import net.minecraft.util.text.ITextComponent;
@@ -19,6 +20,7 @@ import net.minecraft.util.text.TranslationTextComponent;
 import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.glfw.GLFW;
 import org.teacon.slides.SlideShow;
+import org.teacon.slides.network.SlideData;
 import org.teacon.slides.network.UpdateImageInfoPacket;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -39,9 +41,10 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
     private TextFieldWidget offsetZInput;
 
     private String url = "";
-    private int color = 0x00000000;
-    private float width = 0F, height = 0F;
-    private float offsetX = 0F, offsetY = 0F, offsetZ = 0F;
+    private int imgColor = 0x00000000;
+    private Vector2f imgSize = Vector2f.ONE;
+    private Vector3f imgOffset = new Vector3f();
+
     private ProjectorBlock.InternalRotation rotation = ProjectorBlock.InternalRotation.NONE;
 
     private boolean invalidURL = true;
@@ -72,7 +75,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
             }
             this.urlInput.setTextColor(this.invalidURL ? 0xE04B4B : 0xE0E0E0);
         });
-        this.urlInput.setText(this.container.currentSlide.imageLocation);
+        this.urlInput.setText(this.container.currentSlide.getImageLocation());
         this.urlInput.setVisible(true);
         this.children.add(this.urlInput);
 
@@ -81,14 +84,14 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.colorInput.setMaxStringLength(8);
         this.colorInput.setResponder(input -> {
             try {
-                this.color = Integer.parseUnsignedInt(input, 16);
+                this.imgColor = Integer.parseUnsignedInt(input, 16);
                 this.invalidColor = false;
             } catch (Exception e) {
                 this.invalidColor = true;
             }
             this.colorInput.setTextColor(this.invalidColor ? 0xE04B4B : 0xE0E0E0);
         });
-        this.colorInput.setText(String.format("%08X", this.container.currentSlide.color));
+        this.colorInput.setText(String.format("%08X", this.container.currentSlide.getColor()));
         this.colorInput.setVisible(true);
         this.children.add(this.colorInput);
 
@@ -96,23 +99,22 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.widthInput = new TextFieldWidget(this.font, this.guiLeft + 30, this.guiTop + 51, 56, 16, new TranslationTextComponent("gui.slide_show.width"));
         this.widthInput.setResponder(input -> {
             try {
-                float newWidth = Float.parseFloat(input);
+                Vector2f newSize = new Vector2f(Float.parseFloat(input), this.imgSize.y);
                 if (!this.invalidOffsetX && !this.invalidOffsetY && !this.invalidOffsetZ) {
-                    Vector3f relative = new Vector3f(this.offsetX, this.offsetY, this.offsetZ);
-                    Vector3f absolute = relativeToAbsolute(relative, this.width, this.height, this.rotation);
-                    Vector3f newRelative = absoluteToRelative(absolute, newWidth, this.height, this.rotation);
+                    Vector3f absolute = relativeToAbsolute(this.imgOffset, this.imgSize, this.rotation);
+                    Vector3f newRelative = absoluteToRelative(absolute, newSize, this.rotation);
                     this.offsetXInput.setText(toSignedString(newRelative.getX()));
                     this.offsetYInput.setText(toSignedString(newRelative.getY()));
                     this.offsetZInput.setText(toSignedString(newRelative.getZ()));
                 }
-                this.width = newWidth;
+                this.imgSize = newSize;
                 this.invalidWidth = false;
             } catch (Exception e) {
                 this.invalidWidth = true;
             }
             this.widthInput.setTextColor(this.invalidWidth ? 0xE04B4B : 0xE0E0E0);
         });
-        this.widthInput.setText(Float.toString(this.container.currentSlide.width));
+        this.widthInput.setText(Float.toString(this.container.currentSlide.getSize().x));
         this.widthInput.setVisible(true);
         this.children.add(this.widthInput);
 
@@ -120,23 +122,22 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.heightInput = new TextFieldWidget(this.font, this.guiLeft + 111, this.guiTop + 51, 56, 16, new TranslationTextComponent("gui.slide_show.height"));
         this.heightInput.setResponder(input -> {
             try {
-                float newHeight = Float.parseFloat(input);
+                Vector2f newSize = new Vector2f(this.imgSize.x, Float.parseFloat(input));
                 if (!this.invalidOffsetX && !this.invalidOffsetY && !this.invalidOffsetZ) {
-                    Vector3f relative = new Vector3f(this.offsetX, this.offsetY, this.offsetZ);
-                    Vector3f absolute = relativeToAbsolute(relative, this.width, this.height, this.rotation);
-                    Vector3f newRelative = absoluteToRelative(absolute, this.width, newHeight, this.rotation);
+                    Vector3f absolute = relativeToAbsolute(this.imgOffset, this.imgSize, this.rotation);
+                    Vector3f newRelative = absoluteToRelative(absolute, newSize, this.rotation);
                     this.offsetXInput.setText(toSignedString(newRelative.getX()));
                     this.offsetYInput.setText(toSignedString(newRelative.getY()));
                     this.offsetZInput.setText(toSignedString(newRelative.getZ()));
                 }
-                this.height = newHeight;
+                this.imgSize = newSize;
                 this.invalidHeight = false;
             } catch (Exception e) {
                 this.invalidHeight = true;
             }
             this.heightInput.setTextColor(this.invalidHeight ? 0xE04B4B : 0xE0E0E0);
         });
-        this.heightInput.setText(Float.toString(this.container.currentSlide.height));
+        this.heightInput.setText(Float.toString(this.container.currentSlide.getSize().y));
         this.heightInput.setVisible(true);
         this.children.add(this.heightInput);
 
@@ -144,14 +145,14 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.offsetXInput = new TextFieldWidget(this.font, this.guiLeft + 30, this.guiTop + 103, 29, 16, new TranslationTextComponent("gui.slide_show.offset_x"));
         this.offsetXInput.setResponder(input -> {
             try {
-                this.offsetX = Float.parseFloat(input);
+                this.imgOffset = new Vector3f(Float.parseFloat(input), this.imgOffset.getY(), this.imgOffset.getZ());
                 this.invalidOffsetX = false;
             } catch (Exception e) {
                 this.invalidOffsetX = true;
             }
             this.offsetXInput.setTextColor(this.invalidOffsetX ? 0xE04B4B : 0xE0E0E0);
         });
-        this.offsetXInput.setText(toSignedString(this.container.currentSlide.offsetX));
+        this.offsetXInput.setText(toSignedString(this.container.currentSlide.getOffset().getX()));
         this.offsetXInput.setVisible(true);
         this.children.add(this.offsetXInput);
 
@@ -159,14 +160,14 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.offsetYInput = new TextFieldWidget(this.font, this.guiLeft + 84, this.guiTop + 103, 29, 16, new TranslationTextComponent("gui.slide_show.offset_y"));
         this.offsetYInput.setResponder(input -> {
             try {
-                this.offsetY = Float.parseFloat(input);
+                this.imgOffset = new Vector3f(this.imgOffset.getX(), Float.parseFloat(input), this.imgOffset.getZ());
                 this.invalidOffsetY = false;
             } catch (Exception e) {
                 this.invalidOffsetY = true;
             }
             this.offsetYInput.setTextColor(this.invalidOffsetY ? 0xE04B4B : 0xE0E0E0);
         });
-        this.offsetYInput.setText(toSignedString(this.container.currentSlide.offsetY));
+        this.offsetYInput.setText(toSignedString(this.container.currentSlide.getOffset().getY()));
         this.offsetYInput.setVisible(true);
         this.children.add(this.offsetYInput);
 
@@ -174,14 +175,14 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.offsetZInput = new TextFieldWidget(this.font, this.guiLeft + 138, this.guiTop + 103, 29, 16, new TranslationTextComponent("gui.slide_show.offset_z"));
         this.offsetZInput.setResponder(input -> {
             try {
-                this.offsetZ = Float.parseFloat(input);
+                this.imgOffset = new Vector3f(this.imgOffset.getX(), this.imgOffset.getY(), Float.parseFloat(input));
                 this.invalidOffsetZ = false;
             } catch (Exception e) {
                 this.invalidOffsetZ = true;
             }
             this.offsetZInput.setTextColor(this.invalidOffsetZ ? 0xE04B4B : 0xE0E0E0);
         });
-        this.offsetZInput.setText(toSignedString(this.container.currentSlide.offsetZ));
+        this.offsetZInput.setText(toSignedString(this.container.currentSlide.getOffset().getZ()));
         this.offsetZInput.setVisible(true);
         this.children.add(this.offsetZInput);
 
@@ -189,9 +190,8 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.addButton(new Button(this.guiLeft + 117, this.guiTop + 153, 179, 153, 18, 19, new TranslationTextComponent("gui.slide_show.flip"), () -> {
             ProjectorBlock.InternalRotation newRotation = this.rotation.flip();
             if (!this.invalidOffsetX && !this.invalidOffsetY && !this.invalidOffsetZ) {
-                Vector3f relative = new Vector3f(this.offsetX, this.offsetY, this.offsetZ);
-                Vector3f absolute = relativeToAbsolute(relative, this.width, this.height, this.rotation);
-                Vector3f newRelative = absoluteToRelative(absolute, this.width, this.height, newRotation);
+                Vector3f absolute = relativeToAbsolute(this.imgOffset, this.imgSize, this.rotation);
+                Vector3f newRelative = absoluteToRelative(absolute, this.imgSize, newRotation);
                 this.offsetXInput.setText(toSignedString(newRelative.getX()));
                 this.offsetYInput.setText(toSignedString(newRelative.getY()));
                 this.offsetZInput.setText(toSignedString(newRelative.getZ()));
@@ -201,9 +201,8 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.addButton(new Button(this.guiLeft + 142, this.guiTop + 153, 179, 173, 18, 19, new TranslationTextComponent("gui.slide_show.rotate"), () -> {
             ProjectorBlock.InternalRotation newRotation = this.rotation.compose(Rotation.CLOCKWISE_90);
             if (!this.invalidOffsetX && !this.invalidOffsetY && !this.invalidOffsetZ) {
-                Vector3f relative = new Vector3f(this.offsetX, this.offsetY, this.offsetZ);
-                Vector3f absolute = relativeToAbsolute(relative, this.width, this.height, this.rotation);
-                Vector3f newRelative = absoluteToRelative(absolute, this.width, this.height, newRotation);
+                Vector3f absolute = relativeToAbsolute(this.imgOffset, this.imgSize, this.rotation);
+                Vector3f newRelative = absoluteToRelative(absolute, this.imgSize, newRotation);
                 this.offsetXInput.setText(toSignedString(newRelative.getX()));
                 this.offsetYInput.setText(toSignedString(newRelative.getY()));
                 this.offsetZInput.setText(toSignedString(newRelative.getZ()));
@@ -227,15 +226,16 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
 
     @Override
     public void onClose() {
+        final SlideData oldData = this.container.currentSlide;
         final UpdateImageInfoPacket packet = new UpdateImageInfoPacket();
+        final boolean invalidSize = this.invalidWidth || this.invalidHeight;
+        final boolean invalidOffset = this.invalidOffsetX || this.invalidOffsetY || this.invalidOffsetZ;
         packet.pos = this.container.pos;
-        packet.data.imageLocation = this.invalidURL ? this.container.currentSlide.imageLocation : this.url;
-        packet.data.color = this.invalidColor ? this.container.currentSlide.color : this.color;
-        packet.data.width = this.invalidWidth ? this.container.currentSlide.width : this.width;
-        packet.data.height = this.invalidHeight ? this.container.currentSlide.height : this.height;
-        packet.data.offsetX = this.invalidOffsetX ? this.container.currentSlide.offsetX : this.offsetX;
-        packet.data.offsetY = this.invalidOffsetY ? this.container.currentSlide.offsetY : this.offsetY;
-        packet.data.offsetZ = this.invalidOffsetZ ? this.container.currentSlide.offsetZ : this.offsetZ;
+        packet.data
+                .setImageLocation(this.invalidURL ? oldData.getImageLocation() : this.url)
+                .setColor(this.invalidColor ? oldData.getColor() : this.imgColor)
+                .setSize(invalidSize ? oldData.getSize() : this.imgSize)
+                .setOffset(invalidOffset ? oldData.getOffset() : this.imgOffset);
         packet.rotation = this.rotation;
         SlideShow.channel.sendToServer(packet);
         super.onClose();
@@ -320,9 +320,9 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         RenderSystem.defaultBlendFunc();
         RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
 
-        int alpha = (this.color >>> 24) & 255;
+        int alpha = (this.imgColor >>> 24) & 255;
         if (alpha > 0) {
-            int red = (this.color >>> 16) & 255, green = (this.color >>> 8) & 255, blue = this.color & 255;
+            int red = (this.imgColor >>> 16) & 255, green = (this.imgColor >>> 8) & 255, blue = this.imgColor & 255;
             Objects.requireNonNull(this.minecraft).getTextureManager().bindTexture(GUI_TEXTURE);
             RenderSystem.color4f(red / 255.0F, green / 255.0F, blue / 255.0F, alpha / 255.0F);
             this.blit(stack, 21, 157, 180, 194, 10, 10);
@@ -345,26 +345,26 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         return Float.isNaN(f) ? "" + f : Math.copySign(1.0F, f) <= 0 ? "-" + (0.0F - f) : "+" + f;
     }
 
-    private static Vector3f relativeToAbsolute(Vector3f relatedOffset, float width, float height, ProjectorBlock.InternalRotation rotation) {
-        Vector4f center = new Vector4f(0.5F * width, 0.0F, 0.5F * height, 1.0F);
+    private static Vector3f relativeToAbsolute(Vector3f relatedOffset, Vector2f size, ProjectorBlock.InternalRotation rotation) {
+        Vector4f center = new Vector4f(0.5F * size.x, 0.0F, 0.5F * size.y, 1.0F);
         // matrix 6: offset for slide (center[new] = center[old] + offset)
         center.transform(Matrix4f.makeTranslate(relatedOffset.getX(), -relatedOffset.getZ(), relatedOffset.getY()));
         // matrix 5: translation for slide
-        center.transform(Matrix4f.makeTranslate(-0.5F, 0.0F, 0.5F - height));
+        center.transform(Matrix4f.makeTranslate(-0.5F, 0.0F, 0.5F - size.y));
         // matrix 4: internal rotation
         center.transform(rotation.getTransformation());
         // ok, that's enough
         return new Vector3f(center.getX(), center.getY(), center.getZ());
     }
 
-    private static Vector3f absoluteToRelative(Vector3f absoluteOffset, float width, float height, ProjectorBlock.InternalRotation rotation) {
+    private static Vector3f absoluteToRelative(Vector3f absoluteOffset, Vector2f size, ProjectorBlock.InternalRotation rotation) {
         Vector4f center = new Vector4f(absoluteOffset);
         // inverse matrix 4: internal rotation
         center.transform(rotation.invert().getTransformation());
         // inverse matrix 5: translation for slide
-        center.transform(Matrix4f.makeTranslate(0.5F, 0.0F, -0.5F + height));
+        center.transform(Matrix4f.makeTranslate(0.5F, 0.0F, -0.5F + size.y));
         // subtract (offset = center[new] - center[old])
-        center.transform(Matrix4f.makeTranslate(-0.5F * width, 0.0F, -0.5F * height));
+        center.transform(Matrix4f.makeTranslate(-0.5F * size.x, 0.0F, -0.5F * size.y));
         // ok, that's enough (remember it is (a, -c, b) => (a, b, c))
         return new Vector3f(center.getX(), center.getZ(), -center.getY());
     }

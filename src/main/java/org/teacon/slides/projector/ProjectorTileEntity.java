@@ -147,11 +147,11 @@ public final class ProjectorTileEntity extends TileEntity implements INamedConta
         // matrix 4: internal rotation
         result.mul(rotation.getTransformation());
         // matrix 5: translation for slide
-        result.mul(Matrix4f.makeTranslate(-0.5F, 0.0F, 0.5F - data.height));
+        result.mul(Matrix4f.makeTranslate(-0.5F, 0.0F, 0.5F - data.getSize().y));
         // matrix 6: offset for slide
-        result.mul(Matrix4f.makeTranslate(data.offsetX, -data.offsetZ, data.offsetY));
+        result.mul(Matrix4f.makeTranslate(data.getOffset().getX(), -data.getOffset().getZ(), data.getOffset().getY()));
         // matrix 7: scaling
-        result.mul(Matrix4f.makeScale(data.width, 1.0F, data.height));
+        result.mul(Matrix4f.makeScale(data.getSize().x, 1.0F, data.getSize().y));
         // TODO: cache transformation
         return result;
     }

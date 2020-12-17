@@ -31,7 +31,10 @@ import net.minecraftforge.fml.network.simple.SimpleChannel;
 import net.minecraftforge.server.permission.DefaultPermissionLevel;
 import net.minecraftforge.server.permission.PermissionAPI;
 import org.teacon.slides.network.UpdateImageInfoPacket;
-import org.teacon.slides.projector.*;
+import org.teacon.slides.projector.ProjectorBlock;
+import org.teacon.slides.projector.ProjectorControlContainer;
+import org.teacon.slides.projector.ProjectorControlScreen;
+import org.teacon.slides.projector.ProjectorTileEntity;
 import org.teacon.slides.renderer.ProjectorTileEntityRenderer;
 import org.teacon.slides.renderer.ProjectorWorldRender;
 
@@ -47,8 +50,10 @@ public final class SlideShow {
     /** 
      * The networking channel version. Since we follow SemVer, this is 
      * always the same as the MAJOR version of the mod version. 
-     */ // Remember to update the network version when MAJOR is bumped
-    private static final String NETWORK_VERSION = "0";
+     */
+    // Remember to update the network version when MAJOR is bumped
+    // Last Update: Thu, 17 Dec 2020 15:00:00 +0800 (0 => 1)
+    private static final String NETWORK_VERSION = "1";
     public static SimpleChannel channel = NetworkRegistry.ChannelBuilder
         .named(new ResourceLocation("silde_show", "network"))
         .networkProtocolVersion(() -> NETWORK_VERSION)
