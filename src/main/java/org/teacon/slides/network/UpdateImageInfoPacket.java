@@ -30,13 +30,13 @@ public final class UpdateImageInfoPacket {
 
     public UpdateImageInfoPacket(PacketBuffer buffer) {
         this.pos = buffer.readBlockPos();
-        SlideDataUtils.readFrom(this.data, buffer);
+        this.data.deserializeNBT(buffer.readCompoundTag());
         this.rotation = buffer.readEnumValue(ProjectorBlock.InternalRotation.class);
     }
 
     public void write(PacketBuffer buffer) {
         buffer.writeBlockPos(this.pos);
-        SlideDataUtils.writeTo(this.data, buffer);
+        buffer.writeCompoundTag(this.data.serializeNBT());
         buffer.writeEnumValue(this.rotation);
     }
 

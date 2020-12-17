@@ -12,7 +12,6 @@ import net.minecraftforge.server.permission.PermissionAPI;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.teacon.slides.network.SlideData;
-import org.teacon.slides.network.SlideDataUtils;
 import org.teacon.slides.SlideShow;
 
 import javax.annotation.Nullable;
@@ -40,7 +39,7 @@ public final class ProjectorControlContainer extends Container {
             Objects.requireNonNull(buffer);
             SlideData data = new SlideData();
             BlockPos pos = buffer.readBlockPos();
-            SlideDataUtils.readFrom(data, buffer);
+            data.deserializeNBT(buffer.readCompoundTag());
             ProjectorBlock.InternalRotation rotation = buffer.readEnumValue(ProjectorBlock.InternalRotation.class);
             return new ProjectorControlContainer(id, pos, data, rotation);
         } catch (Exception e) {

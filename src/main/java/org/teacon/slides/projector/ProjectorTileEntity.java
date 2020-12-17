@@ -22,7 +22,6 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.registries.ObjectHolder;
 import org.teacon.slides.network.SlideData;
-import org.teacon.slides.network.SlideDataUtils;
 import org.teacon.slides.renderer.ProjectorWorldRender;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -40,14 +39,6 @@ public final class ProjectorTileEntity extends TileEntity implements INamedConta
 
     public ProjectorTileEntity() {
         super(Objects.requireNonNull(theType));
-    }
-
-    public CompoundNBT writeOurData(CompoundNBT data) {
-        return SlideDataUtils.writeTo(this.currentSlide, data);
-    }
-
-    public void readOurData(CompoundNBT data) {
-        SlideDataUtils.readFrom(this.currentSlide, data);
     }
 
     @Override
@@ -86,23 +77,24 @@ public final class ProjectorTileEntity extends TileEntity implements INamedConta
 
     @Override
     public CompoundNBT write(CompoundNBT data) {
-        return super.write(this.writeOurData(data));
+        super.write(data);
+        return data.merge(this.currentSlide.serializeNBT());
     }
 
     @Override
     public void read(BlockState state, CompoundNBT data) {
         super.read(state, data);
-        this.readOurData(data);
+        this.currentSlide.deserializeNBT(data);
     }
 
     @Override
     public SUpdateTileEntityPacket getUpdatePacket() {
-        return new SUpdateTileEntityPacket(this.pos, 0, this.writeOurData(new CompoundNBT()));
+        return new SUpdateTileEntityPacket(this.pos, 0, this.currentSlide.serializeNBT());
     }
 
     @Override
     public void onDataPacket(NetworkManager net, SUpdateTileEntityPacket packet) {
-        this.readOurData(packet.getNbtCompound());
+        this.currentSlide.deserializeNBT(packet.getNbtCompound());
     }
 
     @Override

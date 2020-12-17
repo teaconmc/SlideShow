@@ -24,7 +24,6 @@ import net.minecraft.util.math.vector.Matrix4f;
 import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.network.NetworkHooks;
-import org.teacon.slides.network.SlideDataUtils;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
@@ -111,7 +110,7 @@ public final class ProjectorBlock extends Block {
             final ProjectorTileEntity projector = (ProjectorTileEntity) tile;
             NetworkHooks.openGui((ServerPlayerEntity) player, projector, buffer -> {
                 buffer.writeBlockPos(pos);
-                SlideDataUtils.writeTo(projector.currentSlide, buffer);
+                buffer.writeCompoundTag(projector.currentSlide.serializeNBT());
                 buffer.writeEnumValue(state.get(ROTATION));
             });
         }
