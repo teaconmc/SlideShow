@@ -153,6 +153,10 @@ public final class ProjectorBlock extends Block {
             return InternalRotation.values()[INV_ORDINALS[this.ordinal()]];
         }
 
+        public boolean isFlipped() {
+            return this.ordinal() >= 4;
+        }
+
         public Matrix4f getTransformation() {
             return this.transformation;
         }

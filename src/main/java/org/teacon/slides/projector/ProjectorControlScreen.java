@@ -40,7 +40,11 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
     private TextFieldWidget offsetYInput;
     private TextFieldWidget offsetZInput;
 
+    private Button switchSingleSided;
+    private Button switchDoubleSided;
+
     private String url = "";
+    private boolean isDoubleSided;
     private int imgColor = 0x00000000;
     private Vector2f imgSize = Vector2f.ONE;
     private Vector3f imgOffset = new Vector3f();
@@ -80,7 +84,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.children.add(this.urlInput);
 
         // color input
-        this.colorInput = new TextFieldWidget(this.font, this.guiLeft + 38, this.guiTop + 155, 56, 16, new TranslationTextComponent("gui.slide_show.color"));
+        this.colorInput = new TextFieldWidget(this.font, this.guiLeft + 55, this.guiTop + 155, 56, 16, new TranslationTextComponent("gui.slide_show.color"));
         this.colorInput.setMaxStringLength(8);
         this.colorInput.setResponder(input -> {
             try {
@@ -210,6 +214,21 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
             this.rotation = newRotation;
         }));
         this.rotation = this.container.rotation;
+
+        // single sided / double sided
+        this.switchSingleSided = this.addButton(new Button(this.guiLeft + 9, this.guiTop + 153, 179, 113, 18, 19, new TranslationTextComponent("gui.slide_show.single_double_sided"), () -> {
+            this.isDoubleSided = false;
+            this.switchDoubleSided.visible = true;
+            this.switchSingleSided.visible = false;
+        }));
+        this.switchDoubleSided = this.addButton(new Button(this.guiLeft + 9, this.guiTop + 153, 179, 133, 18, 19, new TranslationTextComponent("gui.slide_show.single_double_sided"), () -> {
+            this.isDoubleSided = true;
+            this.switchSingleSided.visible = true;
+            this.switchDoubleSided.visible = false;
+        }));
+        this.isDoubleSided = this.rotation.isFlipped() ? this.container.currentSlide.isBackVisible() : this.container.currentSlide.isFrontVisible();
+        this.switchDoubleSided.visible = !this.isDoubleSided;
+        this.switchSingleSided.visible = this.isDoubleSided;
     }
 
     @Override
@@ -235,7 +254,9 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
                 .setImageLocation(this.invalidURL ? oldData.getImageLocation() : this.url)
                 .setColor(this.invalidColor ? oldData.getColor() : this.imgColor)
                 .setSize(invalidSize ? oldData.getSize() : this.imgSize)
-                .setOffset(invalidOffset ? oldData.getOffset() : this.imgOffset);
+                .setOffset(invalidOffset ? oldData.getOffset() : this.imgOffset)
+                .setFrontVisible(this.isDoubleSided || this.rotation.isFlipped())
+                .setBackVisible(this.isDoubleSided || !this.rotation.isFlipped());
         packet.rotation = this.rotation;
         SlideShow.channel.sendToServer(packet);
         super.onClose();
@@ -279,7 +300,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         if (offsetX >= 9 && offsetY >= 27 && offsetX < 27 && offsetY < 46) {
             this.renderTooltip(stack, new TranslationTextComponent("gui.slide_show.url"), mouseX, mouseY);
         }
-        if (offsetX >= 17 && offsetY >= 153 && offsetX < 35 && offsetY < 172) {
+        if (offsetX >= 34 && offsetY >= 153 && offsetX < 52 && offsetY < 172) {
             this.renderTooltip(stack, new TranslationTextComponent("gui.slide_show.color"), mouseX, mouseY);
         }
         if (offsetX >= 9 && offsetY >= 49 && offsetX < 27 && offsetY < 68) {
@@ -303,6 +324,9 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         if (offsetX >= 142 && offsetY >= 153 && offsetX < 160 && offsetY < 172) {
             this.renderTooltip(stack, new TranslationTextComponent("gui.slide_show.rotate"), mouseX, mouseY);
         }
+        if (offsetX >= 9 && offsetY >= 153 && offsetX < 27 && offsetY < 172) {
+            this.renderTooltip(stack, new TranslationTextComponent("gui.slide_show.single_double_sided"), mouseX, mouseY);
+        }
     }
 
     @Override
@@ -325,7 +349,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
             int red = (this.imgColor >>> 16) & 255, green = (this.imgColor >>> 8) & 255, blue = this.imgColor & 255;
             Objects.requireNonNull(this.minecraft).getTextureManager().bindTexture(GUI_TEXTURE);
             RenderSystem.color4f(red / 255.0F, green / 255.0F, blue / 255.0F, alpha / 255.0F);
-            this.blit(stack, 21, 157, 180, 194, 10, 10);
+            this.blit(stack, 38, 157, 180, 194, 10, 10);
             this.blit(stack, 82, 185, 180, 194, 17, 17);
         }
 

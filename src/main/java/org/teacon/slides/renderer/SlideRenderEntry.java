@@ -14,7 +14,7 @@ import java.io.Closeable;
 
 public abstract class SlideRenderEntry implements Closeable {
 
-    public abstract void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light);
+    public abstract void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light, boolean renderFront, boolean renderBack);
 
     public abstract void close();
 
@@ -44,25 +44,29 @@ public abstract class SlideRenderEntry implements Closeable {
         }
 
         @Override
-        public void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light) {
+        public void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light, boolean renderFront, boolean renderBack) {
             int alpha = (color >>> 24) & 255;
             if (alpha > 0) {
                 int red = (color >>> 16) & 255, green = (color >>> 8) & 255, blue = color & 255;
-                this.renderSlide(buffer, matrix, alpha, red, green, blue, light);
+                this.renderSlide(buffer, matrix, alpha, red, green, blue, light, renderFront, renderBack);
             }
         }
 
-        private void renderSlide(IRenderTypeBuffer buffer, Matrix4f matrix, int alpha, int red, int green, int blue, int light) {
+        private void renderSlide(IRenderTypeBuffer buffer, Matrix4f matrix, int alpha, int red, int green, int blue, int light, boolean renderFront, boolean renderBack) {
             final IVertexBuilder builder = buffer.getBuffer(this.renderType);
             // We are using GL11.GL_QUAD, vertex format Pos -> Color -> Tex -> Light -> End.
-            builder.pos(matrix, 0F, 1F / 256F, 1F).color(red, green, blue, alpha).tex(0F, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, 1F / 256F, 1F).color(red, green, blue, alpha).tex(1F, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, 1F / 256F, 0F).color(red, green, blue, alpha).tex(1F, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, 1F / 256F, 0F).color(red, green, blue, alpha).tex(0F, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, -1F / 256F, 0F).color(red, green, blue, alpha).tex(0F, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, -1F / 256F, 0F).color(red, green, blue, alpha).tex(1F, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, -1F / 256F, 1F).color(red, green, blue, alpha).tex(1F, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, -1F / 256F, 1F).color(red, green, blue, alpha).tex(0F, 1F).lightmap(light).endVertex();
+            if (renderFront) {
+                builder.pos(matrix, 0F, 1F / 256F, 1F).color(red, green, blue, alpha).tex(0F, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, 1F / 256F, 1F).color(red, green, blue, alpha).tex(1F, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, 1F / 256F, 0F).color(red, green, blue, alpha).tex(1F, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, 0F, 1F / 256F, 0F).color(red, green, blue, alpha).tex(0F, 0F).lightmap(light).endVertex();
+            }
+            if (renderBack) {
+                builder.pos(matrix, 0F, -1F / 256F, 0F).color(red, green, blue, alpha).tex(0F, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, -1F / 256F, 0F).color(red, green, blue, alpha).tex(1F, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, -1F / 256F, 1F).color(red, green, blue, alpha).tex(1F, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, 0F, -1F / 256F, 1F).color(red, green, blue, alpha).tex(0F, 1F).lightmap(light).endVertex();
+            }
         }
 
         @Override
@@ -94,31 +98,35 @@ public abstract class SlideRenderEntry implements Closeable {
         }
 
         @Override
-        public void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light) {
+        public void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light, boolean renderFront, boolean renderBack) {
             int alpha = (color >>> 24) & 255;
             if (alpha > 0) {
                 float factor = this.getFactor(width, height);
                 int xSize = Math.round(width / factor), ySize = Math.round(height / factor);
-                this.renderBackground(buffer, matrix, alpha, light, xSize, ySize);
-                this.renderIcon(buffer, matrix, alpha, light, xSize, ySize);
+                this.renderIcon(buffer, matrix, alpha, light, xSize, ySize, renderFront, renderBack);
+                this.renderBackground(buffer, matrix, alpha, light, xSize, ySize, renderFront, renderBack);
             }
         }
 
-        private void renderIcon(IRenderTypeBuffer buffer, Matrix4f matrix, int alpha, int light, int xSize, int ySize) {
+        private void renderIcon(IRenderTypeBuffer buffer, Matrix4f matrix, int alpha, int light, int xSize, int ySize, boolean renderFront, boolean renderBack) {
             IVertexBuilder builder = buffer.getBuffer(this.iconRenderType);
             // We are using GL11.GL_QUAD, vertex format Pos -> Color -> Tex -> Light -> End.
             float x1 = (1F - 19F / xSize) / 2F, x2 = 1F - x1, y1 = (1F - 16F / ySize) / 2F, y2 = 1F - y1;
-            builder.pos(matrix, x1, 1F / 128F, y2).color(255, 255, 255, alpha).tex(0F, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 128F, y2).color(255, 255, 255, alpha).tex(1F, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 128F, y1).color(255, 255, 255, alpha).tex(1F, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, x1, 1F / 128F, y1).color(255, 255, 255, alpha).tex(0F, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 128F, y1).color(255, 255, 255, alpha).tex(0F, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 128F, y1).color(255, 255, 255, alpha).tex(1F, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 128F, y2).color(255, 255, 255, alpha).tex(1F, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 128F, y2).color(255, 255, 255, alpha).tex(0F, 1F).lightmap(light).endVertex();
+            if (renderFront) {
+                builder.pos(matrix, x1, 1F / 128F, y2).color(255, 255, 255, alpha).tex(0F, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 128F, y2).color(255, 255, 255, alpha).tex(1F, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 128F, y1).color(255, 255, 255, alpha).tex(1F, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, x1, 1F / 128F, y1).color(255, 255, 255, alpha).tex(0F, 0F).lightmap(light).endVertex();
+            }
+            if (renderBack) {
+                builder.pos(matrix, x1, -1F / 128F, y1).color(255, 255, 255, alpha).tex(0F, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 128F, y1).color(255, 255, 255, alpha).tex(1F, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 128F, y2).color(255, 255, 255, alpha).tex(1F, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, x1, -1F / 128F, y2).color(255, 255, 255, alpha).tex(0F, 1F).lightmap(light).endVertex();
+            }
         }
 
-        private void renderBackground(IRenderTypeBuffer buffer, Matrix4f matrix, int alpha, int light, int xSize, int ySize) {
+        private void renderBackground(IRenderTypeBuffer buffer, Matrix4f matrix, int alpha, int light, int xSize, int ySize, boolean renderFront, boolean renderBack) {
             IVertexBuilder builder = buffer.getBuffer(this.backgroundRenderType);
             // We are using GL11.GL_QUAD, vertex format Pos -> Color -> Tex -> Light -> End.
             float u1 = 9F / 19F, u2 = 10F / 19F, x1 = 9F / xSize, x2 = 1F - x1, y1 = 9F / ySize, y2 = 1F - y1;
@@ -128,88 +136,100 @@ public abstract class SlideRenderEntry implements Closeable {
              *
              * xs = [('0F', '0F'), ('x1', 'u1'), ('x2', 'u2'), ('1F', '1F')]
              * ys = [('0F', '0F'), ('y1', 'u1'), ('y2', 'u2'), ('1F', '1F')]
-             * fmt = 'builder.pos(matrix, {}, {}, {}).color(255, 255, 255, alpha).tex({}, {}).lightmap(light).endVertex();'
+             * fmt = '    builder.pos(matrix, {}, {}, {}).color(255, 255, 255, alpha).tex({}, {}).lightmap(light).endVertex();'
              *
+             * print('if (renderFront) {')
              * for i in range(3):
              *     for j in range(3):
              *         a, b, c, d = xs[i], xs[i + 1], ys[j], ys[j + 1]
              *         for k, l in [(a, d), (b, d), (b, c), (a, c)]:
              *             print(fmt.format(k[0], '1F / 256F', l[0], k[1], l[1]))
+             * print('}')
+             *
+             * print('if (renderBack) {')
+             * for i in range(3):
+             *     for j in range(3):
+             *         a, b, c, d = xs[i], xs[i + 1], ys[j], ys[j + 1]
              *         for k, l in [(a, c), (b, c), (b, d), (a, d)]:
              *             print(fmt.format(k[0], '-1F / 256F', l[0], k[1], l[1]))
+             * print('}')
              */
-            builder.pos(matrix, 0F, 1F / 256F, y1).color(255, 255, 255, alpha).tex(0F, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x1, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x1, 1F / 256F, 0F).color(255, 255, 255, alpha).tex(u1, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, 1F / 256F, 0F).color(255, 255, 255, alpha).tex(0F, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, -1F / 256F, 0F).color(255, 255, 255, alpha).tex(0F, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 256F, 0F).color(255, 255, 255, alpha).tex(u1, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, -1F / 256F, y1).color(255, 255, 255, alpha).tex(0F, u1).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, 1F / 256F, y2).color(255, 255, 255, alpha).tex(0F, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x1, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x1, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, 1F / 256F, y1).color(255, 255, 255, alpha).tex(0F, u1).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, -1F / 256F, y1).color(255, 255, 255, alpha).tex(0F, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, -1F / 256F, y2).color(255, 255, 255, alpha).tex(0F, u2).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, 1F / 256F, 1F).color(255, 255, 255, alpha).tex(0F, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, x1, 1F / 256F, 1F).color(255, 255, 255, alpha).tex(u1, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, x1, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, 1F / 256F, y2).color(255, 255, 255, alpha).tex(0F, u2).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, -1F / 256F, y2).color(255, 255, 255, alpha).tex(0F, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 256F, 1F).color(255, 255, 255, alpha).tex(u1, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, 0F, -1F / 256F, 1F).color(255, 255, 255, alpha).tex(0F, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, x1, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 256F, 0F).color(255, 255, 255, alpha).tex(u2, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, x1, 1F / 256F, 0F).color(255, 255, 255, alpha).tex(u1, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 256F, 0F).color(255, 255, 255, alpha).tex(u1, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 256F, 0F).color(255, 255, 255, alpha).tex(u2, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x1, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x1, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x1, 1F / 256F, 1F).color(255, 255, 255, alpha).tex(u1, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 256F, 1F).color(255, 255, 255, alpha).tex(u2, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x1, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 256F, 1F).color(255, 255, 255, alpha).tex(u2, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, x1, -1F / 256F, 1F).color(255, 255, 255, alpha).tex(u1, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, 1F / 256F, y1).color(255, 255, 255, alpha).tex(1F, u1).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, 1F / 256F, 0F).color(255, 255, 255, alpha).tex(1F, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 256F, 0F).color(255, 255, 255, alpha).tex(u2, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 256F, 0F).color(255, 255, 255, alpha).tex(u2, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, -1F / 256F, 0F).color(255, 255, 255, alpha).tex(1F, 0F).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, -1F / 256F, y1).color(255, 255, 255, alpha).tex(1F, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, 1F / 256F, y2).color(255, 255, 255, alpha).tex(1F, u2).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, 1F / 256F, y1).color(255, 255, 255, alpha).tex(1F, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, -1F / 256F, y1).color(255, 255, 255, alpha).tex(1F, u1).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, -1F / 256F, y2).color(255, 255, 255, alpha).tex(1F, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 256F, 1F).color(255, 255, 255, alpha).tex(u2, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, 1F / 256F, 1F).color(255, 255, 255, alpha).tex(1F, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, 1F / 256F, y2).color(255, 255, 255, alpha).tex(1F, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x2, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, -1F / 256F, y2).color(255, 255, 255, alpha).tex(1F, u2).lightmap(light).endVertex();
-            builder.pos(matrix, 1F, -1F / 256F, 1F).color(255, 255, 255, alpha).tex(1F, 1F).lightmap(light).endVertex();
-            builder.pos(matrix, x2, -1F / 256F, 1F).color(255, 255, 255, alpha).tex(u2, 1F).lightmap(light).endVertex();
+            if (renderFront) {
+                builder.pos(matrix, 0F, 1F / 256F, y1).color(255, 255, 255, alpha).tex(0F, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x1, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x1, 1F / 256F, 0F).color(255, 255, 255, alpha).tex(u1, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, 0F, 1F / 256F, 0F).color(255, 255, 255, alpha).tex(0F, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, 0F, 1F / 256F, y2).color(255, 255, 255, alpha).tex(0F, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x1, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x1, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
+                builder.pos(matrix, 0F, 1F / 256F, y1).color(255, 255, 255, alpha).tex(0F, u1).lightmap(light).endVertex();
+                builder.pos(matrix, 0F, 1F / 256F, 1F).color(255, 255, 255, alpha).tex(0F, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, x1, 1F / 256F, 1F).color(255, 255, 255, alpha).tex(u1, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, x1, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
+                builder.pos(matrix, 0F, 1F / 256F, y2).color(255, 255, 255, alpha).tex(0F, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x1, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 256F, 0F).color(255, 255, 255, alpha).tex(u2, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, x1, 1F / 256F, 0F).color(255, 255, 255, alpha).tex(u1, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, x1, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x1, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x1, 1F / 256F, 1F).color(255, 255, 255, alpha).tex(u1, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 256F, 1F).color(255, 255, 255, alpha).tex(u2, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x1, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, 1F / 256F, y1).color(255, 255, 255, alpha).tex(1F, u1).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, 1F / 256F, 0F).color(255, 255, 255, alpha).tex(1F, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 256F, 0F).color(255, 255, 255, alpha).tex(u2, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, 1F / 256F, y2).color(255, 255, 255, alpha).tex(1F, u2).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, 1F / 256F, y1).color(255, 255, 255, alpha).tex(1F, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 256F, 1F).color(255, 255, 255, alpha).tex(u2, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, 1F / 256F, 1F).color(255, 255, 255, alpha).tex(1F, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, 1F / 256F, y2).color(255, 255, 255, alpha).tex(1F, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x2, 1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
+            }
+            if (renderBack) {
+                builder.pos(matrix, 0F, -1F / 256F, 0F).color(255, 255, 255, alpha).tex(0F, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, x1, -1F / 256F, 0F).color(255, 255, 255, alpha).tex(u1, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, x1, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
+                builder.pos(matrix, 0F, -1F / 256F, y1).color(255, 255, 255, alpha).tex(0F, u1).lightmap(light).endVertex();
+                builder.pos(matrix, 0F, -1F / 256F, y1).color(255, 255, 255, alpha).tex(0F, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x1, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x1, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
+                builder.pos(matrix, 0F, -1F / 256F, y2).color(255, 255, 255, alpha).tex(0F, u2).lightmap(light).endVertex();
+                builder.pos(matrix, 0F, -1F / 256F, y2).color(255, 255, 255, alpha).tex(0F, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x1, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x1, -1F / 256F, 1F).color(255, 255, 255, alpha).tex(u1, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, 0F, -1F / 256F, 1F).color(255, 255, 255, alpha).tex(0F, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, x1, -1F / 256F, 0F).color(255, 255, 255, alpha).tex(u1, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 256F, 0F).color(255, 255, 255, alpha).tex(u2, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x1, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x1, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u1, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x1, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x1, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u1, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 256F, 1F).color(255, 255, 255, alpha).tex(u2, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, x1, -1F / 256F, 1F).color(255, 255, 255, alpha).tex(u1, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 256F, 0F).color(255, 255, 255, alpha).tex(u2, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, -1F / 256F, 0F).color(255, 255, 255, alpha).tex(1F, 0F).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, -1F / 256F, y1).color(255, 255, 255, alpha).tex(1F, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 256F, y1).color(255, 255, 255, alpha).tex(u2, u1).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, -1F / 256F, y1).color(255, 255, 255, alpha).tex(1F, u1).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, -1F / 256F, y2).color(255, 255, 255, alpha).tex(1F, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 256F, y2).color(255, 255, 255, alpha).tex(u2, u2).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, -1F / 256F, y2).color(255, 255, 255, alpha).tex(1F, u2).lightmap(light).endVertex();
+                builder.pos(matrix, 1F, -1F / 256F, 1F).color(255, 255, 255, alpha).tex(1F, 1F).lightmap(light).endVertex();
+                builder.pos(matrix, x2, -1F / 256F, 1F).color(255, 255, 255, alpha).tex(u2, 1F).lightmap(light).endVertex();
+            }
         }
 
         @Override

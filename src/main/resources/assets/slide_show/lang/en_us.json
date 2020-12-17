@@ -10,6 +10,7 @@
     "gui.slide_show.offset_z": "Move Backward/Forward",
     "gui.slide_show.flip": "Flip Horizontally",
     "gui.slide_show.rotate": "Rotate Clockwise",
+    "gui.slide_show.single_double_sided": "Switch Single-Sided / Double-Sided",
 
     "gui.slide_show.section.image": "Image Properties",
     "gui.slide_show.section.offset": "Slide Offset",

@@ -25,9 +25,10 @@ public class ProjectorTileEntityRenderer extends TileEntityRenderer<ProjectorTil
         final Matrix4f transformation = matrixStack.getLast().getMatrix();
         final float width = tile.currentSlide.getSize().x, height = tile.currentSlide.getSize().y;
         final SlideRenderEntry entry = SlideRenderData.getEntry(tile.currentSlide.getImageLocation());
+        final boolean renderFront = tile.currentSlide.isFrontVisible(), renderBack = tile.currentSlide.isBackVisible();
 
         transformation.mul(tile.getTransformation());
-        entry.render(buffer, transformation, width, height, tile.currentSlide.getColor(), combinedLight);
+        entry.render(buffer, transformation, width, height, tile.currentSlide.getColor(), combinedLight, renderFront, renderBack);
 
         matrixStack.pop();
     }

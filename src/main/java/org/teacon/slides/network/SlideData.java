@@ -18,6 +18,8 @@ public final class SlideData implements INBTSerializable<CompoundNBT> {
     private int imgColor;
     private Vector2f imgSize;
     private Vector3f imgOffset;
+    private boolean backVisibility;
+    private boolean frontVisibility;
 
     public SlideData() {
         this.url = "";
@@ -62,6 +64,24 @@ public final class SlideData implements INBTSerializable<CompoundNBT> {
         return this;
     }
 
+    public boolean isBackVisible() {
+        return this.backVisibility;
+    }
+
+    public SlideData setBackVisible(boolean visible) {
+        this.backVisibility = visible;
+        return this;
+    }
+
+    public boolean isFrontVisible() {
+        return this.frontVisibility;
+    }
+
+    public SlideData setFrontVisible(boolean visible) {
+        this.frontVisibility = visible;
+        return this;
+    }
+
     @Override
     public CompoundNBT serializeNBT() {
         CompoundNBT nbt = new CompoundNBT();
@@ -72,6 +92,8 @@ public final class SlideData implements INBTSerializable<CompoundNBT> {
         nbt.putFloat("OffsetX", this.imgOffset.getX());
         nbt.putFloat("OffsetY", this.imgOffset.getY());
         nbt.putFloat("OffsetZ", this.imgOffset.getZ());
+        nbt.putBoolean("BackInvisible", !this.backVisibility);
+        nbt.putBoolean("FrontInvisible", !this.frontVisibility);
         return nbt;
     }
 
@@ -81,5 +103,7 @@ public final class SlideData implements INBTSerializable<CompoundNBT> {
         this.imgColor = nbt.getInt("Color");
         this.imgSize = new Vector2f(nbt.getFloat("Width"), nbt.getFloat("Height"));
         this.imgOffset = new Vector3f(nbt.getFloat("OffsetX"), nbt.getFloat("OffsetY"), nbt.getFloat("OffsetZ"));
+        this.backVisibility = !nbt.getBoolean("BackInvisible");
+        this.frontVisibility = !nbt.getBoolean("FrontInvisible");
     }
 }
