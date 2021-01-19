@@ -143,7 +143,7 @@ task("githubActionOutput") {
         System.env.GITHUB_ACTIONS
     }
     doLast {
-        println "::set-output name=artifact_path::$buildDir/reobfJar/output.jar"
-        println "::set-output name=artifact_name::$archivesBaseName-${version}.jar"
+        println "::set-output name=artifact_path::${jar.archiveFile.get().asFile.absolutePath}"
+        println "::set-output name=artifact_name::${jar.archiveFileName.get()}"
     }
 }
