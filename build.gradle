@@ -143,7 +143,9 @@ task("githubActionOutput") {
         System.env.GITHUB_ACTIONS
     }
     doLast {
-        println "::set-output name=artifact_path::${jar.archiveFile.get().asFile.absolutePath}"
-        println "::set-output name=artifact_name::${jar.archiveFileName.get()}"
+        // AbstractArchiveTask was introduced in Gradle 5.1 so we can't use it in 4.10.3
+        // https://docs.gradle.org/current/javadoc/org/gradle/api/tasks/bundling/AbstractArchiveTask.html#getArchiveFile--
+        println "::set-output name=artifact_path::${jar.archivePath.absolutePath}"
+        println "::set-output name=artifact_name::${jar.archiveName}"
     }
 }
