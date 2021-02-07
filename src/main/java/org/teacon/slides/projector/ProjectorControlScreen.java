@@ -118,7 +118,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
             }
             this.widthInput.setTextColor(this.invalidWidth ? 0xE04B4B : 0xE0E0E0);
         });
-        this.widthInput.setText(Float.toString(this.container.currentSlide.getSize().x));
+        this.widthInput.setText(toOptionalSignedString(this.container.currentSlide.getSize().x));
         this.widthInput.setVisible(true);
         this.children.add(this.widthInput);
 
@@ -141,7 +141,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
             }
             this.heightInput.setTextColor(this.invalidHeight ? 0xE04B4B : 0xE0E0E0);
         });
-        this.heightInput.setText(Float.toString(this.container.currentSlide.getSize().y));
+        this.heightInput.setText(toOptionalSignedString(this.container.currentSlide.getSize().y));
         this.heightInput.setVisible(true);
         this.children.add(this.heightInput);
 
@@ -365,8 +365,12 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         renderer.func_243248_b(stack, string, 88 - renderer.getStringPropertyWidth(string) / 2.0F, y, 0x404040);
     }
 
+    private static String toOptionalSignedString(float f) {
+        return Float.toString(Math.round(f * 1.0E5F) / 1.0E5F);
+    }
+
     private static String toSignedString(float f) {
-        return Float.isNaN(f) ? "" + f : Math.copySign(1.0F, f) <= 0 ? "-" + (0.0F - f) : "+" + f;
+         return Float.isNaN(f) ? "" + f : Math.copySign(1.0F, f) <= 0 ? "-" + Math.round(0.0F - f * 1.0E5F) / 1.0E5F : "+" + Math.round(f * 1.0E5F) / 1.0E5F;
     }
 
     private static Vector3f relativeToAbsolute(Vector3f relatedOffset, Vector2f size, ProjectorBlock.InternalRotation rotation) {
