@@ -5,6 +5,7 @@ import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.IRenderTypeBuffer;
 import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
 import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
+import net.minecraft.state.properties.BlockStateProperties;
 import net.minecraft.util.math.vector.Matrix4f;
 import org.teacon.slides.projector.ProjectorTileEntity;
 
@@ -20,17 +21,19 @@ public class ProjectorTileEntityRenderer extends TileEntityRenderer<ProjectorTil
 
     @Override
     public void render(ProjectorTileEntity tile, float partialTicks, MatrixStack matrixStack, IRenderTypeBuffer buffer, int combinedLight, int combinedOverlay) {
-        matrixStack.push();
+        if (!tile.getBlockState().get(BlockStateProperties.POWERED)) {
+            matrixStack.push();
 
-        final Matrix4f transformation = matrixStack.getLast().getMatrix();
-        final float width = tile.currentSlide.getSize().x, height = tile.currentSlide.getSize().y;
-        final SlideRenderEntry entry = SlideRenderData.getEntry(tile.currentSlide.getImageLocation());
-        final boolean renderFront = tile.currentSlide.isFrontVisible(), renderBack = tile.currentSlide.isBackVisible();
+            final Matrix4f transformation = matrixStack.getLast().getMatrix();
+            final float width = tile.currentSlide.getSize().x, height = tile.currentSlide.getSize().y;
+            final SlideRenderEntry entry = SlideRenderData.getEntry(tile.currentSlide.getImageLocation());
+            final boolean renderFront = tile.currentSlide.isFrontVisible(), renderBack = tile.currentSlide.isBackVisible();
 
-        transformation.mul(tile.getTransformation());
-        entry.render(buffer, transformation, width, height, tile.currentSlide.getColor(), combinedLight, renderFront, renderBack);
+            transformation.mul(tile.getTransformation());
+            entry.render(buffer, transformation, width, height, tile.currentSlide.getColor(), combinedLight, renderFront, renderBack);
 
-        matrixStack.pop();
+            matrixStack.pop();
+        }
     }
 
     @Override

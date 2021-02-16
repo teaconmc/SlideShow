@@ -7,6 +7,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.BlockItemUseContext;
 import net.minecraft.state.EnumProperty;
+import net.minecraft.state.Property;
 import net.minecraft.state.StateContainer.Builder;
 import net.minecraft.state.properties.BlockStateProperties;
 import net.minecraft.tileentity.TileEntity;
@@ -23,6 +24,7 @@ import net.minecraft.util.math.shapes.VoxelShape;
 import net.minecraft.util.math.vector.Matrix4f;
 import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
+import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.fml.network.NetworkHooks;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -39,7 +41,9 @@ public final class ProjectorBlock extends Block {
 
     public ProjectorBlock(Properties properties) {
         super(properties);
-        this.setDefaultState(this.stateContainer.getBaseState().with(BASE, Direction.DOWN).with(BlockStateProperties.FACING, Direction.EAST).with(ROTATION, InternalRotation.NONE));
+        this.setDefaultState(this.stateContainer.getBaseState()
+                .with(BASE, Direction.DOWN).with(BlockStateProperties.FACING, Direction.EAST)
+                .with(BlockStateProperties.POWERED, Boolean.FALSE).with(ROTATION, InternalRotation.NONE));
     }
 
     @Override
@@ -56,14 +60,36 @@ public final class ProjectorBlock extends Block {
 
     @Override
     protected void fillStateContainer(Builder<Block, BlockState> builder) {
-        builder.add(BASE, BlockStateProperties.FACING, ROTATION);
+        builder.add(BASE, BlockStateProperties.FACING, BlockStateProperties.POWERED, ROTATION);
     }
 
     @Override
     public BlockState getStateForPlacement(BlockItemUseContext context) {
         Direction[] directions = context.getNearestLookingDirections();
-        Direction base = Arrays.stream(directions).filter(Direction.Plane.VERTICAL).findFirst().orElse(Direction.DOWN);
-        return this.getDefaultState().with(BASE, base).with(BlockStateProperties.FACING, directions[0].getOpposite()).with(ROTATION, InternalRotation.HORIZONTAL_FLIPPED);
+        return this.getDefaultState()
+                .with(ROTATION, InternalRotation.HORIZONTAL_FLIPPED)
+                .with(BlockStateProperties.FACING, directions[0].getOpposite())
+                .with(BASE, Arrays.stream(directions).filter(Direction.Plane.VERTICAL).findFirst().orElse(Direction.DOWN));
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public void neighborChanged(BlockState state, World worldIn, BlockPos pos, Block blockIn, BlockPos fromPos, boolean isMoving) {
+        boolean powered = worldIn.isBlockPowered(pos);
+        if (powered != state.get(BlockStateProperties.POWERED)) {
+            worldIn.setBlockState(pos, state.with(BlockStateProperties.POWERED, powered), Constants.BlockFlags.BLOCK_UPDATE);
+        }
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public void onBlockAdded(BlockState state, World worldIn, BlockPos pos, BlockState oldState, boolean isMoving) {
+        if (!oldState.isIn(state.getBlock())) {
+            boolean powered = worldIn.isBlockPowered(pos);
+            if (powered != state.get(BlockStateProperties.POWERED)) {
+                worldIn.setBlockState(pos, state.with(BlockStateProperties.POWERED, powered), Constants.BlockFlags.BLOCK_UPDATE);
+            }
+        }
     }
 
     @Override
