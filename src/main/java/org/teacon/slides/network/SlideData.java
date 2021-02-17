@@ -26,6 +26,7 @@ public final class SlideData implements INBTSerializable<CompoundNBT> {
         this.imgColor = 0xFFFFFFFF;
         this.imgSize = Vector2f.ONE;
         this.imgOffset = new Vector3f();
+        this.backVisibility = this.frontVisibility = true;
     }
 
     public String getImageLocation() {

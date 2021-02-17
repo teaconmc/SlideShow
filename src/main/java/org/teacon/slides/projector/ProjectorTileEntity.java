@@ -4,6 +4,7 @@ import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.inventory.container.Container;
 import net.minecraft.inventory.container.INamedContainerProvider;
 import net.minecraft.nbt.CompoundNBT;
@@ -14,16 +15,19 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityType;
 import net.minecraft.util.Direction;
 import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.vector.Matrix4f;
 import net.minecraft.util.math.vector.Vector4f;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.fml.network.NetworkHooks;
 import net.minecraftforge.registries.ObjectHolder;
 import org.teacon.slides.network.SlideData;
 import org.teacon.slides.renderer.ProjectorWorldRender;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
 
@@ -41,14 +45,24 @@ public final class ProjectorTileEntity extends TileEntity implements INamedConta
         super(Objects.requireNonNull(theType));
     }
 
-    @Override
-    public ITextComponent getDisplayName() {
-        return TITLE;
+    public void openGUI(BlockState state, BlockPos pos, PlayerEntity player) {
+        if (player instanceof ServerPlayerEntity) {
+            NetworkHooks.openGui((ServerPlayerEntity) player, this, buffer -> {
+                buffer.writeBlockPos(pos);
+                buffer.writeCompoundTag(this.currentSlide.serializeNBT());
+                buffer.writeEnumValue(state.get(ProjectorBlock.ROTATION));
+            });
+        }
     }
 
     @Override
     public Container createMenu(int id, PlayerInventory inv, PlayerEntity player) {
         return ProjectorControlContainer.fromServer(id, inv, this);
+    }
+
+    @Override
+    public ITextComponent getDisplayName() {
+        return TITLE;
     }
 
     @Override

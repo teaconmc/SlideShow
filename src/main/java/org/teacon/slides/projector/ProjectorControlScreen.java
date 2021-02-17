@@ -82,6 +82,7 @@ public final class ProjectorControlScreen extends ContainerScreen<ProjectorContr
         this.urlInput.setText(this.container.currentSlide.getImageLocation());
         this.urlInput.setVisible(true);
         this.children.add(this.urlInput);
+        this.setFocusedDefault(this.urlInput);
 
         // color input
         this.colorInput = new TextFieldWidget(this.font, this.guiLeft + 55, this.guiTop + 155, 56, 16, new TranslationTextComponent("gui.slide_show.color"));

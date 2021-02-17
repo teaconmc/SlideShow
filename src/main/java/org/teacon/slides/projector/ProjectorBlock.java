@@ -4,10 +4,8 @@ import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.item.BlockItemUseContext;
 import net.minecraft.state.EnumProperty;
-import net.minecraft.state.Property;
 import net.minecraft.state.StateContainer.Builder;
 import net.minecraft.state.properties.BlockStateProperties;
 import net.minecraft.tileentity.TileEntity;
@@ -25,7 +23,6 @@ import net.minecraft.util.math.vector.Matrix4f;
 import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.Constants;
-import net.minecraftforge.fml.network.NetworkHooks;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
@@ -65,11 +62,11 @@ public final class ProjectorBlock extends Block {
 
     @Override
     public BlockState getStateForPlacement(BlockItemUseContext context) {
-        Direction[] directions = context.getNearestLookingDirections();
-        return this.getDefaultState()
-                .with(ROTATION, InternalRotation.HORIZONTAL_FLIPPED)
-                .with(BlockStateProperties.FACING, directions[0].getOpposite())
-                .with(BASE, Arrays.stream(directions).filter(Direction.Plane.VERTICAL).findFirst().orElse(Direction.DOWN));
+        Direction facing = context.getNearestLookingDirection().getOpposite();
+        Direction horizontalFacing = context.getPlacementHorizontalFacing().getOpposite();
+        Direction base = Arrays.stream(context.getNearestLookingDirections()).filter(Direction.Plane.VERTICAL).findFirst().orElse(Direction.DOWN);
+        InternalRotation placementRotation = InternalRotation.values()[4 + Math.floorMod(facing.getYOffset() * horizontalFacing.getHorizontalIndex(), 4)];
+        return this.getDefaultState().with(BASE, base).with(BlockStateProperties.FACING, facing).with(BlockStateProperties.POWERED, Boolean.FALSE).with(ROTATION, placementRotation);
     }
 
     @Override
@@ -131,16 +128,11 @@ public final class ProjectorBlock extends Block {
     @Override
     @SuppressWarnings("deprecation")
     public ActionResultType onBlockActivated(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockRayTraceResult hit) {
-        TileEntity tile;
-        if (player instanceof ServerPlayerEntity && (tile = world.getTileEntity(pos)) instanceof ProjectorTileEntity) {
-            final ProjectorTileEntity projector = (ProjectorTileEntity) tile;
-            NetworkHooks.openGui((ServerPlayerEntity) player, projector, buffer -> {
-                buffer.writeBlockPos(pos);
-                buffer.writeCompoundTag(projector.currentSlide.serializeNBT());
-                buffer.writeEnumValue(state.get(ROTATION));
-            });
+        final TileEntity tile = world.getTileEntity(pos);
+        if (tile instanceof ProjectorTileEntity) {
+            ((ProjectorTileEntity) tile).openGUI(state, pos, player);
         }
-        return ActionResultType.SUCCESS;
+        return ActionResultType.func_233537_a_(world.isRemote);
     }
 
     public enum InternalRotation implements IStringSerializable {

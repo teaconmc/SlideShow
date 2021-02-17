@@ -9,7 +9,6 @@ import net.minecraft.client.gui.ScreenManager;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.RenderTypeLookup;
 import net.minecraft.inventory.container.ContainerType;
-import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.Rarity;
@@ -34,6 +33,7 @@ import org.teacon.slides.network.UpdateImageInfoPacket;
 import org.teacon.slides.projector.ProjectorBlock;
 import org.teacon.slides.projector.ProjectorControlContainer;
 import org.teacon.slides.projector.ProjectorControlScreen;
+import org.teacon.slides.projector.ProjectorItem;
 import org.teacon.slides.projector.ProjectorTileEntity;
 import org.teacon.slides.renderer.ProjectorTileEntityRenderer;
 import org.teacon.slides.renderer.ProjectorWorldRender;
@@ -86,7 +86,7 @@ public final class SlideShow {
     }
 
     public static void regItem(final RegistryEvent.Register<Item> event) {
-        event.getRegistry().register(new BlockItem(projector, new Item.Properties()
+        event.getRegistry().register(new ProjectorItem(new Item.Properties()
             .group(ItemGroup.MISC).rarity(Rarity.RARE)).setRegistryName("slide_show:projector"));
     }
 
