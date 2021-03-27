@@ -1,5 +1,10 @@
 name: test-build
-on: [push, workflow_dispatch]
+on: 
+  push:
+    paths:
+      - 'src/**'
+      - 'build.gradle'
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-18.04
