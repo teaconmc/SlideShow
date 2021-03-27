@@ -5,11 +5,10 @@ import java.time.temporal.ChronoUnit
 buildscript {
     repositories {
         maven { url = 'https://files.minecraftforge.net/maven' }
-        jcenter()
         mavenCentral()
     }
     dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '3.+', changing: true
+        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '4.1.+', changing: true
     }
 }
 apply plugin: 'net.minecraftforge.gradle'
@@ -20,7 +19,7 @@ version = '0.4.2'
 group = 'org.teaconmc'
 archivesBaseName = 'SlideShow'
 
-sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
+java.toolchain.languageVersion = JavaLanguageVersion.of(8)
 
 minecraft {
     mappings channel: 'snapshot', version: '20201028-1.16.3'
@@ -60,7 +59,7 @@ minecraft {
 }
 
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.16.4-35.1.0'
+    minecraft 'net.minecraftforge:forge:1.16.5-36.1.2'
 }
 
 jar {
@@ -77,18 +76,16 @@ jar {
     }
 }
 
-def reobfFile = file("$buildDir/reobfJar/output.jar")
-def reobfArtifact = artifacts.add('default', reobfFile) {
-    type 'jar'
-    builtBy 'reobfJar'
-}
+jar.finalizedBy('reobfJar')
+publish.dependsOn('reobfJar')
+
 publishing {
     publications {
         release(MavenPublication) {
             groupId = "org.teacon"
             artifactId = "SlideShow-Forge-1.16"
 
-            artifact reobfArtifact
+            artifact jar
             pom {
                 name = 'SlideShow for Minecraft 1.16'
                 description = 'Minecraft mod, adding a projector that can display online images.'
@@ -143,9 +140,7 @@ task("githubActionOutput") {
         System.env.GITHUB_ACTIONS
     }
     doLast {
-        // AbstractArchiveTask was introduced in Gradle 5.1 so we can't use it in 4.10.3
-        // https://docs.gradle.org/current/javadoc/org/gradle/api/tasks/bundling/AbstractArchiveTask.html#getArchiveFile--
-        println "::set-output name=artifact_path::${jar.archivePath.absolutePath}"
-        println "::set-output name=artifact_name::${jar.archiveName}"
+        println "::set-output name=artifact_path::${jar.archiveFile.get().asFile.absolutePath}"
+        println "::set-output name=artifact_name::${jar.archiveFileName.get()}"
     }
 }
