@@ -9,6 +9,9 @@ There are also several options to adjust; hover your mouse to these icons to get
 
 ![GUI](./docs/gui.png)
 
+By now, only PNG format images are verified as supported; other image formats may or may not be supported, and further 
+testing are still needed.
+
 ## Development
 
 Simply import this project as a Gradle project to your IDE(s), and wait for your IDE(s) to finish their work.
