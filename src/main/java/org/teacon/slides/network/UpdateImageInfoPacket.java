@@ -11,6 +11,10 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.fml.network.NetworkEvent;
 import net.minecraftforge.server.permission.PermissionAPI;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.MarkerManager;
+import org.apache.logging.log4j.Marker;
 import org.teacon.slides.projector.ProjectorBlock;
 import org.teacon.slides.projector.ProjectorTileEntity;
 
@@ -19,6 +23,9 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 public final class UpdateImageInfoPacket {
+
+    private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
+    private static final Marker MARKER = MarkerManager.getMarker("Network");
 
     public BlockPos pos = BlockPos.ZERO;
     public SlideData data = new SlideData();
@@ -57,8 +64,8 @@ public final class UpdateImageInfoPacket {
                     }
                 }
             }
-            // Silently drop invalid packets
-            // TODO Maybe we can log them...
+            // Silently drop invalid packets and log them
+            LOGGER.debug(MARKER, "Received invalid packet: player = {}, pos = {}", player.getGameProfile(), this.pos);
         });
         context.get().setPacketHandled(true);
     }
