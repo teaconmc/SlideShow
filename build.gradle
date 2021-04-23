@@ -101,6 +101,10 @@ publishing {
                         id = '3TUSK'
                         name = '3TUSK'
                     }
+                    developer {
+                        id = 'ustc-zzzz'
+                        name = 'ustc-zzzz'
+                    }
                 }
                 issueManagement {
                     system = 'GitHub Issues'
