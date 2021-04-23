@@ -131,7 +131,7 @@ publishing {
 }
 
 tasks.withType(PublishToMavenRepository) {
-    if (it.repository.name == "archive") {
+    if (repository.name == "archive") {
         onlyIf {
             System.env.MAVEN_USERNAME && System.env.MAVEN_PASSWORD
         }
