@@ -1,10 +1,12 @@
 package org.teacon.slides.projector;
 
+import com.google.common.base.MoreObjects;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.container.Container;
 import net.minecraft.inventory.container.ContainerType;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.registries.ObjectHolder;
@@ -17,6 +19,7 @@ import org.teacon.slides.SlideShow;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
+import java.util.Optional;
 
 @ParametersAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -39,7 +42,7 @@ public final class ProjectorControlContainer extends Container {
             Objects.requireNonNull(buffer);
             SlideData data = new SlideData();
             BlockPos pos = buffer.readBlockPos();
-            data.deserializeNBT(buffer.readCompoundTag());
+            Optional.ofNullable(buffer.readCompoundTag()).ifPresent(data::deserializeNBT);
             ProjectorBlock.InternalRotation rotation = buffer.readEnumValue(ProjectorBlock.InternalRotation.class);
             return new ProjectorControlContainer(id, pos, data, rotation);
         } catch (Exception e) {

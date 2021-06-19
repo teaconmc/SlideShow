@@ -27,7 +27,6 @@ import net.minecraftforge.registries.ObjectHolder;
 import org.teacon.slides.network.SlideData;
 import org.teacon.slides.renderer.ProjectorWorldRender;
 
-import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
 

@@ -1,10 +1,14 @@
 package org.teacon.slides.network;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
+import com.google.common.base.MoreObjects;
+import com.mojang.authlib.GameProfile;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
@@ -38,8 +42,8 @@ public final class UpdateImageInfoPacket {
 
     public UpdateImageInfoPacket(PacketBuffer buffer) {
         this.pos = buffer.readBlockPos();
-        this.data.deserializeNBT(buffer.readCompoundTag());
         this.rotation = buffer.readEnumValue(ProjectorBlock.InternalRotation.class);
+        Optional.ofNullable(buffer.readCompoundTag()).ifPresent(this.data::deserializeNBT);
     }
 
     public void write(PacketBuffer buffer) {
@@ -66,7 +70,8 @@ public final class UpdateImageInfoPacket {
                 }
             }
             // Silently drop invalid packets and log them
-            LOGGER.debug(MARKER, "Received invalid packet: player = {}, pos = {}", player.getGameProfile(), this.pos);
+            GameProfile profile = player != null ? player.getGameProfile() : null;
+            LOGGER.debug(MARKER, "Received invalid packet: player = {}, pos = {}", profile, this.pos);
         });
         context.get().setPacketHandled(true);
     }
