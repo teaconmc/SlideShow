@@ -5,13 +5,16 @@ import java.time.temporal.ChronoUnit
 buildscript {
     repositories {
         maven { url = 'https://files.minecraftforge.net/maven' }
-        mavenCentral()
+        gradlePluginPortal()
     }
     dependencies {
+        classpath group: 'com.github.jengelman.gradle.plugins', name: 'shadow', version: '6.1.0'
         classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '4.1.+', changing: true
     }
 }
+
 apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
@@ -58,26 +61,57 @@ minecraft {
     }
 }
 
+configurations {
+    compileClasspath.extendsFrom(shadow)
+    runtimeClasspath.extendsFrom(shadow)
+}
+
 dependencies {
     minecraft 'net.minecraftforge:forge:1.16.5-36.1.6'
+    shadow 'org.apache.httpcomponents:httpclient-cache:4.3.6'
+}
+
+shadowJar {
+    archiveClassifier.set(null)
+    configurations = [project.configurations.shadow]
+    dependencies {
+        it.exclude it.dependency('org.apache.httpcomponents:httpclient:.*')
+        it.exclude it.dependency('org.apache.httpcomponents:httpcore:.*')
+        it.exclude it.dependency('commons-logging:commons-logging:.*')
+        it.exclude it.dependency('commons-codec:commons-codec:.*')
+    }
+    relocate 'org.apache.http.client.cache', 'org.teacon.slides.repackage.org.apache.http.client.cache'
+    relocate 'org.apache.http.impl.client.cache', 'org.teacon.slides.repackage.org.apache.http.impl.client.cache'
 }
 
 jar {
+    archiveClassifier.set('pure')
     manifest {
         attributes([
             "Specification-Title": "Slide-Show",
             "Specification-Vendor": "TeaConMC",
             "Specification-Version": "1",
             "Implementation-Title": project.name,
-            "Implementation-Version": "${version}",
+            "Implementation-Version": "${project.version}",
             "Implementation-Vendor": "TeaConMC",
             "Implementation-Timestamp": DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(ChronoUnit.SECONDS))
         ])
     }
 }
 
+reobf {
+    shadowJar {} // Re-obfuscate the shadowed JAR
+}
+
+artifacts {
+    archives shadowJar
+}
+
 jar.finalizedBy('reobfJar')
+shadowJar.finalizedBy('reobfShadowJar')
+
 publish.dependsOn('reobfJar')
+publish.dependsOn('reobfShadowJar')
 
 publishing {
     publications {
@@ -85,7 +119,7 @@ publishing {
             groupId = "org.teacon"
             artifactId = "SlideShow-Forge-1.16"
 
-            artifact jar
+            artifact shadowJar
             pom {
                 name = 'SlideShow for Minecraft 1.16'
                 description = 'Minecraft mod, adding a projector that can display online images.'
