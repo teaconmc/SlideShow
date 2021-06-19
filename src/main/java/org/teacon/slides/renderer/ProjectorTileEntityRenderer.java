@@ -21,12 +21,12 @@ public class ProjectorTileEntityRenderer extends TileEntityRenderer<ProjectorTil
 
     @Override
     public void render(ProjectorTileEntity tile, float partialTicks, MatrixStack matrixStack, IRenderTypeBuffer buffer, int combinedLight, int combinedOverlay) {
+        final SlideRenderEntry entry = SlideRenderData.getEntry(tile.currentSlide.getImageLocation());
         if (!tile.getBlockState().get(BlockStateProperties.POWERED)) {
             matrixStack.push();
 
             final Matrix4f transformation = matrixStack.getLast().getMatrix();
             final float width = tile.currentSlide.getSize().x, height = tile.currentSlide.getSize().y;
-            final SlideRenderEntry entry = SlideRenderData.getEntry(tile.currentSlide.getImageLocation());
             final boolean renderFront = tile.currentSlide.isFrontVisible(), renderBack = tile.currentSlide.isBackVisible();
 
             transformation.mul(tile.getTransformation());
