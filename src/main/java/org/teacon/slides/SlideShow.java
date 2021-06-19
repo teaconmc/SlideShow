@@ -5,6 +5,7 @@ import com.mojang.datafixers.DSL;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScreenManager;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.RenderTypeLookup;
@@ -37,6 +38,7 @@ import org.teacon.slides.projector.ProjectorItem;
 import org.teacon.slides.projector.ProjectorTileEntity;
 import org.teacon.slides.renderer.ProjectorTileEntityRenderer;
 import org.teacon.slides.renderer.ProjectorWorldRender;
+import org.teacon.slides.renderer.SlideRenderData;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -106,6 +108,7 @@ public final class SlideShow {
     public static final class ClientSetup {
         @SubscribeEvent
         public static void setup(final FMLClientSetupEvent event) {
+            SlideRenderData.getEntry(""); // class loading
             RenderTypeLookup.setRenderLayer(projector, RenderType.getCutout());
             ScreenManager.registerFactory(ProjectorControlContainer.theType, ProjectorControlScreen::new);
             ClientRegistry.bindTileEntityRenderer(ProjectorTileEntity.theType, ProjectorTileEntityRenderer::new);
