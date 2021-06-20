@@ -42,8 +42,8 @@ public final class UpdateImageInfoPacket {
 
     public UpdateImageInfoPacket(PacketBuffer buffer) {
         this.pos = buffer.readBlockPos();
-        this.rotation = buffer.readEnumValue(ProjectorBlock.InternalRotation.class);
         Optional.ofNullable(buffer.readCompoundTag()).ifPresent(this.data::deserializeNBT);
+        this.rotation = buffer.readEnumValue(ProjectorBlock.InternalRotation.class);
     }
 
     public void write(PacketBuffer buffer) {
