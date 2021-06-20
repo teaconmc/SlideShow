@@ -180,7 +180,7 @@ task("githubActionOutput") {
         System.env.GITHUB_ACTIONS
     }
     doLast {
-        println "::set-output name=artifact_path::${jar.archiveFile.get().asFile.absolutePath}"
-        println "::set-output name=artifact_name::${jar.archiveFileName.get()}"
+        println "::set-output name=artifact_path::${shadowJar.archiveFile.get().asFile.absolutePath}"
+        println "::set-output name=artifact_name::${shadowJar.archiveFileName.get()}"
     }
 }
