@@ -15,9 +15,10 @@ jobs:
       - name: Maven Publish
         id: maven_publish
         env:
-          MAVEN_USERNAME: ${{ secrets.TEACON_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.TEACON_PASSWORD }}
-        run: ./gradlew publishReleasePublicationToArchiveRepository githubActionOutput
+          ARCHIVE_ENDPOINT: ${{ secrets.TEACON_ARCHIVE_ENDPOINT }}
+          ARCHIVE_ACCESS_KEY: ${{ secrets.TEACON_ARCHIVE_ACCESS_KEY }}
+          ARCHIVE_SECRET_KEY: ${{ secrets.TEACON_ARCHIVE_SECRET_KEY }}
+        run: ./gradlew -Dorg.gradle.s3.endpoint=$ARCHIVE_ENDPOINT publishReleasePublicationToTeaconRepository githubActionOutput
       - name: Generate Changelog
         id: changelog
         shell: bash

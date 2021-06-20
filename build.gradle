@@ -154,11 +154,11 @@ publishing {
     }
     repositories {
         maven {
-            name = "archive"
-            url = "https://maven.hub.tritusk.info/releases"
+            name = "teacon"
+            url = "s3://archive.teacon.org/maven/"
             credentials {
-                username = System.env.MAVEN_USERNAME
-                password = System.env.MAVEN_PASSWORD
+                username = System.env.ARCHIVE_ACCESS_KEY
+                password = System.env.ARCHIVE_SECRET_KEY
             }
         }
     }
