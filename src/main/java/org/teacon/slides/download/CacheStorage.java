@@ -2,6 +2,7 @@ package org.teacon.slides.download;
 
 import com.google.common.collect.Streams;
 import com.google.common.hash.Hashing;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -45,6 +46,10 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -59,6 +64,7 @@ final class CacheStorage implements HttpCacheStorage {
     private final Path parentPath;
     private final Path keyFilePath;
 
+    private final AtomicInteger markedDirty = new AtomicInteger();
     private final Map<String, Pair<Path, HttpCacheEntry>> entries = new LinkedHashMap<>();
 
     private static Pair<Path, HttpCacheEntry> normalize(Path parentPath, HttpCacheEntry entry) throws IOException {
@@ -159,6 +165,17 @@ final class CacheStorage implements HttpCacheStorage {
         }
     }
 
+    private void scheduleSave() {
+        if (this.markedDirty.getAndIncrement() == 0) {
+            Util.getServerExecutor().execute(() -> {
+                // noinspection UnstableApiUsage
+                Uninterruptibles.sleepUninterruptibly(5000, TimeUnit.MILLISECONDS);
+                this.save();
+                LOGGER.debug(MARKER, "Save {} change(s) to cache storage. ", this.markedDirty.getAndSet(0));
+            });
+        }
+    }
+
     public CacheStorage(Path parentPath) {
         this.keyLock = new Object();
         this.parentPath = parentPath;
@@ -172,7 +189,6 @@ final class CacheStorage implements HttpCacheStorage {
 
     @Nullable
     public HttpCacheEntry getEntry(String url) {
-        System.out.println("Get: " + url);
         synchronized (this.entries) {
             Pair<Path, HttpCacheEntry> pair = this.entries.get(url);
             return pair != null ? pair.getValue() : null;
@@ -180,28 +196,25 @@ final class CacheStorage implements HttpCacheStorage {
     }
 
     public void putEntry(String url, HttpCacheEntry entry) throws IOException {
-        System.out.println("Put: " + url);
         synchronized (this.entries) {
             Pair<Path, HttpCacheEntry> normalizedEntry = normalize(this.parentPath, entry);
             this.entries.put(url, normalizedEntry);
         }
-        this.save();
+        this.scheduleSave();
     }
 
     public void removeEntry(String url) {
-        System.out.println("Remove: " + url);
         synchronized (this.entries) {
             this.entries.remove(url);
         }
-        this.save();
+        this.scheduleSave();
     }
 
     public void updateEntry(String url, HttpCacheUpdateCallback cb) throws IOException {
-        System.out.println("Update: " + url);
         synchronized (this.entries) {
             Pair<Path, HttpCacheEntry> pair = this.entries.get(url);
             this.entries.put(url, normalize(this.parentPath, cb.update(pair != null ? pair.getValue() : null)));
         }
-        this.save();
+        this.scheduleSave();
     }
 }

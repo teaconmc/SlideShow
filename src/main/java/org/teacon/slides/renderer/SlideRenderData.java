@@ -37,7 +37,7 @@ public final class SlideRenderData {
 
     private static final LoadingCache<URI, AtomicReference<SlideRenderEntry>> RENDER_CACHE = CacheBuilder.newBuilder()
             .<URI, AtomicReference<SlideRenderEntry>>removalListener(old -> old.getValue().get().close())
-            .expireAfterAccess(10, TimeUnit.SECONDS).refreshAfterWrite(100, TimeUnit.SECONDS)
+            .expireAfterAccess(5000, TimeUnit.MILLISECONDS).refreshAfterWrite(100, TimeUnit.SECONDS)
             .build(new CacheLoader<URI, AtomicReference<SlideRenderEntry>>() {
                 @Override
                 public AtomicReference<SlideRenderEntry> load(URI uri) {
