@@ -157,8 +157,8 @@ publishing {
             name = "teacon"
             url = "s3://archive.teacon.org/maven/"
             credentials(AwsCredentials) {
-                username = System.env.ARCHIVE_ACCESS_KEY
-                password = System.env.ARCHIVE_SECRET_KEY
+                accessKey = System.env.ARCHIVE_ACCESS_KEY
+                secretKey = System.env.ARCHIVE_SECRET_KEY
             }
         }
     }
