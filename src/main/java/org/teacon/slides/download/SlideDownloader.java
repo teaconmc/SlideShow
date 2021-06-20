@@ -55,16 +55,15 @@ public final class SlideDownloader {
                 try {
                     return IOUtils.toByteArray(response.getEntity().getContent());
                 } catch (IOException readError) {
-                    LOGGER.warn(MARKER, "Error occurred while downloading from {}. Download cannot continue.", location);
-                    LOGGER.warn(MARKER, "Failed to read bytes from remote source.", readError);
+                    if (online) {
+                        LOGGER.warn(MARKER, "Failed to read bytes from remote source.", readError);
+                    }
                     throw new CompletionException(readError);
                 }
             } catch (ClientProtocolException protocolError) {
-                LOGGER.warn(MARKER, "Error occurred while downloading from {}. Download cannot continue.", location);
                 LOGGER.warn(MARKER, "Detected invalid client protocol.", protocolError);
                 throw new CompletionException(protocolError);
             } catch (IOException connError) {
-                LOGGER.warn(MARKER, "Error occurred while downloading from {}. Download cannot continue.", location);
                 LOGGER.warn(MARKER, "Failed to establish connection.", connError);
                 throw new CompletionException(connError);
             }

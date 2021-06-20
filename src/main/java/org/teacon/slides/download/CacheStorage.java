@@ -31,13 +31,15 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardCopyOption;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -47,21 +49,22 @@ import java.util.Map;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 final class CacheStorage implements HttpCacheStorage {
+
     private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
     private static final Marker MARKER = MarkerManager.getMarker("Downloader");
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
 
-    private final Path parent;
-    private final LinkedHashMap<String, Pair<Path, HttpCacheEntry>> entries;
+    private final Object keyLock;
+    private final Path parentPath;
+    private final Path keyFilePath;
 
-    private Path resolveKeysPath() {
-        return this.parent.resolve("storage-keys.json");
-    }
+    private final Map<String, Pair<Path, HttpCacheEntry>> entries = new LinkedHashMap<>();
 
-    private Pair<Path, HttpCacheEntry> normalize(HttpCacheEntry entry) throws IOException {
+    private static Pair<Path, HttpCacheEntry> normalize(Path parentPath, HttpCacheEntry entry) throws IOException {
         byte[] bytes = IOUtils.toByteArray(entry.getResource().getInputStream());
-        Path path = Files.write(this.parent.resolve(allocateImageName(bytes)), bytes);
+        Path tmp = Files.write(Files.createTempFile("slideshow-", ".tmp"), bytes);
+        Path path = Files.move(tmp, parentPath.resolve(allocateImageName(bytes)), StandardCopyOption.REPLACE_EXISTING);
         return Pair.of(path, new HttpCacheEntry(entry.getRequestDate(), entry.getResponseDate(),
                 entry.getStatusLine(), entry.getAllHeaders(), new FileResource(path.toFile()), entry.getVariantMap()));
     }
@@ -85,94 +88,120 @@ final class CacheStorage implements HttpCacheStorage {
         }
     }
 
-    private synchronized void save() {
-        try {
-            JsonObject root = new JsonObject();
-            for (Map.Entry<String, Pair<Path, HttpCacheEntry>> entry : this.entries.entrySet()) {
-                Path filePath = entry.getValue().getKey();
-                HttpCacheEntry cacheEntry = entry.getValue().getValue();
-                root.add(entry.getKey(), Util.make(new JsonObject(), child -> {
-                    child.addProperty("request_date", DateUtils.formatDate(cacheEntry.getRequestDate()));
-                    child.addProperty("response_date", DateUtils.formatDate(cacheEntry.getResponseDate()));
-                    child.addProperty("status_line", cacheEntry.getStatusLine().toString());
-                    child.add("headers", Util.make(new JsonArray(), array -> {
-                        for (Header header : cacheEntry.getAllHeaders()) {
-                            array.add(header.toString());
-                        }
-                    }));
-                    child.addProperty("resource", filePath.toString());
-                    child.add("variant_map", Util.make(new JsonObject(), object -> {
-                        for (Map.Entry<String, String> variantEntry : cacheEntry.getVariantMap().entrySet()) {
-                            object.addProperty(variantEntry.getKey(), variantEntry.getValue());
-                        }
-                    }));
+    private static void saveJson(Map<String, Pair<Path, HttpCacheEntry>> entries, JsonObject root) {
+        for (Map.Entry<String, Pair<Path, HttpCacheEntry>> entry : entries.entrySet()) {
+            Path filePath = entry.getValue().getKey();
+            HttpCacheEntry cacheEntry = entry.getValue().getValue();
+            root.add(entry.getKey(), Util.make(new JsonObject(), child -> {
+                child.addProperty("request_date", DateUtils.formatDate(cacheEntry.getRequestDate()));
+                child.addProperty("response_date", DateUtils.formatDate(cacheEntry.getResponseDate()));
+                child.addProperty("status_line", cacheEntry.getStatusLine().toString());
+                child.add("headers", Util.make(new JsonArray(), array -> {
+                    for (Header header : cacheEntry.getAllHeaders()) {
+                        array.add(header.toString());
+                    }
                 }));
-            }
-            OpenOption[] options = {StandardOpenOption.WRITE, StandardOpenOption.CREATE};
-            GSON.toJson(root, Files.newBufferedWriter(this.resolveKeysPath(), StandardCharsets.UTF_8, options));
-        } catch (Exception e) {
-            LOGGER.warn(MARKER, "Failed to save cache storage. ", e);
-            this.entries.clear();
+                child.addProperty("resource", filePath.toString());
+                child.add("variant_map", Util.make(new JsonObject(), object -> {
+                    for (Map.Entry<String, String> variantEntry : cacheEntry.getVariantMap().entrySet()) {
+                        object.addProperty(variantEntry.getKey(), variantEntry.getValue());
+                    }
+                }));
+            }));
         }
     }
 
-    private synchronized void load(Path path) {
-        try {
-            JsonObject root = GSON.fromJson(Files.newBufferedReader(path, StandardCharsets.UTF_8), JsonObject.class);
-            for (Map.Entry<String, JsonElement> entry : root.entrySet()) {
-                JsonObject child = entry.getValue().getAsJsonObject();
-                Date requestDate = DateUtils.parseDate(child.get("request_date").getAsString());
-                Date responseDate = DateUtils.parseDate(child.get("response_date").getAsString());
-                StatusLine statusLine = BasicLineParser.parseStatusLine(child.get("status_line").getAsString(), null);
-                // noinspection UnstableApiUsage
-                Header[] headers = Streams.stream(child.get("headers").getAsJsonArray())
-                        .map(elem -> BasicLineParser.parseHeader(elem.getAsString(), null)).toArray(Header[]::new);
-                Path filePath = Paths.get(child.get("resource").getAsString());
-                Resource resource = new FileResource(filePath.toFile());
-                Map<String, String> variantMap = new LinkedHashMap<>();
-                for (Map.Entry<String, JsonElement> variantEntry : child.get("variant_map").getAsJsonObject().entrySet()) {
-                    variantMap.put(variantEntry.getKey(), variantEntry.getValue().getAsString());
-                }
-                HttpCacheEntry cacheEntry = new HttpCacheEntry(requestDate, responseDate, statusLine, headers, resource, variantMap);
-                this.entries.put(entry.getKey(), Pair.of(filePath, cacheEntry));
+    private static void loadJson(Map<String, Pair<Path, HttpCacheEntry>> entries, JsonObject root) {
+        for (Map.Entry<String, JsonElement> entry : root.entrySet()) {
+            JsonObject child = entry.getValue().getAsJsonObject();
+            Date requestDate = DateUtils.parseDate(child.get("request_date").getAsString());
+            Date responseDate = DateUtils.parseDate(child.get("response_date").getAsString());
+            StatusLine statusLine = BasicLineParser.parseStatusLine(child.get("status_line").getAsString(), null);
+            // noinspection UnstableApiUsage
+            Header[] headers = Streams.stream(child.get("headers").getAsJsonArray())
+                    .map(elem -> BasicLineParser.parseHeader(elem.getAsString(), null)).toArray(Header[]::new);
+            Path filePath = Paths.get(child.get("resource").getAsString());
+            Resource resource = new FileResource(filePath.toFile());
+            Map<String, String> variantMap = new LinkedHashMap<>();
+            for (Map.Entry<String, JsonElement> variantEntry : child.get("variant_map").getAsJsonObject().entrySet()) {
+                variantMap.put(variantEntry.getKey(), variantEntry.getValue().getAsString());
             }
-        } catch (Exception e) {
-            LOGGER.warn(MARKER, "Failed to load cache storage. ", e);
-            this.entries.clear();
+            HttpCacheEntry cacheEntry = new HttpCacheEntry(requestDate, responseDate, statusLine, headers, resource, variantMap);
+            entries.put(entry.getKey(), Pair.of(filePath, cacheEntry));
+        }
+    }
+
+    private void save() {
+        JsonObject root = new JsonObject();
+        synchronized (this.entries) {
+            saveJson(this.entries, root);
+        }
+        synchronized (this.keyLock) {
+            try (Writer writer = Files.newBufferedWriter(this.keyFilePath, StandardCharsets.UTF_8)) {
+                GSON.toJson(root, writer);
+            } catch (Exception e) {
+                LOGGER.warn(MARKER, "Failed to save cache storage. ", e);
+            }
+        }
+    }
+
+    private void load() {
+        JsonObject root = new JsonObject();
+        synchronized (this.keyLock) {
+            try (Reader reader = Files.newBufferedReader(this.keyFilePath, StandardCharsets.UTF_8)) {
+                root = GSON.fromJson(reader, JsonObject.class);
+            } catch (Exception e) {
+                LOGGER.warn(MARKER, "Failed to load cache storage. ", e);
+            }
+        }
+        synchronized (this.entries) {
+            loadJson(this.entries, root);
         }
     }
 
     public CacheStorage(Path parentPath) {
-        this.parent = parentPath;
-        this.entries = new LinkedHashMap<>();
-        Path keysPath = this.resolveKeysPath();
-        if (Files.exists(keysPath)) {
-            this.load(keysPath);
+        this.keyLock = new Object();
+        this.parentPath = parentPath;
+        this.keyFilePath = this.parentPath.resolve("storage-keys.json");
+        if (Files.exists(this.keyFilePath)) {
+            this.load();
         } else if (LegacyStorage.loadLegacy(parentPath, this.entries)) {
             this.save();
         }
     }
 
     @Nullable
-    public synchronized HttpCacheEntry getEntry(String url) {
-        Pair<Path, HttpCacheEntry> pair = this.entries.get(url);
-        return pair != null ? pair.getValue() : null;
+    public HttpCacheEntry getEntry(String url) {
+        System.out.println("Get: " + url);
+        synchronized (this.entries) {
+            Pair<Path, HttpCacheEntry> pair = this.entries.get(url);
+            return pair != null ? pair.getValue() : null;
+        }
     }
 
-    public synchronized void putEntry(String url, HttpCacheEntry entry) throws IOException {
-        Pair<Path, HttpCacheEntry> normalizedEntry = this.normalize(entry);
-        this.entries.put(url, normalizedEntry);
+    public void putEntry(String url, HttpCacheEntry entry) throws IOException {
+        System.out.println("Put: " + url);
+        synchronized (this.entries) {
+            Pair<Path, HttpCacheEntry> normalizedEntry = normalize(this.parentPath, entry);
+            this.entries.put(url, normalizedEntry);
+        }
         this.save();
     }
 
-    public synchronized void removeEntry(String url) {
-        this.entries.remove(url);
+    public void removeEntry(String url) {
+        System.out.println("Remove: " + url);
+        synchronized (this.entries) {
+            this.entries.remove(url);
+        }
         this.save();
     }
 
-    public synchronized void updateEntry(String url, HttpCacheUpdateCallback cb) throws IOException {
-        Pair<Path, HttpCacheEntry> pair = this.entries.get(url);
-        this.entries.put(url, this.normalize(cb.update(pair != null ? pair.getValue() : null)));
+    public void updateEntry(String url, HttpCacheUpdateCallback cb) throws IOException {
+        System.out.println("Update: " + url);
+        synchronized (this.entries) {
+            Pair<Path, HttpCacheEntry> pair = this.entries.get(url);
+            this.entries.put(url, normalize(this.parentPath, cb.update(pair != null ? pair.getValue() : null)));
+        }
         this.save();
     }
 }
