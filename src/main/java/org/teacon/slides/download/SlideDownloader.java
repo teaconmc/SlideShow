@@ -75,7 +75,7 @@ public final class SlideDownloader {
 
     private void ensureDirectory(Path parentPath) {
         try {
-            Files.createDirectory(parentPath);
+            Files.createDirectories(parentPath);
         } catch (IOException e) {
             throw new RuntimeException("Failed to create cache directory for slides.", e);
         }
