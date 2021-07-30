@@ -26,6 +26,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.network.NetworkDirection;
 import net.minecraftforge.fml.network.NetworkRegistry;
 import net.minecraftforge.fml.network.simple.SimpleChannel;
 import net.minecraftforge.server.permission.DefaultPermissionLevel;
@@ -39,6 +40,8 @@ import org.teacon.slides.projector.ProjectorTileEntity;
 import org.teacon.slides.renderer.ProjectorTileEntityRenderer;
 import org.teacon.slides.renderer.ProjectorWorldRender;
 import org.teacon.slides.renderer.SlideRenderData;
+
+import java.util.Optional;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -101,7 +104,11 @@ public final class SlideShow {
         PermissionAPI.registerNode("slide_show.interact.projector", DefaultPermissionLevel.ALL, "");
         int index = 0;
         // noinspection UnusedAssignment
-        channel.registerMessage(index++, UpdateImageInfoPacket.class, UpdateImageInfoPacket::write, UpdateImageInfoPacket::new, UpdateImageInfoPacket::handle);
+        channel.registerMessage(index++, UpdateImageInfoPacket.class,
+                UpdateImageInfoPacket::write,
+                UpdateImageInfoPacket::new,
+                UpdateImageInfoPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
 
     @Mod.EventBusSubscriber(modid = "slide_show", value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
