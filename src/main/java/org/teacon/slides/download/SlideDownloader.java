@@ -1,5 +1,6 @@
 package org.teacon.slides.download;
 
+import com.google.common.io.MoreFiles;
 import mcp.MethodsReturnNonnullByDefault;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.Header;
@@ -22,6 +23,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import javax.imageio.ImageIO;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -43,6 +45,7 @@ public final class SlideDownloader {
     private final CloseableHttpClient client;
 
     public SlideDownloader(Path parentPath) {
+        this.ensureDirectory(parentPath);
         HttpCacheStorage storage = new CacheStorage(parentPath);
         this.client = CachingHttpClients.custom().setCacheConfig(CONFIG).setHttpCacheStorage(storage).build();
     }
@@ -68,6 +71,14 @@ public final class SlideDownloader {
                 throw new CompletionException(connError);
             }
         });
+    }
+
+    private void ensureDirectory(Path parentPath) {
+        try {
+            Files.createDirectory(parentPath);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create cache directory for slides.", e);
+        }
     }
 
     private CloseableHttpResponse createResponse(URI location, HttpCacheContext context, boolean online) throws IOException {
