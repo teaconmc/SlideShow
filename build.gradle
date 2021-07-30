@@ -155,7 +155,7 @@ publishing {
     repositories {
         maven {
             name = "teacon"
-            url = "s3://archive.teacon.org/maven/"
+            url = "s3://maven/"
             credentials(AwsCredentials) {
                 accessKey = System.env.ARCHIVE_ACCESS_KEY
                 secretKey = System.env.ARCHIVE_SECRET_KEY
