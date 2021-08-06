@@ -4,7 +4,6 @@ on:
     paths:
       - 'src/**'
       - 'build.gradle'
-  workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-18.04
@@ -13,14 +12,3 @@ jobs:
         uses: actions/checkout@v2
       - name: Build
         run: ./gradlew build --stacktrace
-      - name: Prepare Longjing Tea
-        uses: Satak/webrequest-action@v1.2.3
-        with:
-          method: POST
-          url: https://longjing.teacon.org/build-callback
-          payload: |
-            {
-              "target": "TeaCon2021",
-              "ref": "${{ github.ref }}",
-              "source": "https://github.com/${{ github.repository }}.git"
-            }
