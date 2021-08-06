@@ -91,6 +91,8 @@ public final class SlideDownloader {
         if (!online) {
             request.addHeader(HttpHeaders.CACHE_CONTROL, "max-stale=2147483647");
             request.addHeader(HttpHeaders.CACHE_CONTROL, "only-if-cached");
+        } else {
+            request.addHeader(HttpHeaders.CACHE_CONTROL, "must-revalidate");
         }
 
         return this.client.execute(request, context);

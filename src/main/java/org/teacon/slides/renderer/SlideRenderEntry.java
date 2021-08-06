@@ -22,6 +22,10 @@ public abstract class SlideRenderEntry implements Closeable {
         return new Impl(nativeImage, manager);
     }
 
+    public static Nothing nothing() {
+        return Nothing.NOTHING;
+    }
+
     public static Default empty() {
         return Default.DEFAULT_EMPTY;
     }
@@ -73,6 +77,16 @@ public abstract class SlideRenderEntry implements Closeable {
         public void close() {
             this.texture.close();
         }
+    }
+
+    private static final class Nothing extends SlideRenderEntry {
+        private static final Nothing NOTHING = new Nothing();
+
+        @Override
+        public void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light, boolean renderFront, boolean renderBack) {}
+
+        @Override
+        public void close() {}
     }
 
     private static final class Default extends SlideRenderEntry {
