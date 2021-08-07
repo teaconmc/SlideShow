@@ -63,6 +63,7 @@ public final class SlideRenderData {
                 tickEntry(textureManager, entry.getKey(), entry.getValue());
                 if (--entry.getValue().right < 0) {
                     LOGGER.debug("Slide show expired: {}", entry.getKey());
+                    entry.getValue().left.close();
                     iterator.remove();
                 }
             }
