@@ -9,10 +9,18 @@ import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.vector.Matrix4f;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
+import org.teacon.slides.SlideShow;
 
 import java.io.Closeable;
 
 public abstract class SlideRenderEntry implements Closeable {
+
+    private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
+    private static final Marker MARKER = MarkerManager.getMarker("RenderEntry");
 
     public abstract void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light, boolean renderFront, boolean renderBack);
 
@@ -42,9 +50,13 @@ public abstract class SlideRenderEntry implements Closeable {
         private final DynamicTexture texture;
         protected final RenderType renderType;
 
+        private final ResourceLocation location;
+
         private Impl(NativeImage nativeImage, TextureManager manager) {
             this.texture = new DynamicTexture(nativeImage);
-            this.renderType = SlideRenderType.slide(manager.getDynamicTextureLocation("slide_show", this.texture));
+            this.location = manager.getDynamicTextureLocation("slide_show", this.texture);
+            LOGGER.debug(MARKER, "Loading the texture: {}", this.location);
+            this.renderType = SlideRenderType.slide(this.location);
         }
 
         @Override
@@ -75,7 +87,17 @@ public abstract class SlideRenderEntry implements Closeable {
 
         @Override
         public void close() {
+            LOGGER.debug(MARKER, "Unloading the texture: {}", this.location);
             this.texture.close();
+        }
+
+        @Override
+        protected void finalize() {
+            if (this.texture.getTextureData() != null) {
+                LOGGER.error(MARKER, "A MEMORY LEAK issue of texture {} was found, WHAT HAPPENED???", this.location);
+                LOGGER.info(MARKER, "Forcibly unloading the texture: {}", this.location);
+                this.texture.close();
+            }
         }
     }
 

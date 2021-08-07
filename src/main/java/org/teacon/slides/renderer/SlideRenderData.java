@@ -147,7 +147,6 @@ public final class SlideRenderData {
                 break;
             }
             case LOADING: {
-                entry.right = EXPIRE_TICKS; // no expiration
                 break;
             }
             case FILE_CACHE: {
@@ -198,14 +197,14 @@ public final class SlideRenderData {
     private enum State {
         /**
          * NOTHING: the slide is ready for loading.
-         * LOADING: a slide is loading and a loading image is displayed (no expiration).
-         * FILE_CACHE: a file cache is tried to retrieve while it is ready for loading from network (no expiration).
-         * FILE_CACHE_FAILED: a file cache is failed to retrieve while it would be loaded from network (no expiration).
+         * FILE_CACHE: a file cache is tried to retrieve while it is ready for loading from network.
+         * FILE_CACHE_FAILED: a file cache is failed to retrieve while it would be loaded from network.
+         * LOADING: a slide is loading and a loading image is displayed (expired after {@link #EXPIRE_TICKS}).
          * LOADED: a network resource is tried to retrieve while it succeeded (no expiration if the slide is rendered).
          * FAILED_OR_EMPTY: it is empty or failed to retrieve the network resource (expired after {@link #EXPIRE_TICKS}).
          * WEAK_EXPIRED_LOADED the image of the slide is currently not rendered (expired after {@link #LOADED_WEAK_EXPIRE_TICKS}).
          * WEAK_EXPIRED: the slide is currently not rendered and failed to load from network or empty (expired after {@link #WEAK_EXPIRE_TICKS}).
          */
-        NOTHING, LOADING, FILE_CACHE, FILE_CACHE_FAILED, LOADED, FAILED_OR_EMPTY, WEAK_EXPIRED_LOADED, WEAK_EXPIRED
+        NOTHING, FILE_CACHE, FILE_CACHE_FAILED, LOADING, LOADED, FAILED_OR_EMPTY, WEAK_EXPIRED_LOADED, WEAK_EXPIRED
     }
 }
