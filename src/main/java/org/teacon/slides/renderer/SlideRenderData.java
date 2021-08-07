@@ -146,9 +146,6 @@ public final class SlideRenderData {
                 entry.right = EXPIRE_TICKS;
                 break;
             }
-            case LOADING: {
-                break;
-            }
             case FILE_CACHE: {
                 entry.middle = State.LOADING;
                 entry.right = EXPIRE_TICKS;
@@ -164,6 +161,9 @@ public final class SlideRenderData {
             case LOADED: {
                 entry.middle = State.WEAK_EXPIRED_LOADED;
                 entry.right = EXPIRE_TICKS;
+                break;
+            }
+            case LOADING: {
                 break;
             }
             case FAILED_OR_EMPTY: {
@@ -196,15 +196,22 @@ public final class SlideRenderData {
 
     private enum State {
         /**
+         * States that will be changed at the next tick
+         *
          * NOTHING: the slide is ready for loading.
          * FILE_CACHE: a file cache is tried to retrieve while it is ready for loading from network.
          * FILE_CACHE_FAILED: a file cache is failed to retrieve while it would be loaded from network.
+         * LOADED: a network resource is succeeded to retrieve (no expiration if the slide is rendered).
+         */
+        NOTHING, FILE_CACHE, FILE_CACHE_FAILED, LOADED,
+        /**
+         * States that will not be changed by can be expired
+         *
          * LOADING: a slide is loading and a loading image is displayed (expired after {@link #EXPIRE_TICKS}).
-         * LOADED: a network resource is tried to retrieve while it succeeded (no expiration if the slide is rendered).
          * FAILED_OR_EMPTY: it is empty or failed to retrieve the network resource (expired after {@link #EXPIRE_TICKS}).
          * WEAK_EXPIRED_LOADED the image of the slide is currently not rendered (expired after {@link #LOADED_WEAK_EXPIRE_TICKS}).
          * WEAK_EXPIRED: the slide is currently not rendered and failed to load from network or empty (expired after {@link #WEAK_EXPIRE_TICKS}).
          */
-        NOTHING, FILE_CACHE, FILE_CACHE_FAILED, LOADING, LOADED, FAILED_OR_EMPTY, WEAK_EXPIRED_LOADED, WEAK_EXPIRED
+        LOADING, FAILED_OR_EMPTY, WEAK_EXPIRED_LOADED, WEAK_EXPIRED
     }
 }
