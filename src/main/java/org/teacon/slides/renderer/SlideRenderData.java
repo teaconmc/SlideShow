@@ -205,7 +205,7 @@ public final class SlideRenderData {
          */
         NOTHING, FILE_CACHE, FILE_CACHE_FAILED, LOADED,
         /**
-         * States that will not be changed by can be expired
+         * States that will not be changed but can be expired
          *
          * LOADING: a slide is loading and a loading image is displayed (expired after {@link #EXPIRE_TICKS}).
          * FAILED_OR_EMPTY: it is empty or failed to retrieve the network resource (expired after {@link #EXPIRE_TICKS}).
