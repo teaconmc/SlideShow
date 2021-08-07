@@ -1,9 +1,11 @@
 package org.teacon.slides.renderer;
 
 import com.google.common.base.Preconditions;
+import com.google.common.hash.Hashing;
 import com.mojang.blaze3d.systems.RenderSystem;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.NativeImage;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraftforge.api.distmarker.Dist;
@@ -11,6 +13,7 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.MutableTriple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -19,6 +22,7 @@ import org.teacon.slides.download.SlideDownloader;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -33,8 +37,9 @@ import java.util.concurrent.CompletionException;
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class SlideRenderData {
     private static final int EXPIRE_TICKS = 1024;
-    private static final int WEAK_EXPIRE_TICKS = 32;
-    private static final int LOADED_WEAK_EXPIRE_TICKS = 32;
+    private static final int WEAK_EXPIRE_TICKS = 64;
+    private static final int LOADED_WEAK_EXPIRE_TICKS = 64;
+    private static final int IMAGE_HASH_EXPIRE_TICKS = 16384;
 
     private static final Path LOCAL_CACHE_PATH = Paths.get("slideshow");
 
@@ -42,6 +47,7 @@ public final class SlideRenderData {
 
     private static final SlideDownloader DOWNLOADER = new SlideDownloader(LOCAL_CACHE_PATH);
 
+    private static final Map<String, MutablePair<DynamicTexture, Integer>> IMAGES = new LinkedHashMap<>();
     private static final Map<String, MutableTriple<SlideRenderEntry, State, Integer>> ENTRIES = new LinkedHashMap<>();
 
     private static boolean firstRenderTick = false;
@@ -55,19 +61,10 @@ public final class SlideRenderData {
 
     @SubscribeEvent
     public static void tick(TickEvent.RenderTickEvent event) {
-        if (event.phase == TickEvent.Phase.START && firstRenderTick && !ENTRIES.isEmpty()) {
-            Iterator<Map.Entry<String, MutableTriple<SlideRenderEntry, State, Integer>>> iterator = ENTRIES.entrySet().iterator();
-            TextureManager textureManager = Minecraft.getInstance().getTextureManager();
-            while (iterator.hasNext()) {
-                Map.Entry<String, MutableTriple<SlideRenderEntry, State, Integer>> entry = iterator.next();
-                tickEntry(textureManager, entry.getKey(), entry.getValue());
-                if (--entry.getValue().right < 0) {
-                    LOGGER.debug("Slide show expired: {}", entry.getKey());
-                    entry.getValue().left.close();
-                    iterator.remove();
-                }
-            }
+        if (event.phase == TickEvent.Phase.START && firstRenderTick) {
             firstRenderTick = false;
+            tickImageHashes();
+            tickEntries();
         }
     }
 
@@ -83,12 +80,36 @@ public final class SlideRenderData {
         return entry.left;
     }
 
+    private static void tickEntries() {
+        Iterator<Map.Entry<String, MutableTriple<SlideRenderEntry, State, Integer>>> iterator = ENTRIES.entrySet().iterator();
+        TextureManager textureManager = Minecraft.getInstance().getTextureManager();
+        while (iterator.hasNext()) {
+            Map.Entry<String, MutableTriple<SlideRenderEntry, State, Integer>> entry = iterator.next();
+            tickEntry(textureManager, entry.getKey(), entry.getValue());
+            if (--entry.getValue().right < 0) {
+                LOGGER.debug("Slide show expired: {}", entry.getKey());
+                iterator.remove();
+            }
+        }
+    }
+
+    private static void tickImageHashes() {
+        Iterator<Map.Entry<String, MutablePair<DynamicTexture, Integer>>> iterator = IMAGES.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<String, MutablePair<DynamicTexture, Integer>> entry = iterator.next();
+            if (--entry.getValue().right < 0) {
+                LOGGER.debug("Slide image expired: {}", entry.getKey());
+                entry.getValue().left.close();
+                iterator.remove();
+            }
+        }
+    }
+
     private static void tickEntry(TextureManager manager, String location, MutableTriple<SlideRenderEntry, State, Integer> entry) {
         switch (entry.middle) {
             case NOTHING: {
                 Optional<URI> uriOptional = createURI(location);
                 if (!uriOptional.isPresent()) {
-                    entry.left.close();
                     entry.left = SlideRenderEntry.empty();
                     entry.middle = State.FAILED_OR_EMPTY;
                     entry.right = EXPIRE_TICKS;
@@ -96,12 +117,11 @@ public final class SlideRenderData {
                 }
                 DOWNLOADER.download(uriOptional.get(), false).thenAccept(imageBytes -> {
                     try {
-                        NativeImage image = NativeImage.read(new ByteArrayInputStream(imageBytes));
+                        DynamicTexture texture = attachTexture(imageBytes);
                         RenderSystem.recordRenderCall(() -> {
                             if (entry.middle == State.LOADING) {
-                                entry.left.close();
                                 LOGGER.debug("Try attaching to slide show from local cache: {}", location);
-                                entry.left = SlideRenderEntry.of(image, manager);
+                                entry.left = SlideRenderEntry.of(texture, manager);
                                 entry.middle = State.FILE_CACHE;
                                 entry.right = EXPIRE_TICKS;
                             }
@@ -120,11 +140,10 @@ public final class SlideRenderData {
                 });
                 DOWNLOADER.download(uriOptional.get(), true).thenAccept(imageBytes -> {
                     try {
-                        NativeImage image = NativeImage.read(new ByteArrayInputStream(imageBytes));
+                        DynamicTexture texture = attachTexture(imageBytes);
                         RenderSystem.recordRenderCall(() -> {
-                            entry.left.close();
                             LOGGER.debug("Try attaching to slide show from: {}", location);
-                            entry.left = SlideRenderEntry.of(image, manager);
+                            entry.left = SlideRenderEntry.of(texture, manager);
                             entry.middle = State.LOADED;
                             entry.right = EXPIRE_TICKS;
                         });
@@ -133,7 +152,6 @@ public final class SlideRenderData {
                     }
                 }).exceptionally(e -> {
                     RenderSystem.recordRenderCall(() -> {
-                        entry.left.close();
                         LOGGER.info("Failed to load slide show from: {}", location);
                         LOGGER.debug("Failed to load slide show.", e);
                         entry.left = SlideRenderEntry.failed();
@@ -152,7 +170,6 @@ public final class SlideRenderData {
                 break;
             }
             case FILE_CACHE_FAILED: {
-                entry.left.close();
                 entry.left = SlideRenderEntry.loading();
                 entry.middle = State.LOADING;
                 entry.right = EXPIRE_TICKS;
@@ -183,6 +200,19 @@ public final class SlideRenderData {
                 break;
             }
         }
+    }
+
+    private static DynamicTexture attachTexture(byte[] imageBytes) throws IOException {
+        // noinspection UnstableApiUsage
+        String sha1 = Hashing.sha1().hashBytes(imageBytes).toString();
+        MutablePair<DynamicTexture, Integer> value = IMAGES.get(sha1);
+        if (value == null) {
+            LOGGER.debug("Slide image created: {}", sha1);
+            NativeImage image = NativeImage.read(new ByteArrayInputStream(imageBytes));
+            IMAGES.put(sha1, value = new MutablePair<>(new DynamicTexture(image), IMAGE_HASH_EXPIRE_TICKS));
+        }
+        value.right = IMAGE_HASH_EXPIRE_TICKS;
+        return value.left;
     }
 
     private static Optional<URI> createURI(String location) {

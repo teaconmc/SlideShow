@@ -4,30 +4,17 @@ import com.mojang.blaze3d.vertex.IVertexBuilder;
 import net.minecraft.client.renderer.IRenderTypeBuffer;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.client.renderer.texture.NativeImage;
 import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.vector.Matrix4f;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.Marker;
-import org.apache.logging.log4j.MarkerManager;
-import org.teacon.slides.SlideShow;
 
-import java.io.Closeable;
-
-public abstract class SlideRenderEntry implements Closeable {
-
-    private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
-    private static final Marker MARKER = MarkerManager.getMarker("RenderEntry");
+public abstract class SlideRenderEntry {
 
     public abstract void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light, boolean renderFront, boolean renderBack);
 
-    public abstract void close();
-
-    public static Impl of(NativeImage nativeImage, TextureManager manager) {
-        return new Impl(nativeImage, manager);
+    public static Impl of(DynamicTexture texture, TextureManager manager) {
+        return new Impl(texture, manager);
     }
 
     public static Nothing nothing() {
@@ -47,16 +34,11 @@ public abstract class SlideRenderEntry implements Closeable {
     }
 
     private static final class Impl extends SlideRenderEntry {
-        private final DynamicTexture texture;
-        protected final RenderType renderType;
+        private final RenderType renderType;
 
-        private final ResourceLocation location;
-
-        private Impl(NativeImage nativeImage, TextureManager manager) {
-            this.texture = new DynamicTexture(nativeImage);
-            this.location = manager.getDynamicTextureLocation("slide_show", this.texture);
-            LOGGER.debug(MARKER, "Loading the texture: {}", this.location);
-            this.renderType = SlideRenderType.slide(this.location);
+        private Impl(DynamicTexture texture, TextureManager manager) {
+            ResourceLocation location = manager.getDynamicTextureLocation("slide_show", texture);
+            this.renderType = SlideRenderType.slide(location);
         }
 
         @Override
@@ -84,21 +66,6 @@ public abstract class SlideRenderEntry implements Closeable {
                 builder.pos(matrix, 0F, -1F / 256F, 1F).color(red, green, blue, alpha).tex(0F, 1F).lightmap(light).endVertex();
             }
         }
-
-        @Override
-        public void close() {
-            LOGGER.debug(MARKER, "Unloading the texture: {}", this.location);
-            this.texture.close();
-        }
-
-        @Override
-        protected void finalize() {
-            if (this.texture.getTextureData() != null) {
-                LOGGER.error(MARKER, "A MEMORY LEAK issue of texture {} was found, WHAT HAPPENED???", this.location);
-                LOGGER.info(MARKER, "Forcibly unloading the texture: {}", this.location);
-                this.texture.close();
-            }
-        }
     }
 
     private static final class Nothing extends SlideRenderEntry {
@@ -106,9 +73,6 @@ public abstract class SlideRenderEntry implements Closeable {
 
         @Override
         public void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light, boolean renderFront, boolean renderBack) {}
-
-        @Override
-        public void close() {}
     }
 
     private static final class Default extends SlideRenderEntry {
@@ -267,8 +231,5 @@ public abstract class SlideRenderEntry implements Closeable {
                 builder.pos(matrix, x2, -1F / 256F, 1F).color(255, 255, 255, alpha).tex(u2, 1F).lightmap(light).endVertex();
             }
         }
-
-        @Override
-        public void close() {}
     }
 }
