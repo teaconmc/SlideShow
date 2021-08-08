@@ -21,6 +21,8 @@ public class ProjectorTileEntityRenderer extends TileEntityRenderer<ProjectorTil
 
     @Override
     public void render(ProjectorTileEntity tile, float partialTicks, MatrixStack matrixStack, IRenderTypeBuffer buffer, int combinedLight, int combinedOverlay) {
+        final Slide slide = SlideState.getSlide(tile.currentSlide.getImageLocation());
+
         if (!tile.getBlockState().get(BlockStateProperties.POWERED)) {
             matrixStack.push();
 
@@ -29,8 +31,7 @@ public class ProjectorTileEntityRenderer extends TileEntityRenderer<ProjectorTil
             final boolean renderFront = tile.currentSlide.isFrontVisible(), renderBack = tile.currentSlide.isBackVisible();
 
             transformation.mul(tile.getTransformation());
-            SlideState.getSlide(tile.currentSlide.getImageLocation())
-                    .render(buffer, transformation, width, height, tile.currentSlide.getColor(), combinedLight, renderFront, renderBack);
+            slide.render(buffer, transformation, width, height, tile.currentSlide.getColor(), combinedLight, renderFront, renderBack);
 
             matrixStack.pop();
         }
