@@ -1,4 +1,4 @@
-package org.teacon.slides.download;
+package org.teacon.slides.cache;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -36,7 +36,6 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
-import java.util.concurrent.Callable;
 
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault

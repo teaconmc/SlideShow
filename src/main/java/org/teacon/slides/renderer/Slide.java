@@ -3,94 +3,120 @@ package org.teacon.slides.renderer;
 import com.mojang.blaze3d.vertex.IVertexBuilder;
 import net.minecraft.client.renderer.IRenderTypeBuffer;
 import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.client.renderer.texture.TextureManager;
+import net.minecraft.client.renderer.texture.TextureUtil;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.vector.Matrix4f;
+import org.teacon.slides.SlideShow;
 
-public abstract class SlideRenderEntry {
+import javax.annotation.Nonnull;
 
-    public abstract void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light, boolean renderFront, boolean renderBack);
+/**
+ * A Slide, with an immutable image storage uploaded to OpenGL.
+ *
+ * @see SlideState
+ */
+public class Slide {
 
-    public static Impl of(DynamicTexture texture, TextureManager manager) {
-        return new Impl(texture, manager);
+    /**
+     * Nothing to render, skip rendering.
+     */
+    static final Slide NOTHING = new Slide();
+
+    private Slide() {
     }
 
-    public static Nothing nothing() {
-        return Nothing.NOTHING;
+    public void render(IRenderTypeBuffer source, Matrix4f matrix, float width, float height,
+                       int color, int light, boolean renderFront, boolean renderBack) {
     }
 
-    public static Default empty() {
-        return Default.DEFAULT_EMPTY;
+    void release() {
     }
 
-    public static Default failed() {
-        return Default.DEFAULT_FAILED;
+    @Nonnull
+    static Slide make(int texture) {
+        return new ImageSlide(texture);
     }
 
-    public static Default loading() {
-        return Default.DEFAULT_LOADING;
+    public static Slide empty() {
+        return IconSlide.DEFAULT_EMPTY;
     }
 
-    private static final class Impl extends SlideRenderEntry {
-        private final RenderType renderType;
+    public static Slide failed() {
+        return IconSlide.DEFAULT_FAILED;
+    }
 
-        private Impl(DynamicTexture texture, TextureManager manager) {
-            ResourceLocation location = manager.getDynamicTextureLocation("slide_show", texture);
-            this.renderType = SlideRenderType.slide(location);
+    public static Slide loading() {
+        return IconSlide.DEFAULT_LOADING;
+    }
+
+    private static final class ImageSlide extends Slide {
+
+        private final int mTexture;
+        private final RenderType mRenderType;
+
+        private ImageSlide(int texture) {
+            mTexture = texture;
+            mRenderType = new SlideRenderType(texture);
         }
 
         @Override
-        public void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light, boolean renderFront, boolean renderBack) {
-            int alpha = (color >>> 24) & 255;
-            if (alpha > 0) {
-                int red = (color >>> 16) & 255, green = (color >>> 8) & 255, blue = color & 255;
-                this.renderSlide(buffer, matrix, alpha, red, green, blue, light, renderFront, renderBack);
+        public void render(IRenderTypeBuffer source, Matrix4f matrix, float width, float height,
+                           int color, int light, boolean renderFront, boolean renderBack) {
+            if (renderFront || renderBack) {
+                int alpha = color >>> 24;
+                if (alpha > 0) {
+                    int red = (color >> 16) & 255, green = (color >> 8) & 255, blue = color & 255;
+                    final IVertexBuilder builder = source.getBuffer(mRenderType);
+                    // Vertex format Pos -> Color -> Tex -> Light -> End.
+                    if (renderFront) {
+                        builder.pos(matrix, 0F, 1F / 256F, 1F)
+                                .color(red, green, blue, alpha).tex(0F, 1F).lightmap(light).endVertex();
+                        builder.pos(matrix, 1F, 1F / 256F, 1F)
+                                .color(red, green, blue, alpha).tex(1F, 1F).lightmap(light).endVertex();
+                        builder.pos(matrix, 1F, 1F / 256F, 0F)
+                                .color(red, green, blue, alpha).tex(1F, 0F).lightmap(light).endVertex();
+                        builder.pos(matrix, 0F, 1F / 256F, 0F)
+                                .color(red, green, blue, alpha).tex(0F, 0F).lightmap(light).endVertex();
+                    }
+                    if (renderBack) {
+                        builder.pos(matrix, 0F, -1F / 256F, 0F)
+                                .color(red, green, blue, alpha).tex(0F, 0F).lightmap(light).endVertex();
+                        builder.pos(matrix, 1F, -1F / 256F, 0F)
+                                .color(red, green, blue, alpha).tex(1F, 0F).lightmap(light).endVertex();
+                        builder.pos(matrix, 1F, -1F / 256F, 1F)
+                                .color(red, green, blue, alpha).tex(1F, 1F).lightmap(light).endVertex();
+                        builder.pos(matrix, 0F, -1F / 256F, 1F)
+                                .color(red, green, blue, alpha).tex(0F, 1F).lightmap(light).endVertex();
+                    }
+                }
             }
         }
-
-        private void renderSlide(IRenderTypeBuffer buffer, Matrix4f matrix, int alpha, int red, int green, int blue, int light, boolean renderFront, boolean renderBack) {
-            final IVertexBuilder builder = buffer.getBuffer(this.renderType);
-            // We are using GL11.GL_QUAD, vertex format Pos -> Color -> Tex -> Light -> End.
-            if (renderFront) {
-                builder.pos(matrix, 0F, 1F / 256F, 1F).color(red, green, blue, alpha).tex(0F, 1F).lightmap(light).endVertex();
-                builder.pos(matrix, 1F, 1F / 256F, 1F).color(red, green, blue, alpha).tex(1F, 1F).lightmap(light).endVertex();
-                builder.pos(matrix, 1F, 1F / 256F, 0F).color(red, green, blue, alpha).tex(1F, 0F).lightmap(light).endVertex();
-                builder.pos(matrix, 0F, 1F / 256F, 0F).color(red, green, blue, alpha).tex(0F, 0F).lightmap(light).endVertex();
-            }
-            if (renderBack) {
-                builder.pos(matrix, 0F, -1F / 256F, 0F).color(red, green, blue, alpha).tex(0F, 0F).lightmap(light).endVertex();
-                builder.pos(matrix, 1F, -1F / 256F, 0F).color(red, green, blue, alpha).tex(1F, 0F).lightmap(light).endVertex();
-                builder.pos(matrix, 1F, -1F / 256F, 1F).color(red, green, blue, alpha).tex(1F, 1F).lightmap(light).endVertex();
-                builder.pos(matrix, 0F, -1F / 256F, 1F).color(red, green, blue, alpha).tex(0F, 1F).lightmap(light).endVertex();
-            }
-        }
-    }
-
-    private static final class Nothing extends SlideRenderEntry {
-        private static final Nothing NOTHING = new Nothing();
 
         @Override
-        public void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light, boolean renderFront, boolean renderBack) {}
+        public void release() {
+            TextureUtil.releaseTextureId(mTexture);
+            SlideShow.LOGGER.debug("Released slide texture ID: {}", mTexture);
+        }
     }
 
-    private static final class Default extends SlideRenderEntry {
+    private static final class IconSlide extends Slide {
+
         private static final ResourceLocation BACKGROUND = new ResourceLocation("slide_show", "textures/gui/slide_default.png");
         private static final ResourceLocation ICON_EMPTY = new ResourceLocation("slide_show", "textures/gui/slide_icon_empty.png");
         private static final ResourceLocation ICON_FAILED = new ResourceLocation("slide_show", "textures/gui/slide_icon_failed.png");
         private static final ResourceLocation ICON_LOADING = new ResourceLocation("slide_show", "textures/gui/slide_icon_loading.png");
 
-        private static final Default DEFAULT_EMPTY = new Default(Default.ICON_EMPTY, Default.BACKGROUND);
-        private static final Default DEFAULT_FAILED = new Default(Default.ICON_FAILED, Default.BACKGROUND);
-        private static final Default DEFAULT_LOADING = new Default(Default.ICON_LOADING, Default.BACKGROUND);
+        private static final IconSlide DEFAULT_EMPTY = new IconSlide(IconSlide.ICON_EMPTY, IconSlide.BACKGROUND);
+        private static final IconSlide DEFAULT_FAILED = new IconSlide(IconSlide.ICON_FAILED, IconSlide.BACKGROUND);
+        private static final IconSlide DEFAULT_LOADING = new IconSlide(IconSlide.ICON_LOADING, IconSlide.BACKGROUND);
 
-        private final RenderType iconRenderType;
-        private final RenderType backgroundRenderType;
+        private final RenderType mIconRenderType;
+        private final RenderType mBackgroundRenderType;
 
-        private Default(ResourceLocation iconLocation, ResourceLocation backgroundLocation) {
-            this.iconRenderType = SlideRenderType.slide(iconLocation);
-            this.backgroundRenderType = SlideRenderType.slide(backgroundLocation);
+        private IconSlide(ResourceLocation icon, ResourceLocation background) {
+            mIconRenderType = new SlideRenderType(icon);
+            mBackgroundRenderType = new SlideRenderType(background);
         }
 
         private float getFactor(float width, float height) {
@@ -98,18 +124,22 @@ public abstract class SlideRenderEntry {
         }
 
         @Override
-        public void render(IRenderTypeBuffer buffer, Matrix4f matrix, float width, float height, int color, int light, boolean renderFront, boolean renderBack) {
-            int alpha = (color >>> 24) & 255;
-            if (alpha > 0) {
-                float factor = this.getFactor(width, height);
-                int xSize = Math.round(width / factor), ySize = Math.round(height / factor);
-                this.renderIcon(buffer, matrix, alpha, light, xSize, ySize, renderFront, renderBack);
-                this.renderBackground(buffer, matrix, alpha, light, xSize, ySize, renderFront, renderBack);
+        public void render(IRenderTypeBuffer source, Matrix4f matrix, float width, float height,
+                           int color, int light, boolean renderFront, boolean renderBack) {
+            if (renderFront || renderBack) {
+                int alpha = color >>> 24;
+                if (alpha > 0) {
+                    float factor = getFactor(width, height);
+                    int xSize = Math.round(width / factor), ySize = Math.round(height / factor);
+                    renderIcon(source, matrix, alpha, light, xSize, ySize, renderFront, renderBack);
+                    renderBackground(source, matrix, alpha, light, xSize, ySize, renderFront, renderBack);
+                }
             }
         }
 
-        private void renderIcon(IRenderTypeBuffer buffer, Matrix4f matrix, int alpha, int light, int xSize, int ySize, boolean renderFront, boolean renderBack) {
-            IVertexBuilder builder = buffer.getBuffer(this.iconRenderType);
+        private void renderIcon(@Nonnull IRenderTypeBuffer source, Matrix4f matrix, int alpha, int light,
+                                int xSize, int ySize, boolean renderFront, boolean renderBack) {
+            IVertexBuilder builder = source.getBuffer(mIconRenderType);
             // We are using GL11.GL_QUAD, vertex format Pos -> Color -> Tex -> Light -> End.
             float x1 = (1F - 19F / xSize) / 2F, x2 = 1F - x1, y1 = (1F - 16F / ySize) / 2F, y2 = 1F - y1;
             if (renderFront) {
@@ -126,8 +156,9 @@ public abstract class SlideRenderEntry {
             }
         }
 
-        private void renderBackground(IRenderTypeBuffer buffer, Matrix4f matrix, int alpha, int light, int xSize, int ySize, boolean renderFront, boolean renderBack) {
-            IVertexBuilder builder = buffer.getBuffer(this.backgroundRenderType);
+        private void renderBackground(@Nonnull IRenderTypeBuffer source, Matrix4f matrix, int alpha, int light,
+                                      int xSize, int ySize, boolean renderFront, boolean renderBack) {
+            IVertexBuilder builder = source.getBuffer(mBackgroundRenderType);
             // We are using GL11.GL_QUAD, vertex format Pos -> Color -> Tex -> Light -> End.
             float u1 = 9F / 19F, u2 = 10F / 19F, x1 = 9F / xSize, x2 = 1F - x1, y1 = 9F / ySize, y2 = 1F - y1;
             // below is the generation code
