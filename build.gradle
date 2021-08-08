@@ -4,21 +4,23 @@ import java.time.temporal.ChronoUnit
 
 buildscript {
     repositories {
-        maven { url = 'https://files.minecraftforge.net/maven' }
-        gradlePluginPortal()
+        maven { url = 'https://maven.minecraftforge.net' }
+        mavenCentral()
     }
     dependencies {
-        classpath group: 'com.github.jengelman.gradle.plugins', name: 'shadow', version: '6.1.0'
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '4.1.+', changing: true
+        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
     }
 }
 
+plugins {
+    id 'com.github.johnrengelman.shadow' version '6.1.0'
+}
+
 apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '0.4.8'
+version = '0.5.0'
 group = 'org.teaconmc'
 archivesBaseName = 'SlideShow'
 
@@ -80,8 +82,8 @@ shadowJar {
         it.exclude it.dependency('commons-logging:commons-logging:.*')
         it.exclude it.dependency('commons-codec:commons-codec:.*')
     }
-    relocate 'org.apache.http.client.cache', 'org.teacon.slides.repackage.org.apache.http.client.cache'
-    relocate 'org.apache.http.impl.client.cache', 'org.teacon.slides.repackage.org.apache.http.impl.client.cache'
+    relocate 'org.apache.http.client.cache', 'org.teacon.slides.http.client.cache'
+    relocate 'org.apache.http.impl.client.cache', 'org.teacon.slides.http.impl.client.cache'
 }
 
 jar {

@@ -35,8 +35,12 @@ import java.util.Map;
 
 @Mod.EventBusSubscriber(Dist.CLIENT)
 public class ProjectorWorldRender {
+
     @SubscribeEvent
     public static void worldRender(final RenderWorldLastEvent event) {
+        if (SlideShow.sOptiFineLoaded) {
+            return;
+        }
         ClientPlayerEntity player = Minecraft.getInstance().player;
         if (player != null && player.isCreative()) {
             if (isProjector(player.getHeldItemMainhand())) {
@@ -47,6 +51,9 @@ public class ProjectorWorldRender {
 
     @SubscribeEvent
     public static void renderTick(final TickEvent.RenderTickEvent event) {
+        if (SlideShow.sOptiFineLoaded) {
+            return;
+        }
         if (event.phase == TickEvent.Phase.START && framebuffer != null) {
             final Minecraft mc = Minecraft.getInstance();
             final MainWindow mainWindow = mc.getMainWindow();
@@ -106,7 +113,7 @@ public class ProjectorWorldRender {
             final BlockRendererDispatcher dispatcher = mc.getBlockRendererDispatcher();
 
             final IRenderTypeBuffer.Impl buffer = mc.getRenderTypeBuffers().getBufferSource();
-            final IVertexBuilder builder = buffer.getBuffer(SlideRenderType.highlight());
+            final IVertexBuilder builder = buffer.getBuffer(SlideRenderType.HIGHLIGHT);
             final Vector3d viewPos = mc.gameRenderer.getActiveRenderInfo().getProjectedView();
 
             // step 1: prepare vertices and faces
@@ -127,7 +134,7 @@ public class ProjectorWorldRender {
 
             // step 3: render
             RenderSystem.color3f(1.0F, 1.0F, 1.0F);
-            buffer.finish(SlideRenderType.highlight());
+            buffer.finish(SlideRenderType.HIGHLIGHT);
 
             // step 4: apply shaders
             shaderGroup.render(partialTicks);

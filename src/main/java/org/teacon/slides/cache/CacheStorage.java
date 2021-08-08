@@ -1,13 +1,9 @@
-package org.teacon.slides.download;
+package org.teacon.slides.cache;
 
 import com.google.common.collect.Streams;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Uninterruptibles;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import com.google.gson.*;
 import mcp.MethodsReturnNonnullByDefault;
 import net.minecraft.util.Util;
 import org.apache.commons.io.IOUtils;
@@ -36,19 +32,14 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
+import java.lang.ref.ReferenceQueue;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @MethodsReturnNonnullByDefault
@@ -66,6 +57,9 @@ final class CacheStorage implements HttpCacheStorage {
 
     private final AtomicInteger markedDirty = new AtomicInteger();
     private final Map<String, Pair<Path, HttpCacheEntry>> entries = new LinkedHashMap<>();
+
+    private final ReferenceQueue<HttpCacheEntry> morque;
+    private final Set<ResourceReference> resources;
 
     private static Pair<Path, HttpCacheEntry> normalize(Path parentPath, HttpCacheEntry entry) throws IOException {
         byte[] bytes = IOUtils.toByteArray(entry.getResource().getInputStream());
@@ -185,9 +179,21 @@ final class CacheStorage implements HttpCacheStorage {
         } else if (LegacyStorage.loadLegacy(parentPath, this.entries)) {
             this.save();
         }
+        this.morque = new ReferenceQueue<>();
+        this.resources = new HashSet<>();
+    }
+
+    private void keepResourceReference(final HttpCacheEntry entry) {
+        final Resource resource = entry.getResource();
+        if (resource != null) {
+            // Must deallocate the resource when the entry is no longer in used
+            final ResourceReference ref = new ResourceReference(entry, this.morque);
+            this.resources.add(ref);
+        }
     }
 
     @Nullable
+    @Override
     public HttpCacheEntry getEntry(String url) {
         synchronized (this.entries) {
             Pair<Path, HttpCacheEntry> pair = this.entries.get(url);
@@ -195,14 +201,17 @@ final class CacheStorage implements HttpCacheStorage {
         }
     }
 
+    @Override
     public void putEntry(String url, HttpCacheEntry entry) throws IOException {
         synchronized (this.entries) {
             Pair<Path, HttpCacheEntry> normalizedEntry = normalize(this.parentPath, entry);
             this.entries.put(url, normalizedEntry);
+            keepResourceReference(entry);
         }
         this.scheduleSave();
     }
 
+    @Override
     public void removeEntry(String url) {
         synchronized (this.entries) {
             this.entries.remove(url);
@@ -210,11 +219,30 @@ final class CacheStorage implements HttpCacheStorage {
         this.scheduleSave();
     }
 
+    @Override
     public void updateEntry(String url, HttpCacheUpdateCallback cb) throws IOException {
         synchronized (this.entries) {
             Pair<Path, HttpCacheEntry> pair = this.entries.get(url);
             this.entries.put(url, normalize(this.parentPath, cb.update(pair != null ? pair.getValue() : null)));
+            final HttpCacheEntry existing = this.entries.get(url).getValue();
+            final HttpCacheEntry updated = cb.update(existing);
+            if (existing != updated) {
+                keepResourceReference(updated);
+            }
         }
         this.scheduleSave();
+    }
+
+    public int cleanResources() {
+        int count = 0;
+        ResourceReference ref;
+        while ((ref = (ResourceReference) this.morque.poll()) != null) {
+            synchronized (this) {
+                this.resources.remove(ref);
+            }
+            ref.getResource().dispose();
+            count++;
+        }
+        return count;
     }
 }
