@@ -113,22 +113,44 @@ public final class SlideState {
         return false;
     }
 
-    private void loadImageCache(URI uri) {
-        if (mState != State.LOADED) {
-            SlideImageStore.getImage(uri, true).thenAccept(this::loadImage).exceptionally(e -> {
-                RenderSystem.recordRenderCall(() -> {
-                    mSlide = Slide.failed();
-                    mState = State.FAILED_OR_EMPTY;
-                    mCounter = RETRY_INTERVAL_TICKS;
-                });
-                return null;
+    private void loadImageRemote(URI uri, boolean releaseOld) {
+        SlideImageStore.getImage(uri, true).thenAccept(data -> {
+            RenderSystem.recordRenderCall(() -> {
+                if (mState != State.LOADED) {
+                    if (releaseOld) {
+                        mSlide.release();
+                    }
+                    mSlide = Slide.make(loadImage(data));
+                    mState = State.LOADED;
+                }
             });
-        }
+        }).exceptionally(e -> {
+            RenderSystem.recordRenderCall(() -> {
+                if (releaseOld) {
+                    mSlide.release();
+                }
+                mSlide = Slide.failed();
+                mState = State.FAILED_OR_EMPTY;
+                mCounter = RETRY_INTERVAL_TICKS;
+            });
+            return null;
+        });
     }
 
     private void loadImage(URI uri) {
-        SlideImageStore.getImage(uri, false).thenAccept(this::loadImage).exceptionally(e -> {
-            RenderSystem.recordRenderCall(() -> loadImageCache(uri));
+        SlideImageStore.getImage(uri, false).thenAccept(data -> {
+            RenderSystem.recordRenderCall(() -> {
+                if (mState != State.LOADED) {
+                    mSlide = Slide.make(loadImage(data));
+                    loadImageRemote(uri, true);
+                }
+            });
+        }).exceptionally(e -> {
+            RenderSystem.recordRenderCall(() -> {
+                if (mState != State.LOADED) {
+                    loadImageRemote(uri, false);
+                }
+            });
             return null;
         });
         mSlide = Slide.loading();
@@ -136,25 +158,18 @@ public final class SlideState {
         mCounter = RECYCLE_TICKS;
     }
 
-    private void loadImage(byte[] data) {
-        RenderSystem.recordRenderCall(() -> {
-            if (mState != State.LOADED) {
-                try {
-                    // specifying null will use image source channels
-                    // vanilla minecraft did this on render thread, so it should be ok
-                    NativeImage image = NativeImage.read(null, new ByteArrayInputStream(data));
-                    loadTexture(image);
-                } catch (Exception e) {
-                    throw new CompletionException(e);
-                }
-            }
-        });
+    private int loadImage(byte[] data) {
+        try {
+            // specifying null will use image source channels
+            // vanilla minecraft did this on render thread, so it should be ok
+            NativeImage image = NativeImage.read(null, new ByteArrayInputStream(data));
+            return loadTexture(image);
+        } catch (Exception e) {
+            throw new CompletionException(e);
+        }
     }
 
-    private void loadTexture(@Nonnull NativeImage image) {
-        if (mState == State.LOADED) {
-            return;
-        }
+    private int loadTexture(@Nonnull NativeImage image) {
         int texture = TextureUtil.generateTextureId();
         // specify maximum mipmap level to 2
         TextureUtil.prepareImage(image.getFormat() == NativeImage.PixelFormat.RGB ?
@@ -188,8 +203,7 @@ public final class SlideState {
         // auto generate mipmap
         GL30.glGenerateMipmap(GL11.GL_TEXTURE_2D);
 
-        mSlide = Slide.make(texture);
-        mState = State.LOADED;
+        return texture;
     }
 
     @Nullable
