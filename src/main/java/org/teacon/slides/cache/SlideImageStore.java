@@ -35,7 +35,7 @@ public final class SlideImageStore {
 
     private static volatile SlideImageStore sInstance;
 
-    private static final int MAX_CACHE_OBJECT_SIZE = 2 << 28; // 512 MiB
+    private static final int MAX_CACHE_OBJECT_SIZE = 1 << 29; // 512 MiB
     private static final CacheConfig CONFIG = CacheConfig.custom().setMaxObjectSize(MAX_CACHE_OBJECT_SIZE).setSharedCache(false).build();
 
     private static final String DEFAULT_REFERER = "https://github.com/teaconmc/SlideShow";
