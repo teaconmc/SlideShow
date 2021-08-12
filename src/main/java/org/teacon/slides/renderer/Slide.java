@@ -7,7 +7,6 @@ import net.minecraft.client.renderer.texture.TextureUtil;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.vector.Matrix4f;
-import org.teacon.slides.SlideShow;
 
 import javax.annotation.Nonnull;
 
@@ -96,7 +95,6 @@ public class Slide {
         @Override
         public void release() {
             TextureUtil.releaseTextureId(mTexture);
-            SlideShow.LOGGER.debug("Released slide texture ID: {}", mTexture);
         }
     }
 

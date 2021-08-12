@@ -1,5 +1,6 @@
 package org.teacon.slides.renderer;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.renderer.texture.NativeImage;
 import net.minecraft.client.renderer.texture.TextureUtil;
@@ -7,6 +8,7 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
@@ -16,6 +18,7 @@ import org.teacon.slides.cache.SlideImageStore;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.ByteArrayInputStream;
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,11 +34,17 @@ public final class SlideState {
     private static final int RETRY_INTERVAL_TICKS = 160; // 8s
     private static final int FORCE_RECYCLE_LIFESPAN = 36000; // 30min
 
-    private static final int CLEANER_INTERVAL_TICKS = (2 << 15) - 1; // 54min
+    private static final int CLEANER_INTERVAL_TICKS = (1 << 16) - 1; // 54min
 
     private static final Map<String, SlideState> sCache = new HashMap<>();
 
+    private static final Field IMAGE_POINTER;
+
     private static int sCleanerTimer;
+
+    static {
+        IMAGE_POINTER = ObfuscationReflectionHelper.findField(NativeImage.class, "field_195722_d");
+    }
 
     @SubscribeEvent
     public static void tick(@Nonnull TickEvent.ClientTickEvent event) {
@@ -45,7 +54,9 @@ public final class SlideState {
             }
             if ((++sCleanerTimer & CLEANER_INTERVAL_TICKS) == 0) {
                 int c = SlideImageStore.cleanImages();
-                SlideShow.LOGGER.debug("Cleanup {} http cache image entries", c);
+                if (c != 0) {
+                    SlideShow.LOGGER.debug("Cleanup {} http cache image entries", c);
+                }
                 sCleanerTimer = 0;
             }
         }
@@ -64,7 +75,7 @@ public final class SlideState {
     /**
      * Current state.
      */
-    private State mState = State.INITIALIZED;
+    private volatile State mState = State.INITIALIZED;
     private int mCounter;
     private int mLifespan = FORCE_RECYCLE_LIFESPAN;
 
@@ -90,10 +101,15 @@ public final class SlideState {
                 mCounter = RETRY_INTERVAL_TICKS;
             } else {
                 SlideImageStore.getImage(uri, false)
-                        .thenAccept(data -> load(data, false))
+                        .thenAccept(this::loadImage)
                         .exceptionally(e -> {
+                            synchronized (SlideState.this) {
+                                if (mState == State.LOADED) {
+                                    return null;
+                                }
+                            }
                             SlideImageStore.getImage(uri, true)
-                                    .thenAccept(data -> load(data, true))
+                                    .thenAccept(this::loadImage)
                                     .exceptionally(e2 -> {
                                         mSlide = Slide.failed();
                                         mState = State.FAILED_OR_EMPTY;
@@ -107,33 +123,71 @@ public final class SlideState {
                 mCounter = RECYCLE_TICKS;
             }
         } else if (--mCounter < 0 || --mLifespan < 0) {
-            mSlide.release();
+            synchronized (this) {
+                mSlide.release();
+                // stop creating texture if the image is still downloading, but recycled
+                mState = State.LOADED;
+            }
             return true;
         }
         return false;
     }
 
-    private void load(byte[] data, boolean remote) {
+    private void loadImage(byte[] data) {
+        synchronized (this) {
+            if (mState == State.LOADED) {
+                return;
+            }
+        }
         try {
-            NativeImage image = NativeImage.read(new ByteArrayInputStream(data));
-            RenderSystem.recordRenderCall(() -> {
-                int texture = TextureUtil.generateTextureId();
-                // maximum mipmap 2, linear sampling
-                TextureUtil.prepareImage(image.getFormat() == NativeImage.PixelFormat.RGB ?
-                                NativeImage.PixelFormatGLCode.RGB : NativeImage.PixelFormatGLCode.RGBA,
-                        texture, 2, image.getWidth(), image.getHeight());
-                // last argument auto close the native image
-                image.uploadTextureSub(0, 0, 0, 0, 0,
-                        image.getWidth(), image.getHeight(), true, true, true, true);
-                // generate mipmap 1,2
-                GL30.glGenerateMipmap(GL11.GL_TEXTURE_2D);
-                mSlide = Slide.make(texture);
-                mState = State.LOADED;
-                SlideShow.LOGGER.debug("Created new texture ID {} and uploaded image data", texture);
-            });
-            SlideShow.LOGGER.debug("Read {} slide image and waiting for texture upload", remote ? "ONLINE" : "LOCAL");
+            // specify null will use image source channels
+            NativeImage image = NativeImage.read(null, new ByteArrayInputStream(data));
+            RenderSystem.recordRenderCall(() -> loadTexture(image));
         } catch (Exception e) {
             throw new CompletionException(e);
+        }
+    }
+
+    private void loadTexture(@Nonnull NativeImage image) {
+        synchronized (this) {
+            if (mState == State.LOADED) {
+                return;
+            }
+            int texture = TextureUtil.generateTextureId();
+            // specify maximum mipmap level to 2
+            TextureUtil.prepareImage(image.getFormat() == NativeImage.PixelFormat.RGB ?
+                            NativeImage.PixelFormatGLCode.RGB : NativeImage.PixelFormatGLCode.RGBA,
+                    texture, 2, image.getWidth(), image.getHeight());
+
+            GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+            GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR_MIPMAP_LINEAR);
+
+            GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_CLAMP);
+            GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_CLAMP);
+
+            GlStateManager.pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
+
+            GlStateManager.pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+            GlStateManager.pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
+
+            // specify pixel row alignment to 1
+            GlStateManager.pixelStore(GL11.GL_UNPACK_ALIGNMENT, 1);
+
+            try {
+                GlStateManager.texSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0,
+                        image.getWidth(), image.getHeight(), image.getFormat().getGlFormat(), GL11.GL_UNSIGNED_BYTE,
+                        IMAGE_POINTER.getLong(image));
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException("Failed to get image pointer");
+            }
+
+            image.close();
+
+            // auto generate mipmap
+            GL30.glGenerateMipmap(GL11.GL_TEXTURE_2D);
+
+            mSlide = Slide.make(texture);
+            mState = State.LOADED;
         }
     }
 
