@@ -100,95 +100,96 @@ public final class SlideState {
                 mState = State.FAILED_OR_EMPTY;
                 mCounter = RETRY_INTERVAL_TICKS;
             } else {
-                SlideImageStore.getImage(uri, false)
-                        .thenAccept(this::loadImage)
-                        .exceptionally(e -> {
-                            synchronized (SlideState.this) {
-                                if (mState == State.LOADED) {
-                                    return null;
-                                }
-                            }
-                            SlideImageStore.getImage(uri, true)
-                                    .thenAccept(this::loadImage)
-                                    .exceptionally(e2 -> {
-                                        mSlide = Slide.failed();
-                                        mState = State.FAILED_OR_EMPTY;
-                                        mCounter = RETRY_INTERVAL_TICKS;
-                                        return null;
-                                    });
-                            return null;
-                        });
-                mSlide = Slide.loading();
-                mState = State.LOADING;
-                mCounter = RECYCLE_TICKS;
+                loadImage(uri);
             }
         } else if (--mCounter < 0 || --mLifespan < 0) {
-            synchronized (this) {
+            RenderSystem.recordRenderCall(() -> {
                 mSlide.release();
                 // stop creating texture if the image is still downloading, but recycled
                 mState = State.LOADED;
-            }
+            });
             return true;
         }
         return false;
     }
 
-    private void loadImage(byte[] data) {
-        synchronized (this) {
-            if (mState == State.LOADED) {
-                return;
-            }
-        }
-        try {
-            // specify null will use image source channels
-            NativeImage image = NativeImage.read(null, new ByteArrayInputStream(data));
-            RenderSystem.recordRenderCall(() -> loadTexture(image));
-        } catch (Exception e) {
-            throw new CompletionException(e);
+    private void loadImageCache(URI uri) {
+        if (mState != State.LOADED) {
+            SlideImageStore.getImage(uri, true).thenAccept(this::loadImage).exceptionally(e -> {
+                RenderSystem.recordRenderCall(() -> {
+                    mSlide = Slide.failed();
+                    mState = State.FAILED_OR_EMPTY;
+                    mCounter = RETRY_INTERVAL_TICKS;
+                });
+                return null;
+            });
         }
     }
 
+    private void loadImage(URI uri) {
+        SlideImageStore.getImage(uri, false).thenAccept(this::loadImage).exceptionally(e -> {
+            RenderSystem.recordRenderCall(() -> loadImageCache(uri));
+            return null;
+        });
+        mSlide = Slide.loading();
+        mState = State.LOADING;
+        mCounter = RECYCLE_TICKS;
+    }
+
+    private void loadImage(byte[] data) {
+        RenderSystem.recordRenderCall(() -> {
+            if (mState != State.LOADED) {
+                try {
+                    // specifying null will use image source channels
+                    // vanilla minecraft did this on render thread, so it should be ok
+                    NativeImage image = NativeImage.read(null, new ByteArrayInputStream(data));
+                    loadTexture(image);
+                } catch (Exception e) {
+                    throw new CompletionException(e);
+                }
+            }
+        });
+    }
+
     private void loadTexture(@Nonnull NativeImage image) {
-        synchronized (this) {
-            if (mState == State.LOADED) {
-                return;
-            }
-            int texture = TextureUtil.generateTextureId();
-            // specify maximum mipmap level to 2
-            TextureUtil.prepareImage(image.getFormat() == NativeImage.PixelFormat.RGB ?
-                            NativeImage.PixelFormatGLCode.RGB : NativeImage.PixelFormatGLCode.RGBA,
-                    texture, 2, image.getWidth(), image.getHeight());
-
-            GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-            GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR_MIPMAP_LINEAR);
-
-            GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_CLAMP);
-            GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_CLAMP);
-
-            GlStateManager.pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
-
-            GlStateManager.pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
-            GlStateManager.pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
-
-            // specify pixel row alignment to 1
-            GlStateManager.pixelStore(GL11.GL_UNPACK_ALIGNMENT, 1);
-
-            try {
-                GlStateManager.texSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0,
-                        image.getWidth(), image.getHeight(), image.getFormat().getGlFormat(), GL11.GL_UNSIGNED_BYTE,
-                        IMAGE_POINTER.getLong(image));
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException("Failed to get image pointer");
-            }
-
-            image.close();
-
-            // auto generate mipmap
-            GL30.glGenerateMipmap(GL11.GL_TEXTURE_2D);
-
-            mSlide = Slide.make(texture);
-            mState = State.LOADED;
+        if (mState == State.LOADED) {
+            return;
         }
+        int texture = TextureUtil.generateTextureId();
+        // specify maximum mipmap level to 2
+        TextureUtil.prepareImage(image.getFormat() == NativeImage.PixelFormat.RGB ?
+                        NativeImage.PixelFormatGLCode.RGB : NativeImage.PixelFormatGLCode.RGBA,
+                texture, 2, image.getWidth(), image.getHeight());
+
+        GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+        GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR_MIPMAP_LINEAR);
+
+        GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_CLAMP);
+        GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_CLAMP);
+
+        GlStateManager.pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
+
+        GlStateManager.pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+        GlStateManager.pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
+
+        // specify pixel row alignment to 1
+        GlStateManager.pixelStore(GL11.GL_UNPACK_ALIGNMENT, 1);
+
+        try {
+            GlStateManager.texSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0,
+                    image.getWidth(), image.getHeight(), image.getFormat().getGlFormat(), GL11.GL_UNSIGNED_BYTE,
+                    IMAGE_POINTER.getLong(image));
+        } catch (IllegalAccessException e) {
+            throw new RuntimeException("Failed to get image pointer");
+        }
+
+        image.close();
+
+        // auto generate mipmap
+        GL30.glGenerateMipmap(GL11.GL_TEXTURE_2D);
+
+        mSlide = Slide.make(texture);
+        mState = State.LOADED;
     }
 
     @Nullable
