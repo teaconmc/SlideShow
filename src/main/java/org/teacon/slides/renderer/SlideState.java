@@ -22,7 +22,7 @@ import java.lang.reflect.Field;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author BloCamLimb
@@ -114,17 +114,14 @@ public final class SlideState {
     }
 
     private void loadImageRemote(URI uri, boolean releaseOld) {
-        SlideImageStore.getImage(uri, true).thenAccept(data -> {
-            final int texture = loadImage(data);
-            RenderSystem.recordRenderCall(() -> {
-                if (mState != State.LOADED) {
-                    if (releaseOld) {
-                        mSlide.release();
-                    }
-                    mSlide = Slide.make(texture);
-                    mState = State.LOADED;
+        SlideImageStore.getImage(uri, true).thenCompose(this::loadImage).thenAccept(texture -> {
+            if (mState != State.LOADED) {
+                if (releaseOld) {
+                    mSlide.release();
                 }
-            });
+                mSlide = Slide.make(texture);
+                mState = State.LOADED;
+            }
         }).exceptionally(e -> {
             RenderSystem.recordRenderCall(() -> {
                 if (releaseOld) {
@@ -139,8 +136,7 @@ public final class SlideState {
     }
 
     private void loadImage(URI uri) {
-        SlideImageStore.getImage(uri, false).thenAccept(data -> {
-            final int texture = loadImage(data);
+        SlideImageStore.getImage(uri, true).thenCompose(this::loadImage).thenAccept(texture -> {
             RenderSystem.recordRenderCall(() -> {
                 if (mState != State.LOADED) {
                     mSlide = Slide.make(texture);
@@ -160,14 +156,19 @@ public final class SlideState {
         mCounter = RECYCLE_TICKS;
     }
 
-    private int loadImage(byte[] data) {
-        try {
-            // specifying null will use image source channels
-            NativeImage image = NativeImage.read(null, new ByteArrayInputStream(data));
-            return loadTexture(image);
-        } catch (Exception e) {
-            throw new CompletionException(e);
-        }
+    private CompletableFuture<Integer> loadImage(byte[] data) {
+        CompletableFuture<Integer> future = new CompletableFuture<>();
+        RenderSystem.recordRenderCall(() -> {
+            try {
+                // specifying null will use image source channels
+                ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
+                NativeImage image = NativeImage.read(null, inputStream);
+                future.complete(loadTexture(image));
+            } catch (Exception e) {
+                future.completeExceptionally(e);
+            }
+        });
+        return future;
     }
 
     private int loadTexture(@Nonnull NativeImage image) {
