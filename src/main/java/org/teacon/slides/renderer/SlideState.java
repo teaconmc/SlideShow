@@ -115,12 +115,13 @@ public final class SlideState {
 
     private void loadImageRemote(URI uri, boolean releaseOld) {
         SlideImageStore.getImage(uri, true).thenAccept(data -> {
+            final int texture = loadImage(data);
             RenderSystem.recordRenderCall(() -> {
                 if (mState != State.LOADED) {
                     if (releaseOld) {
                         mSlide.release();
                     }
-                    mSlide = Slide.make(loadImage(data));
+                    mSlide = Slide.make(texture);
                     mState = State.LOADED;
                 }
             });
@@ -139,9 +140,10 @@ public final class SlideState {
 
     private void loadImage(URI uri) {
         SlideImageStore.getImage(uri, false).thenAccept(data -> {
+            final int texture = loadImage(data);
             RenderSystem.recordRenderCall(() -> {
                 if (mState != State.LOADED) {
-                    mSlide = Slide.make(loadImage(data));
+                    mSlide = Slide.make(texture);
                     loadImageRemote(uri, true);
                 }
             });
@@ -161,7 +163,6 @@ public final class SlideState {
     private int loadImage(byte[] data) {
         try {
             // specifying null will use image source channels
-            // vanilla minecraft did this on render thread, so it should be ok
             NativeImage image = NativeImage.read(null, new ByteArrayInputStream(data));
             return loadTexture(image);
         } catch (Exception e) {
