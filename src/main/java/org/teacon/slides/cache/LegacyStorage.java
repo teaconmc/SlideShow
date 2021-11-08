@@ -3,7 +3,6 @@ package org.teacon.slides.cache;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import mcp.MethodsReturnNonnullByDefault;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
@@ -37,7 +36,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
 
-@MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 final class LegacyStorage {
     private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);

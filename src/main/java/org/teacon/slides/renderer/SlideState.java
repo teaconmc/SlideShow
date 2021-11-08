@@ -2,13 +2,13 @@ package org.teacon.slides.renderer;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.renderer.texture.NativeImage;
-import net.minecraft.client.renderer.texture.TextureUtil;
+import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.platform.TextureUtil;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
+import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
@@ -43,7 +43,7 @@ public final class SlideState {
     private static int sCleanerTimer;
 
     static {
-        IMAGE_POINTER = ObfuscationReflectionHelper.findField(NativeImage.class, "field_195722_d");
+        IMAGE_POINTER = ObfuscationReflectionHelper.findField(NativeImage.class, "pixels");
     }
 
     @SubscribeEvent
@@ -174,27 +174,27 @@ public final class SlideState {
     private int loadTexture(@Nonnull NativeImage image) {
         int texture = TextureUtil.generateTextureId();
         // specify maximum mipmap level to 2
-        TextureUtil.prepareImage(image.getFormat() == NativeImage.PixelFormat.RGB ?
-                        NativeImage.PixelFormatGLCode.RGB : NativeImage.PixelFormatGLCode.RGBA,
+        TextureUtil.prepareImage(image.format() == NativeImage.Format.RGB ?
+                        NativeImage.InternalGlFormat.RGB : NativeImage.InternalGlFormat.RGBA,
                 texture, 2, image.getWidth(), image.getHeight());
 
-        GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-        GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR_MIPMAP_LINEAR);
+        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR_MIPMAP_LINEAR);
 
-        GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_CLAMP);
-        GlStateManager.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_CLAMP);
+        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_CLAMP);
+        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_CLAMP);
 
-        GlStateManager.pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
 
-        GlStateManager.pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
-        GlStateManager.pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
 
         // specify pixel row alignment to 1
-        GlStateManager.pixelStore(GL11.GL_UNPACK_ALIGNMENT, 1);
+        GlStateManager._pixelStore(GL11.GL_UNPACK_ALIGNMENT, 1);
 
         try {
-            GlStateManager.texSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0,
-                    image.getWidth(), image.getHeight(), image.getFormat().getGlFormat(), GL11.GL_UNSIGNED_BYTE,
+            GlStateManager._texSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0,
+                    image.getWidth(), image.getHeight(), image.format().glFormat(), GL11.GL_UNSIGNED_BYTE,
                     IMAGE_POINTER.getLong(image));
         } catch (IllegalAccessException e) {
             throw new RuntimeException("Failed to get image pointer");

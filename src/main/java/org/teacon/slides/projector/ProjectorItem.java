@@ -1,19 +1,19 @@
 package org.teacon.slides.projector;
 
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.BlockItem;
-import net.minecraft.item.ItemStack;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 import org.teacon.slides.SlideShow;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 
-@MethodsReturnNonnullByDefault
+import net.minecraft.world.item.Item.Properties;
+
 @ParametersAreNonnullByDefault
 public final class ProjectorItem extends BlockItem {
     public ProjectorItem(Properties builder) {
@@ -21,10 +21,10 @@ public final class ProjectorItem extends BlockItem {
     }
 
     @Override
-    protected boolean onBlockPlaced(BlockPos pos, World world, @Nullable PlayerEntity player, ItemStack stack, BlockState state) {
-        final boolean hasBlockEntityTag = super.onBlockPlaced(pos, world, player, stack, state);
+    protected boolean updateCustomBlockEntityTag(BlockPos pos, Level world, @Nullable Player player, ItemStack stack, BlockState state) {
+        final boolean hasBlockEntityTag = super.updateCustomBlockEntityTag(pos, world, player, stack, state);
         if (!hasBlockEntityTag && player != null) {
-            final TileEntity tile = world.getTileEntity(pos);
+            final BlockEntity tile = world.getBlockEntity(pos);
             if (tile instanceof ProjectorTileEntity) {
                 ((ProjectorTileEntity) tile).openGUI(state, pos, player);
             }

@@ -1,52 +1,57 @@
 package org.teacon.slides.projector;
 
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.BlockItemUseContext;
-import net.minecraft.state.EnumProperty;
-import net.minecraft.state.StateContainer.Builder;
-import net.minecraft.state.properties.BlockStateProperties;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.ActionResultType;
-import net.minecraft.util.Direction;
-import net.minecraft.util.Hand;
-import net.minecraft.util.IStringSerializable;
-import net.minecraft.util.Mirror;
-import net.minecraft.util.Rotation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.BlockRayTraceResult;
-import net.minecraft.util.math.shapes.ISelectionContext;
-import net.minecraft.util.math.shapes.VoxelShape;
-import net.minecraft.util.math.vector.Matrix4f;
-import net.minecraft.world.IBlockReader;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.StateDefinition.Builder;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.util.StringRepresentable;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.gameevent.GameEventListener;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.VoxelShape;
+import com.mojang.math.Matrix4f;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.common.util.Constants;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
 
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+
 @ParametersAreNonnullByDefault
-@MethodsReturnNonnullByDefault
-public final class ProjectorBlock extends Block {
+public final class ProjectorBlock extends BaseEntityBlock {
     public static final EnumProperty<InternalRotation> ROTATION = EnumProperty.create("rotation", InternalRotation.class);
     public static final EnumProperty<Direction> BASE = EnumProperty.create("base", Direction.class, Direction.Plane.VERTICAL);
 
-    private static final VoxelShape SHAPE_WITH_BASE_UP = Block.makeCuboidShape(0.0, 4.0, 0.0, 16.0, 16.0, 16.0);
-    private static final VoxelShape SHAPE_WITH_BASE_DOWN = Block.makeCuboidShape(0.0, 0.0, 0.0, 16.0, 12.0, 16.0);
+    private static final VoxelShape SHAPE_WITH_BASE_UP = Block.box(0.0, 4.0, 0.0, 16.0, 16.0, 16.0);
+    private static final VoxelShape SHAPE_WITH_BASE_DOWN = Block.box(0.0, 0.0, 0.0, 16.0, 12.0, 16.0);
 
     public ProjectorBlock(Properties properties) {
         super(properties);
-        this.setDefaultState(this.stateContainer.getBaseState()
-                .with(BASE, Direction.DOWN).with(BlockStateProperties.FACING, Direction.EAST)
-                .with(BlockStateProperties.POWERED, Boolean.FALSE).with(ROTATION, InternalRotation.NONE));
+        this.registerDefaultState(this.stateDefinition.any()
+                .setValue(BASE, Direction.DOWN).setValue(BlockStateProperties.FACING, Direction.EAST)
+                .setValue(BlockStateProperties.POWERED, Boolean.FALSE).setValue(ROTATION, InternalRotation.NONE));
     }
 
     @Override
     @SuppressWarnings("deprecation")
-    public VoxelShape getShape(BlockState state, IBlockReader worldIn, BlockPos pos, ISelectionContext context) {
-        switch (state.get(BASE)) {
+    public VoxelShape getShape(BlockState state, BlockGetter worldIn, BlockPos pos, CollisionContext context) {
+        switch (state.getValue(BASE)) {
             case DOWN:
                 return SHAPE_WITH_BASE_DOWN;
             case UP:
@@ -56,35 +61,35 @@ public final class ProjectorBlock extends Block {
     }
 
     @Override
-    protected void fillStateContainer(Builder<Block, BlockState> builder) {
+    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
         builder.add(BASE, BlockStateProperties.FACING, BlockStateProperties.POWERED, ROTATION);
     }
 
     @Override
-    public BlockState getStateForPlacement(BlockItemUseContext context) {
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
         Direction facing = context.getNearestLookingDirection().getOpposite();
-        Direction horizontalFacing = context.getPlacementHorizontalFacing().getOpposite();
+        Direction horizontalFacing = context.getHorizontalDirection().getOpposite();
         Direction base = Arrays.stream(context.getNearestLookingDirections()).filter(Direction.Plane.VERTICAL).findFirst().orElse(Direction.DOWN);
-        InternalRotation placementRotation = InternalRotation.values()[4 + Math.floorMod(facing.getYOffset() * horizontalFacing.getHorizontalIndex(), 4)];
-        return this.getDefaultState().with(BASE, base).with(BlockStateProperties.FACING, facing).with(BlockStateProperties.POWERED, Boolean.FALSE).with(ROTATION, placementRotation);
+        InternalRotation placementRotation = InternalRotation.values()[4 + Math.floorMod(facing.getStepY() * horizontalFacing.get2DDataValue(), 4)];
+        return this.defaultBlockState().setValue(BASE, base).setValue(BlockStateProperties.FACING, facing).setValue(BlockStateProperties.POWERED, Boolean.FALSE).setValue(ROTATION, placementRotation);
     }
 
     @Override
     @SuppressWarnings("deprecation")
-    public void neighborChanged(BlockState state, World worldIn, BlockPos pos, Block blockIn, BlockPos fromPos, boolean isMoving) {
-        boolean powered = worldIn.isBlockPowered(pos);
-        if (powered != state.get(BlockStateProperties.POWERED)) {
-            worldIn.setBlockState(pos, state.with(BlockStateProperties.POWERED, powered), Constants.BlockFlags.BLOCK_UPDATE);
+    public void neighborChanged(BlockState state, Level worldIn, BlockPos pos, Block blockIn, BlockPos fromPos, boolean isMoving) {
+        boolean powered = worldIn.hasNeighborSignal(pos);
+        if (powered != state.getValue(BlockStateProperties.POWERED)) {
+            worldIn.setBlock(pos, state.setValue(BlockStateProperties.POWERED, powered), Constants.BlockFlags.BLOCK_UPDATE);
         }
     }
 
     @Override
     @SuppressWarnings("deprecation")
-    public void onBlockAdded(BlockState state, World worldIn, BlockPos pos, BlockState oldState, boolean isMoving) {
-        if (!oldState.isIn(state.getBlock())) {
-            boolean powered = worldIn.isBlockPowered(pos);
-            if (powered != state.get(BlockStateProperties.POWERED)) {
-                worldIn.setBlockState(pos, state.with(BlockStateProperties.POWERED, powered), Constants.BlockFlags.BLOCK_UPDATE);
+    public void onPlace(BlockState state, Level worldIn, BlockPos pos, BlockState oldState, boolean isMoving) {
+        if (!oldState.is(state.getBlock())) {
+            boolean powered = worldIn.hasNeighborSignal(pos);
+            if (powered != state.getValue(BlockStateProperties.POWERED)) {
+                worldIn.setBlock(pos, state.setValue(BlockStateProperties.POWERED, powered), Constants.BlockFlags.BLOCK_UPDATE);
             }
         }
     }
@@ -92,50 +97,47 @@ public final class ProjectorBlock extends Block {
     @Override
     @SuppressWarnings("deprecation")
     public BlockState mirror(BlockState state, Mirror mirror) {
-        Direction direction = state.get(BlockStateProperties.FACING);
+        Direction direction = state.getValue(BlockStateProperties.FACING);
         switch (direction) {
             case DOWN:
             case UP:
-                return state.with(ROTATION, state.get(ROTATION).compose(Rotation.CLOCKWISE_180));
+                return state.setValue(ROTATION, state.getValue(ROTATION).compose(Rotation.CLOCKWISE_180));
             default:
-                return state.rotate(mirror.toRotation(direction));
+                return state.rotate(mirror.getRotation(direction));
         }
     }
 
     @Override
     @SuppressWarnings("deprecation")
     public BlockState rotate(BlockState state, Rotation rotation) {
-        Direction direction = state.get(BlockStateProperties.FACING);
+        Direction direction = state.getValue(BlockStateProperties.FACING);
         switch (direction) {
             case DOWN:
             case UP:
-                return state.with(ROTATION, state.get(ROTATION).compose(rotation));
+                return state.setValue(ROTATION, state.getValue(ROTATION).compose(rotation));
             default:
-                return state.with(BlockStateProperties.FACING, rotation.rotate(state.get(BlockStateProperties.FACING)));
+                return state.setValue(BlockStateProperties.FACING, rotation.rotate(state.getValue(BlockStateProperties.FACING)));
         }
     }
 
     @Override
-    public boolean hasTileEntity(BlockState state) {
-        return true;
-    }
-
-    @Override
-    public TileEntity createTileEntity(BlockState state, IBlockReader world) {
-        return new ProjectorTileEntity();
+    public BlockEntity newBlockEntity(BlockPos blockPos, BlockState blockState) {
+        return new ProjectorTileEntity(blockPos, blockState);
     }
 
     @Override
     @SuppressWarnings("deprecation")
-    public ActionResultType onBlockActivated(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockRayTraceResult hit) {
-        final TileEntity tile = world.getTileEntity(pos);
+    public InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+        final BlockEntity tile = world.getBlockEntity(pos);
         if (tile instanceof ProjectorTileEntity) {
             ((ProjectorTileEntity) tile).openGUI(state, pos, player);
         }
-        return ActionResultType.func_233537_a_(world.isRemote);
+        return InteractionResult.sidedSuccess(world.isClientSide);
     }
 
-    public enum InternalRotation implements IStringSerializable {
+
+
+    public enum InternalRotation implements StringRepresentable {
         NONE("none", new float[]{1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F}),
         CLOCKWISE_90("clockwise_90", new float[]{0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F}),
         CLOCKWISE_180("clockwise_180", new float[]{-1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F}),
@@ -180,7 +182,7 @@ public final class ProjectorBlock extends Block {
         }
 
         @Override
-        public String getString() {
+        public String getSerializedName() {
             return this.name;
         }
     }

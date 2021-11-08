@@ -1,9 +1,8 @@
 package org.teacon.slides.network;
 
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.util.math.vector.Vector2f;
-import net.minecraft.util.math.vector.Vector3f;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.phys.Vec2;
+import com.mojang.math.Vector3f;
 import net.minecraftforge.common.util.INBTSerializable;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -12,11 +11,10 @@ import javax.annotation.ParametersAreNonnullByDefault;
  * A simple POJO that represents a particular slide.
  */
 @ParametersAreNonnullByDefault
-@MethodsReturnNonnullByDefault
-public final class SlideData implements INBTSerializable<CompoundNBT> {
+public final class SlideData implements INBTSerializable<CompoundTag> {
     private String url;
     private int imgColor;
-    private Vector2f imgSize;
+    private Vec2 imgSize;
     private Vector3f imgOffset;
     private boolean backVisibility;
     private boolean frontVisibility;
@@ -24,7 +22,7 @@ public final class SlideData implements INBTSerializable<CompoundNBT> {
     public SlideData() {
         this.url = "";
         this.imgColor = 0xFFFFFFFF;
-        this.imgSize = Vector2f.ONE;
+        this.imgSize = Vec2.ONE;
         this.imgOffset = new Vector3f();
         this.backVisibility = this.frontVisibility = true;
     }
@@ -47,11 +45,11 @@ public final class SlideData implements INBTSerializable<CompoundNBT> {
         return this;
     }
 
-    public Vector2f getSize() {
+    public Vec2 getSize() {
         return this.imgSize;
     }
 
-    public SlideData setSize(Vector2f size) {
+    public SlideData setSize(Vec2 size) {
         this.imgSize = size;
         return this;
     }
@@ -84,25 +82,25 @@ public final class SlideData implements INBTSerializable<CompoundNBT> {
     }
 
     @Override
-    public CompoundNBT serializeNBT() {
-        CompoundNBT nbt = new CompoundNBT();
+    public CompoundTag serializeNBT() {
+        CompoundTag nbt = new CompoundTag();
         nbt.putString("ImageLocation", this.url);
         nbt.putInt("Color", this.imgColor);
         nbt.putFloat("Width", this.imgSize.x);
         nbt.putFloat("Height", this.imgSize.y);
-        nbt.putFloat("OffsetX", this.imgOffset.getX());
-        nbt.putFloat("OffsetY", this.imgOffset.getY());
-        nbt.putFloat("OffsetZ", this.imgOffset.getZ());
+        nbt.putFloat("OffsetX", this.imgOffset.x());
+        nbt.putFloat("OffsetY", this.imgOffset.y());
+        nbt.putFloat("OffsetZ", this.imgOffset.z());
         nbt.putBoolean("BackInvisible", !this.backVisibility);
         nbt.putBoolean("FrontInvisible", !this.frontVisibility);
         return nbt;
     }
 
     @Override
-    public void deserializeNBT(CompoundNBT nbt) {
+    public void deserializeNBT(CompoundTag nbt) {
         this.url = nbt.getString("ImageLocation");
         this.imgColor = nbt.getInt("Color");
-        this.imgSize = new Vector2f(nbt.getFloat("Width"), nbt.getFloat("Height"));
+        this.imgSize = new Vec2(nbt.getFloat("Width"), nbt.getFloat("Height"));
         this.imgOffset = new Vector3f(nbt.getFloat("OffsetX"), nbt.getFloat("OffsetY"), nbt.getFloat("OffsetZ"));
         this.backVisibility = !nbt.getBoolean("BackInvisible");
         this.frontVisibility = !nbt.getBoolean("FrontInvisible");

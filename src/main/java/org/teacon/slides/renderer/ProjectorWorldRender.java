@@ -1,24 +1,24 @@
 package org.teacon.slides.renderer;
 
 import com.google.common.collect.MapMaker;
-import com.mojang.blaze3d.matrix.MatrixStack;
+import com.mojang.blaze3d.vertex.*;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.IVertexBuilder;
-import net.minecraft.block.BlockState;
-import net.minecraft.client.MainWindow;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.world.level.block.state.BlockState;
+import com.mojang.blaze3d.platform.Window;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.entity.player.ClientPlayerEntity;
-import net.minecraft.client.renderer.BlockRendererDispatcher;
-import net.minecraft.client.renderer.IRenderTypeBuffer;
-import net.minecraft.client.renderer.model.IBakedModel;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.block.BlockRenderDispatcher;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.client.shader.Framebuffer;
-import net.minecraft.client.shader.ShaderGroup;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.vector.Vector3d;
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import net.minecraft.client.renderer.PostChain;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.client.model.data.EmptyModelData;
@@ -33,6 +33,7 @@ import org.teacon.slides.projector.ProjectorTileEntity;
 import java.io.IOException;
 import java.util.Map;
 
+
 @Mod.EventBusSubscriber(Dist.CLIENT)
 public class ProjectorWorldRender {
 
@@ -41,9 +42,9 @@ public class ProjectorWorldRender {
         if (SlideShow.sOptiFineLoaded) {
             return;
         }
-        ClientPlayerEntity player = Minecraft.getInstance().player;
+        LocalPlayer player = Minecraft.getInstance().player;
         if (player != null && player.isCreative()) {
-            if (isProjector(player.getHeldItemMainhand())) {
+            if (isProjector(player.getMainHandItem())) {
                 locateProjectorTileEntities(event.getMatrixStack(), event.getPartialTicks());
             }
         }
@@ -56,29 +57,29 @@ public class ProjectorWorldRender {
         }
         if (event.phase == TickEvent.Phase.START && framebuffer != null) {
             final Minecraft mc = Minecraft.getInstance();
-            final MainWindow mainWindow = mc.getMainWindow();
-            final int width = mainWindow.getFramebufferWidth();
-            final int height = mainWindow.getFramebufferHeight();
-            if (width != framebuffer.framebufferWidth || height != framebuffer.framebufferHeight) {
-                shaderGroup.createBindFramebuffers(width, height);
-                framebuffer = shaderGroup.getFramebufferRaw("slide_show:final");
+            final Window mainWindow = mc.getWindow();
+            final int width = mainWindow.getWidth();
+            final int height = mainWindow.getHeight();
+            if (width != framebuffer.viewWidth || height != framebuffer.viewHeight) {
+                shaderGroup.resize(width, height);
+                framebuffer = shaderGroup.getTempTarget("slide_show:final");
             }
         }
     }
 
-    private static ShaderGroup shaderGroup;
-    private static Framebuffer framebuffer;
+    private static PostChain shaderGroup;
+    private static RenderTarget framebuffer;
 
     private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
 
     private static final Map<BlockPos, ProjectorTileEntity> projectors = new MapMaker().weakValues().makeMap();
 
     public static void add(ProjectorTileEntity tileEntity) {
-        projectors.put(tileEntity.getPos(), tileEntity);
+        projectors.put(tileEntity.getBlockPos(), tileEntity);
     }
 
     public static void remove(ProjectorTileEntity tileEntity) {
-        projectors.remove(tileEntity.getPos(), tileEntity);
+        projectors.remove(tileEntity.getBlockPos(), tileEntity);
     }
 
     public static void loadShader() {
@@ -90,10 +91,10 @@ public class ProjectorWorldRender {
 
         try {
             final Minecraft mc = Minecraft.getInstance();
-            final MainWindow mainWindow = mc.getMainWindow();
-            shaderGroup = new ShaderGroup(mc.getTextureManager(), mc.getResourceManager(), mc.getFramebuffer(), location);
-            shaderGroup.createBindFramebuffers(mainWindow.getFramebufferWidth(), mainWindow.getFramebufferHeight());
-            framebuffer = shaderGroup.getFramebufferRaw("slide_show:final");
+            final Window mainWindow = mc.getWindow();
+            shaderGroup = new PostChain(mc.getTextureManager(), mc.getResourceManager(), mc.getMainRenderTarget(), location);
+            shaderGroup.resize(mainWindow.getWidth(), mainWindow.getHeight());
+            framebuffer = shaderGroup.getTempTarget("slide_show:final");
         } catch (IOException e) {
             LOGGER.warn("Failed to load shader: {}", location, e);
             shaderGroup = null;
@@ -106,47 +107,47 @@ public class ProjectorWorldRender {
     }
 
     @SuppressWarnings("deprecation")
-    private static void locateProjectorTileEntities(MatrixStack matrixStack, float partialTicks) {
+    private static void locateProjectorTileEntities(PoseStack matrixStack, float partialTicks) {
         if (framebuffer != null && !projectors.isEmpty()) {
             final Minecraft mc = Minecraft.getInstance();
-            final MainWindow mainWindow = mc.getMainWindow();
-            final BlockRendererDispatcher dispatcher = mc.getBlockRendererDispatcher();
+            final Window mainWindow = mc.getWindow();
+            final BlockRenderDispatcher dispatcher = mc.getBlockRenderer();
 
-            final IRenderTypeBuffer.Impl buffer = mc.getRenderTypeBuffers().getBufferSource();
-            final IVertexBuilder builder = buffer.getBuffer(SlideRenderType.HIGHLIGHT);
-            final Vector3d viewPos = mc.gameRenderer.getActiveRenderInfo().getProjectedView();
-
+//            final MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
+//            final VertexConsumer builder = buffer.getBuffer(SlideRenderType.HIGHLIGHT);
+            final Vec3 viewPos = mc.gameRenderer.getMainCamera().getPosition();
+            BufferBuilder builder = Tesselator.getInstance().getBuilder();
+            builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
             // step 1: prepare vertices and faces
             for (Map.Entry<BlockPos, ProjectorTileEntity> entry : projectors.entrySet()) {
                 BlockPos pos = entry.getKey();
                 BlockState state = entry.getValue().getBlockState();
-                IBakedModel model = dispatcher.getModelForState(state);
+                BakedModel model = dispatcher.getBlockModel(state);
 
-                matrixStack.push();
+                matrixStack.pushPose();
                 matrixStack.translate(pos.getX() - viewPos.x, pos.getY() - viewPos.y, pos.getZ() - viewPos.z);
-                dispatcher.getBlockModelRenderer().renderModel(matrixStack.getLast(), builder, state, model, 1.0F, 1.0F, 1.0F, 0xF000F0, OverlayTexture.NO_OVERLAY, EmptyModelData.INSTANCE);
-                matrixStack.pop();
+                dispatcher.getModelRenderer().renderModel(matrixStack.last(), builder, state, model, 1.0F, 1.0F, 1.0F, 0xF000F0, OverlayTexture.NO_OVERLAY, EmptyModelData.INSTANCE);
+                matrixStack.popPose();
             }
-
+            builder.end();
             // step 2: bind our frame buffer
-            framebuffer.framebufferClear(Minecraft.IS_RUNNING_ON_MAC);
-            framebuffer.bindFramebuffer(false);
+            framebuffer.clear(Minecraft.ON_OSX);
+            framebuffer.bindWrite(false);
 
             // step 3: render
-            RenderSystem.color3f(1.0F, 1.0F, 1.0F);
-            buffer.finish(SlideRenderType.HIGHLIGHT);
+            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+//            SLIDE_SHOW_SHADER.setupRenderState();
 
             // step 4: apply shaders
-            shaderGroup.render(partialTicks);
+            shaderGroup.process(partialTicks);
 
             // step 5: bind main frame buffer
-            Framebuffer main = mc.getFramebuffer();
-            main.bindFramebuffer(false);
-
+            RenderTarget main = mc.getMainRenderTarget();
+            main.bindWrite(false);
             // step 6: render our frame buffer to main frame buffer
             RenderSystem.enableBlend();
             RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE);
-            framebuffer.framebufferRenderExt(mainWindow.getFramebufferWidth(), mainWindow.getFramebufferHeight(), false);
+            framebuffer.blitToScreen(mainWindow.getWidth(), mainWindow.getHeight(), false);
             RenderSystem.disableBlend();
         }
     }

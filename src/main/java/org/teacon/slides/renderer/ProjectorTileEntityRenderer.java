@@ -1,44 +1,41 @@
 package org.teacon.slides.renderer;
 
-import com.mojang.blaze3d.matrix.MatrixStack;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.client.renderer.IRenderTypeBuffer;
-import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
-import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
-import net.minecraft.state.properties.BlockStateProperties;
-import net.minecraft.util.math.vector.Matrix4f;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
+import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import com.mojang.math.Matrix4f;
 import org.teacon.slides.projector.ProjectorTileEntity;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
 @ParametersAreNonnullByDefault
-@MethodsReturnNonnullByDefault
-public class ProjectorTileEntityRenderer extends TileEntityRenderer<ProjectorTileEntity> {
+public class ProjectorTileEntityRenderer implements BlockEntityRenderer<ProjectorTileEntity> {
 
-    public ProjectorTileEntityRenderer(TileEntityRendererDispatcher dispatcher) {
-        super(dispatcher);
+    public ProjectorTileEntityRenderer(BlockEntityRendererProvider.Context p_173554_) {
     }
 
     @Override
-    public void render(ProjectorTileEntity tile, float partialTicks, MatrixStack matrixStack, IRenderTypeBuffer buffer, int combinedLight, int combinedOverlay) {
+    public void render(ProjectorTileEntity tile, float partialTicks, PoseStack matrixStack, MultiBufferSource buffer, int combinedLight, int combinedOverlay) {
         final Slide slide = SlideState.getSlide(tile.currentSlide.getImageLocation());
 
-        if (!tile.getBlockState().get(BlockStateProperties.POWERED)) {
-            matrixStack.push();
+        if (!tile.getBlockState().getValue(BlockStateProperties.POWERED)) {
+            matrixStack.pushPose();
 
-            final Matrix4f transformation = matrixStack.getLast().getMatrix();
+            final Matrix4f transformation = matrixStack.last().pose();
             final float width = tile.currentSlide.getSize().x, height = tile.currentSlide.getSize().y;
             final boolean renderFront = tile.currentSlide.isFrontVisible(), renderBack = tile.currentSlide.isBackVisible();
 
-            transformation.mul(tile.getTransformation());
+            transformation.multiply(tile.getTransformation());
             slide.render(buffer, transformation, width, height, tile.currentSlide.getColor(), combinedLight, renderFront, renderBack);
 
-            matrixStack.pop();
+            matrixStack.popPose();
         }
     }
 
     @Override
-    public boolean isGlobalRenderer(ProjectorTileEntity tile) {
+    public boolean shouldRenderOffScreen(ProjectorTileEntity tile) {
         return true;
     }
 }

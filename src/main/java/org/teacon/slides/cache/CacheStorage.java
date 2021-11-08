@@ -4,8 +4,7 @@ import com.google.common.collect.Streams;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.gson.*;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.util.Util;
+import net.minecraft.Util;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.Header;
@@ -42,7 +41,6 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 final class CacheStorage implements HttpCacheStorage {
 
@@ -161,7 +159,7 @@ final class CacheStorage implements HttpCacheStorage {
 
     private void scheduleSave() {
         if (this.markedDirty.getAndIncrement() == 0) {
-            Util.getServerExecutor().execute(() -> {
+            Util.backgroundExecutor().execute(() -> {
                 // noinspection UnstableApiUsage
                 Uninterruptibles.sleepUninterruptibly(5000, TimeUnit.MILLISECONDS);
                 this.save();

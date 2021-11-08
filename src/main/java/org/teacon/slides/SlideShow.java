@@ -1,33 +1,33 @@
 package org.teacon.slides;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.datafixers.DSL;
-import mcp.MethodsReturnNonnullByDefault;
-import net.minecraft.block.Block;
-import net.minecraft.block.material.Material;
-import net.minecraft.client.gui.ScreenManager;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.RenderTypeLookup;
-import net.minecraft.inventory.container.ContainerType;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemGroup;
-import net.minecraft.item.Rarity;
-import net.minecraft.tileentity.TileEntityType;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.client.renderer.*;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.material.Material;
+import net.minecraft.client.gui.screens.MenuScreens;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.Rarity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ModelRegistryEvent;
+import net.minecraftforge.client.event.RegisterShadersEvent;
 import net.minecraftforge.common.extensions.IForgeContainerType;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.network.NetworkDirection;
-import net.minecraftforge.fml.network.NetworkRegistry;
-import net.minecraftforge.fml.network.simple.SimpleChannel;
+import net.minecraftforge.fmllegacy.network.NetworkDirection;
+import net.minecraftforge.fmllegacy.network.NetworkRegistry;
+import net.minecraftforge.fmllegacy.network.simple.SimpleChannel;
 import net.minecraftforge.server.permission.DefaultPermissionLevel;
 import net.minecraftforge.server.permission.PermissionAPI;
 import org.apache.logging.log4j.LogManager;
@@ -38,11 +38,11 @@ import org.teacon.slides.renderer.ProjectorTileEntityRenderer;
 import org.teacon.slides.renderer.ProjectorWorldRender;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.io.IOException;
 import java.util.Optional;
 
 @Mod("slide_show")
 @ParametersAreNonnullByDefault
-@MethodsReturnNonnullByDefault
 public final class SlideShow {
 
     public static final Logger LOGGER = LogManager.getLogger("SlideShow");
@@ -78,33 +78,33 @@ public final class SlideShow {
         final IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();
         bus.addGenericListener(Block.class, SlideShow::regBlock);
         bus.addGenericListener(Item.class, SlideShow::regItem);
-        bus.addGenericListener(TileEntityType.class, SlideShow::regTile);
-        bus.addGenericListener(ContainerType.class, SlideShow::regContainer);
+        bus.addGenericListener(BlockEntityType.class, SlideShow::regTile);
+        bus.addGenericListener(MenuType.class, SlideShow::regContainer);
         bus.addListener(SlideShow::setup);
     }
 
     public static void regBlock(final RegistryEvent.Register<Block> event) {
         event.getRegistry().register(
-                (projector = new ProjectorBlock(Block.Properties.create(Material.IRON)
-                        .hardnessAndResistance(20F)
-                        .harvestLevel(0)
-                        .setLightLevel(s -> 15) // TODO Configurable
-                        .doesNotBlockMovement())).setRegistryName("slide_show:projector")
+                (projector = new ProjectorBlock(Block.Properties.of(Material.METAL)
+                        .strength(20F)
+//                        .harvestLevel(0)
+                        .lightLevel(s -> 15) // TODO Configurable
+                        .noCollission())).setRegistryName("slide_show:projector")
         );
     }
 
-    public static void regContainer(final RegistryEvent.Register<ContainerType<?>> event) {
+    public static void regContainer(final RegistryEvent.Register<MenuType<?>> event) {
         event.getRegistry().register(IForgeContainerType.create(ProjectorControlContainer::fromClient)
                 .setRegistryName("slide_show:projector"));
     }
 
     public static void regItem(final RegistryEvent.Register<Item> event) {
         event.getRegistry().register(new ProjectorItem(new Item.Properties()
-                .group(ItemGroup.MISC).rarity(Rarity.RARE)).setRegistryName("slide_show:projector"));
+                .tab(CreativeModeTab.TAB_MISC).rarity(Rarity.RARE)).setRegistryName("slide_show:projector"));
     }
 
-    public static void regTile(final RegistryEvent.Register<TileEntityType<?>> event) {
-        event.getRegistry().register(TileEntityType.Builder.create(ProjectorTileEntity::new, projector)
+    public static void regTile(final RegistryEvent.Register<BlockEntityType<?>> event) {
+        event.getRegistry().register(BlockEntityType.Builder.of(ProjectorTileEntity::new, projector)
                 .build(DSL.remainderType()).setRegistryName("slide_show:projector"));
     }
 
@@ -118,20 +118,30 @@ public final class SlideShow {
                 UpdateImageInfoPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
-
+//    public static RenderStateShard.ShaderStateShard SLIDE_SHOW_SHADER;
     @Mod.EventBusSubscriber(modid = "slide_show", value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
     public static final class ClientSetup {
 
         @SubscribeEvent
         public static void setup(final FMLClientSetupEvent event) {
-            RenderTypeLookup.setRenderLayer(projector, RenderType.getCutout());
-            ScreenManager.registerFactory(ProjectorControlContainer.theType, ProjectorControlScreen::new);
-            ClientRegistry.bindTileEntityRenderer(ProjectorTileEntity.theType, ProjectorTileEntityRenderer::new);
+            ItemBlockRenderTypes.setRenderLayer(projector, RenderType.cutout());
+            MenuScreens.register(ProjectorControlContainer.theType, ProjectorControlScreen::new);
+            BlockEntityRenderers.register(ProjectorTileEntity.theType, ProjectorTileEntityRenderer::new);
         }
 
         @SubscribeEvent
         public static void modelLoad(final ModelRegistryEvent event) {
             RenderSystem.recordRenderCall(ProjectorWorldRender::loadShader);
+        }
+
+        @SubscribeEvent
+        public static void onRegisterShadersEvent(final RegisterShadersEvent event) throws IOException {
+            final ResourceLocation location = new ResourceLocation("slide_show", "shaders/post/projector_outline");
+
+//            event.registerShader(new ShaderInstance(event.getResourceManager(), location, DefaultVertexFormat.BLOCK),(i)->{
+//                 SLIDE_SHOW_SHADER = new RenderStateShard.ShaderStateShard(()->i);
+//
+//            });
         }
     }
 }
