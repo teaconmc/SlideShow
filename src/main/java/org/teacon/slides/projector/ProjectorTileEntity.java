@@ -21,7 +21,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
-import net.minecraftforge.fmllegacy.network.NetworkHooks;
+import net.minecraftforge.network.NetworkHooks;
 import net.minecraftforge.registries.ObjectHolder;
 import org.teacon.slides.network.SlideData;
 import org.teacon.slides.renderer.ProjectorWorldRender;
@@ -54,7 +54,7 @@ public final class ProjectorTileEntity extends BlockEntity implements MenuProvid
 
     @Override
     public AbstractContainerMenu createMenu(int id, Inventory inv, Player player) {
-        return ProjectorControlContainer.fromServer(id, inv, this);
+        return ProjectorControlContainerMenu.fromServer(id, inv, this);
     }
 
     @Override
@@ -100,7 +100,7 @@ public final class ProjectorTileEntity extends BlockEntity implements MenuProvid
 
     @Override
     public ClientboundBlockEntityDataPacket getUpdatePacket() {
-        return new ClientboundBlockEntityDataPacket(this.worldPosition, 0, this.currentSlide.serializeNBT());
+        return ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override

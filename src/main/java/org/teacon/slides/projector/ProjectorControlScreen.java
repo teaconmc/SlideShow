@@ -4,11 +4,11 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Rotation;
@@ -28,7 +28,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
 
 @ParametersAreNonnullByDefault
-public final class ProjectorControlScreen extends AbstractContainerScreen<ProjectorControlContainer> {
+public final class ProjectorControlScreen extends AbstractContainerScreen<ProjectorControlContainerMenu> {
 
     private static final ResourceLocation GUI_TEXTURE = new ResourceLocation("slide_show", "textures/gui/projector.png");
 
@@ -56,7 +56,7 @@ public final class ProjectorControlScreen extends AbstractContainerScreen<Projec
     private boolean invalidWidth = true, invalidHeight = true;
     private boolean invalidOffsetX = true, invalidOffsetY = true, invalidOffsetZ = true;
 
-    public ProjectorControlScreen(ProjectorControlContainer container, Inventory inv, Component title) {
+    public ProjectorControlScreen(ProjectorControlContainerMenu container, Inventory inv, Component title) {
         super(container, inv, title);
         this.imageWidth = 176;
         this.imageHeight = 217;
@@ -234,14 +234,14 @@ public final class ProjectorControlScreen extends AbstractContainerScreen<Projec
 
     @Override
     public void containerTick() {
-        super.tick();
-        this.urlInput.tick();
-        this.colorInput.tick();
-        this.widthInput.tick();
-        this.heightInput.tick();
-        this.offsetXInput.tick();
-        this.offsetYInput.tick();
-        this.offsetZInput.tick();
+//        super.containerTick();
+//        this.urlInput.tick();
+//        this.colorInput.tick();
+//        this.widthInput.tick();
+//        this.heightInput.tick();
+//        this.offsetXInput.tick();
+//        this.offsetYInput.tick();
+//        this.offsetZInput.tick();
     }
 
     @Override
@@ -333,8 +333,9 @@ public final class ProjectorControlScreen extends AbstractContainerScreen<Projec
     @Override
     @SuppressWarnings("deprecation")
     protected void renderBg(PoseStack stack, float partialTicks, int mouseX, int mouseY) {
+        RenderSystem.setShader(GameRenderer::getPositionTexShader);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        Objects.requireNonNull(this.minecraft).getTextureManager().bindForSetup(GUI_TEXTURE);
+        RenderSystem.setShaderTexture(0, GUI_TEXTURE);
         this.blit(stack, this.leftPos, this.topPos, 0, 0, this.imageWidth, this.imageHeight);
     }
 

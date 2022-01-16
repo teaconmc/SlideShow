@@ -1,7 +1,6 @@
 package org.teacon.slides;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.datafixers.DSL;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
@@ -17,7 +16,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ModelRegistryEvent;
 import net.minecraftforge.client.event.RegisterShadersEvent;
-import net.minecraftforge.common.extensions.IForgeContainerType;
+import net.minecraftforge.common.extensions.IForgeMenuType;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -25,18 +24,18 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fmllegacy.network.NetworkDirection;
-import net.minecraftforge.fmllegacy.network.NetworkRegistry;
-import net.minecraftforge.fmllegacy.network.simple.SimpleChannel;
-import net.minecraftforge.server.permission.DefaultPermissionLevel;
+import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.NetworkRegistry;
+import net.minecraftforge.network.simple.SimpleChannel;
 import net.minecraftforge.server.permission.PermissionAPI;
+import net.minecraftforge.server.permission.nodes.PermissionNode;
+import net.minecraftforge.server.permission.nodes.PermissionTypes;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.teacon.slides.network.UpdateImageInfoPacket;
 import org.teacon.slides.projector.*;
 import org.teacon.slides.renderer.ProjectorTileEntityRenderer;
 import org.teacon.slides.renderer.ProjectorWorldRender;
-
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 import java.util.Optional;
@@ -94,7 +93,7 @@ public final class SlideShow {
     }
 
     public static void regContainer(final RegistryEvent.Register<MenuType<?>> event) {
-        event.getRegistry().register(IForgeContainerType.create(ProjectorControlContainer::fromClient)
+        event.getRegistry().register(IForgeMenuType.create(ProjectorControlContainerMenu::fromClient)
                 .setRegistryName("slide_show:projector"));
     }
 
@@ -107,9 +106,11 @@ public final class SlideShow {
         event.getRegistry().register(BlockEntityType.Builder.of(ProjectorTileEntity::new, projector)
                 .build(DSL.remainderType()).setRegistryName("slide_show:projector"));
     }
+    private static final PermissionNode<Boolean> boolPerm =
+            new PermissionNode<>("permissiontest", "test.blob", PermissionTypes.BOOLEAN, (player, playerUUID, context) -> true);
 
     public static void setup(final FMLCommonSetupEvent event) {
-        PermissionAPI.registerNode("slide_show.interact.projector", DefaultPermissionLevel.ALL, "");
+//        PermissionAPI.registerNode("slide_show.interact.projector", DefaultPermissionLevel.ALL, "");
         int index = 0;
         // noinspection UnusedAssignment
         channel.registerMessage(index++, UpdateImageInfoPacket.class,
@@ -125,7 +126,7 @@ public final class SlideShow {
         @SubscribeEvent
         public static void setup(final FMLClientSetupEvent event) {
             ItemBlockRenderTypes.setRenderLayer(projector, RenderType.cutout());
-            MenuScreens.register(ProjectorControlContainer.theType, ProjectorControlScreen::new);
+            MenuScreens.register(ProjectorControlContainerMenu.theType, ProjectorControlScreen::new);
             BlockEntityRenderers.register(ProjectorTileEntity.theType, ProjectorTileEntityRenderer::new);
         }
 

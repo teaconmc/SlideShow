@@ -20,7 +20,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RenderWorldLastEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.client.model.data.EmptyModelData;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -34,12 +34,12 @@ import java.io.IOException;
 import java.util.Map;
 
 
-@Mod.EventBusSubscriber(Dist.CLIENT)
+//@Mod.EventBusSubscriber(Dist.CLIENT)
 public class ProjectorWorldRender {
 
     @SubscribeEvent
-    public static void worldRender(final RenderWorldLastEvent event) {
-        if (SlideShow.sOptiFineLoaded) {
+    public static void worldRender(final RenderGameOverlayEvent.Post event) {
+        if (SlideShow.sOptiFineLoaded || event.getType() != RenderGameOverlayEvent.ElementType.ALL) {
             return;
         }
         LocalPlayer player = Minecraft.getInstance().player;

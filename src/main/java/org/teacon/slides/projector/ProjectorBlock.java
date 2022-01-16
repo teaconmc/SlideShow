@@ -25,7 +25,6 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 import com.mojang.math.Matrix4f;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.common.util.Constants;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -79,7 +78,7 @@ public final class ProjectorBlock extends BaseEntityBlock {
     public void neighborChanged(BlockState state, Level worldIn, BlockPos pos, Block blockIn, BlockPos fromPos, boolean isMoving) {
         boolean powered = worldIn.hasNeighborSignal(pos);
         if (powered != state.getValue(BlockStateProperties.POWERED)) {
-            worldIn.setBlock(pos, state.setValue(BlockStateProperties.POWERED, powered), Constants.BlockFlags.BLOCK_UPDATE);
+            worldIn.setBlock(pos, state.setValue(BlockStateProperties.POWERED, powered), 3);
         }
     }
 
@@ -89,7 +88,7 @@ public final class ProjectorBlock extends BaseEntityBlock {
         if (!oldState.is(state.getBlock())) {
             boolean powered = worldIn.hasNeighborSignal(pos);
             if (powered != state.getValue(BlockStateProperties.POWERED)) {
-                worldIn.setBlock(pos, state.setValue(BlockStateProperties.POWERED, powered), Constants.BlockFlags.BLOCK_UPDATE);
+                worldIn.setBlock(pos, state.setValue(BlockStateProperties.POWERED, powered), 3);
             }
         }
     }

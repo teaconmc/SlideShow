@@ -10,7 +10,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraftforge.fmllegacy.network.NetworkEvent;
+import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.server.permission.PermissionAPI;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -54,7 +54,8 @@ public final class UpdateImageInfoPacket {
             ServerPlayer player = context.get().getSender();
             if (player != null) {
                 ServerLevel world = player.getLevel();
-                if (PermissionAPI.hasPermission(player, "slide_show.interact.projector") && world.hasChunkAt(pos)) {
+//                if (PermissionAPI.hasPermission(player, "slide_show.interact.projector") && world.hasChunkAt(pos)) {
+                if (world.hasChunkAt(pos)) {
                     BlockEntity tileEntity = world.getBlockEntity(this.pos);
                     if (tileEntity instanceof ProjectorTileEntity) {
                         BlockState newBlockState = world.getBlockState(pos).setValue(ProjectorBlock.ROTATION, rotation);

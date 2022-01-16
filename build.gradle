@@ -4,10 +4,13 @@ import java.time.temporal.ChronoUnit
 buildscript {
     repositories {
         maven { url = 'https://maven.minecraftforge.net' }
+        maven { url = 'https://maven.parchmentmc.org' }
         mavenCentral()
     }
     dependencies {
         classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
+        classpath group: 'org.parchmentmc', name: 'librarian', version: '1.+'
+
     }
 }
 
@@ -16,6 +19,7 @@ plugins {
 }
 
 apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'org.parchmentmc.librarian.forgegradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
@@ -23,11 +27,12 @@ version = '0.5.4'
 group = 'org.teaconmc'
 archivesBaseName = 'SlideShow'
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(16)
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 minecraft {
-    mappings channel: 'official', version: '1.17.1'
-    
+    // mappings channel: 'official', version: '1.17.1'
+    mappings channel: 'parchment', version: '2021.12.19-1.18.1'
+
     runs {
         client {
             workingDirectory project.file('run')
@@ -68,7 +73,7 @@ configurations {
 }
 
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.17.1-37.0.104'
+    minecraft 'net.minecraftforge:forge:1.18.1-39.0.9'
     shadow 'org.apache.httpcomponents:httpclient-cache:4.3.6'
 }
 

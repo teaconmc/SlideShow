@@ -1,6 +1,5 @@
 package org.teacon.slides.projector;
 
-import com.google.common.base.MoreObjects;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -8,7 +7,6 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraftforge.registries.ObjectHolder;
-import net.minecraftforge.server.permission.PermissionAPI;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.teacon.slides.network.SlideData;
@@ -20,31 +18,31 @@ import java.util.Objects;
 import java.util.Optional;
 
 @ParametersAreNonnullByDefault
-public final class ProjectorControlContainer extends AbstractContainerMenu {
+public final class ProjectorControlContainerMenu extends AbstractContainerMenu {
 
     private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
 
     @ObjectHolder("slide_show:projector")
-    public static MenuType<ProjectorControlContainer> theType;
+    public static MenuType<ProjectorControlContainerMenu> theType;
 
-    public static ProjectorControlContainer fromServer(int id, Inventory inv, ProjectorTileEntity tileEntity) {
+    public static ProjectorControlContainerMenu fromServer(int id, Inventory inv, ProjectorTileEntity tileEntity) {
         BlockPos pos = tileEntity.getBlockPos();
         SlideData data = tileEntity.currentSlide;
         ProjectorBlock.InternalRotation rotation = tileEntity.getBlockState().getValue(ProjectorBlock.ROTATION);
-        return new ProjectorControlContainer(id, pos, data, rotation);
+        return new ProjectorControlContainerMenu(id, pos, data, rotation);
     }
 
-    public static ProjectorControlContainer fromClient(int id, Inventory inv, @Nullable FriendlyByteBuf buffer) {
+    public static ProjectorControlContainerMenu fromClient(int id, Inventory inv, @Nullable FriendlyByteBuf buffer) {
         try {
             Objects.requireNonNull(buffer);
             SlideData data = new SlideData();
             BlockPos pos = buffer.readBlockPos();
             Optional.ofNullable(buffer.readNbt()).ifPresent(data::deserializeNBT);
             ProjectorBlock.InternalRotation rotation = buffer.readEnum(ProjectorBlock.InternalRotation.class);
-            return new ProjectorControlContainer(id, pos, data, rotation);
+            return new ProjectorControlContainerMenu(id, pos, data, rotation);
         } catch (Exception e) {
             LOGGER.warn("Invalid data in packet buffer", e);
-            return new ProjectorControlContainer(id, BlockPos.ZERO, new SlideData(), ProjectorBlock.InternalRotation.NONE);
+            return new ProjectorControlContainerMenu(id, BlockPos.ZERO, new SlideData(), ProjectorBlock.InternalRotation.NONE);
         }
     }
 
@@ -52,7 +50,7 @@ public final class ProjectorControlContainer extends AbstractContainerMenu {
     final SlideData currentSlide;
     final ProjectorBlock.InternalRotation rotation;
 
-    private ProjectorControlContainer(int id, BlockPos pos, SlideData data, ProjectorBlock.InternalRotation rotation) {
+    private ProjectorControlContainerMenu(int id, BlockPos pos, SlideData data, ProjectorBlock.InternalRotation rotation) {
         super(theType, id);
         this.pos = pos;
         this.currentSlide = data;
@@ -61,6 +59,6 @@ public final class ProjectorControlContainer extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return PermissionAPI.hasPermission(player, "slide_show.interact.projector");
+        return true;//PermissionAPI.getPermission(player, "slide_show.interact.projector");
     }
 }
