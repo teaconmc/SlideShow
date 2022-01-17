@@ -42,6 +42,9 @@ minecraft {
                     source sourceSets.main
                 }
             }
+            lazyToken('minecraft_classpath') {
+                project.configurations.shadow.asPath
+            }
         }
 
         server {
@@ -51,6 +54,9 @@ minecraft {
                 slide_show {
                     source sourceSets.main
                 }
+            }
+            lazyToken('minecraft_classpath') {
+                project.configurations.shadow.asPath
             }
         }
 
@@ -62,6 +68,9 @@ minecraft {
                 slide_show {
                     source sourceSets.main
                 }
+            }
+            lazyToken('minecraft_classpath') {
+                project.configurations.shadow.asPath
             }
         }
     }
