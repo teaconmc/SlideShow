@@ -33,8 +33,10 @@ import org.teacon.slides.projector.ProjectorTileEntity;
 import java.io.IOException;
 import java.util.Map;
 
+import static org.teacon.slides.SlideShow.SLIDE_SHOW_SHADER;
 
-//@Mod.EventBusSubscriber(Dist.CLIENT)
+
+@Mod.EventBusSubscriber(Dist.CLIENT)
 public class ProjectorWorldRender {
 
     @SubscribeEvent
@@ -113,11 +115,10 @@ public class ProjectorWorldRender {
             final Window mainWindow = mc.getWindow();
             final BlockRenderDispatcher dispatcher = mc.getBlockRenderer();
 
-//            final MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
-//            final VertexConsumer builder = buffer.getBuffer(SlideRenderType.HIGHLIGHT);
+            final MultiBufferSource.BufferSource buffer = mc.renderBuffers().bufferSource();
+            final VertexConsumer builder = buffer.getBuffer(SlideRenderType.HIGHLIGHT);
             final Vec3 viewPos = mc.gameRenderer.getMainCamera().getPosition();
-            BufferBuilder builder = Tesselator.getInstance().getBuilder();
-            builder.begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION);
+
             // step 1: prepare vertices and faces
             for (Map.Entry<BlockPos, ProjectorTileEntity> entry : projectors.entrySet()) {
                 BlockPos pos = entry.getKey();
@@ -129,15 +130,14 @@ public class ProjectorWorldRender {
                 dispatcher.getModelRenderer().renderModel(matrixStack.last(), builder, state, model, 1.0F, 1.0F, 1.0F, 0xF000F0, OverlayTexture.NO_OVERLAY, EmptyModelData.INSTANCE);
                 matrixStack.popPose();
             }
-            builder.end();
+//            builder.end();
             // step 2: bind our frame buffer
             framebuffer.clear(Minecraft.ON_OSX);
             framebuffer.bindWrite(false);
 
             // step 3: render
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-//            SLIDE_SHOW_SHADER.setupRenderState();
-
+            buffer.endBatch(SlideRenderType.HIGHLIGHT);
             // step 4: apply shaders
             shaderGroup.process(partialTicks);
 

@@ -54,8 +54,7 @@ public final class UpdateImageInfoPacket {
             ServerPlayer player = context.get().getSender();
             if (player != null) {
                 ServerLevel world = player.getLevel();
-//                if (PermissionAPI.hasPermission(player, "slide_show.interact.projector") && world.hasChunkAt(pos)) {
-                if (world.hasChunkAt(pos)) {
+                if (PermissionAPI.getPermission(player, SlideShow.INTERACT_PERN) && world.hasChunkAt(pos)) {
                     BlockEntity tileEntity = world.getBlockEntity(this.pos);
                     if (tileEntity instanceof ProjectorTileEntity) {
                         BlockState newBlockState = world.getBlockState(pos).setValue(ProjectorBlock.ROTATION, rotation);

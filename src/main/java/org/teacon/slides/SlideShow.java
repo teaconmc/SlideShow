@@ -1,6 +1,7 @@
 package org.teacon.slides;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.datafixers.DSL;
 import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
@@ -106,11 +107,10 @@ public final class SlideShow {
         event.getRegistry().register(BlockEntityType.Builder.of(ProjectorTileEntity::new, projector)
                 .build(DSL.remainderType()).setRegistryName("slide_show:projector"));
     }
-    private static final PermissionNode<Boolean> boolPerm =
-            new PermissionNode<>("permissiontest", "test.blob", PermissionTypes.BOOLEAN, (player, playerUUID, context) -> true);
+    public static final PermissionNode<Boolean> INTERACT_PERN =
+            new PermissionNode<>("slide_show", "interact.projector", PermissionTypes.BOOLEAN, (player, playerUUID, context) -> false);
 
     public static void setup(final FMLCommonSetupEvent event) {
-//        PermissionAPI.registerNode("slide_show.interact.projector", DefaultPermissionLevel.ALL, "");
         int index = 0;
         // noinspection UnusedAssignment
         channel.registerMessage(index++, UpdateImageInfoPacket.class,
@@ -119,7 +119,7 @@ public final class SlideShow {
                 UpdateImageInfoPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
-//    public static RenderStateShard.ShaderStateShard SLIDE_SHOW_SHADER;
+    public static RenderStateShard.ShaderStateShard SLIDE_SHOW_SHADER;
     @Mod.EventBusSubscriber(modid = "slide_show", value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
     public static final class ClientSetup {
 
@@ -139,10 +139,10 @@ public final class SlideShow {
         public static void onRegisterShadersEvent(final RegisterShadersEvent event) throws IOException {
             final ResourceLocation location = new ResourceLocation("slide_show", "shaders/post/projector_outline");
 
-//            event.registerShader(new ShaderInstance(event.getResourceManager(), location, DefaultVertexFormat.BLOCK),(i)->{
-//                 SLIDE_SHOW_SHADER = new RenderStateShard.ShaderStateShard(()->i);
-//
-//            });
+            event.registerShader(new ShaderInstance(event.getResourceManager(), location, DefaultVertexFormat.BLOCK),(i)->{
+                 SLIDE_SHOW_SHADER = new RenderStateShard.ShaderStateShard(()->i);
+
+            });
         }
     }
 }

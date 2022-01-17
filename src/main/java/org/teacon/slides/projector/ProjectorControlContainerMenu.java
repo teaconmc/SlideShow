@@ -1,5 +1,6 @@
 package org.teacon.slides.projector;
 
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -7,6 +8,7 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.core.BlockPos;
 import net.minecraftforge.registries.ObjectHolder;
+import net.minecraftforge.server.permission.PermissionAPI;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.teacon.slides.network.SlideData;
@@ -59,6 +61,6 @@ public final class ProjectorControlContainerMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return true;//PermissionAPI.getPermission(player, "slide_show.interact.projector");
+        return PermissionAPI.getPermission((ServerPlayer) player, SlideShow.INTERACT_PERN);
     }
 }

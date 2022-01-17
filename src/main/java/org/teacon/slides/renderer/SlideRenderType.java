@@ -8,9 +8,10 @@ import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import net.minecraft.resources.ResourceLocation;
-import org.lwjgl.opengl.GL11;
 
 import java.util.Objects;
+
+import static org.teacon.slides.SlideShow.SLIDE_SHOW_SHADER;
 
 
 /**
@@ -18,10 +19,10 @@ import java.util.Objects;
  */
 public class SlideRenderType extends RenderType {
 
-//    public static final RenderType HIGHLIGHT = RenderType.create("slide_show_block_highlight",
-//            DefaultVertexFormat.POSITION, VertexFormat.Mode.QUADS, /*buffer size*/256, /*no delegate*/false, /*need sorting data*/false,
-//            RenderType.CompositeState.builder().setShaderState(SLIDE_SHOW_SHADER).
-//                    setCullState(NO_CULL).setDepthTestState(NO_DEPTH_TEST).setWriteMaskState(COLOR_WRITE).createCompositeState(/*outline*/false));
+    public static final RenderType HIGHLIGHT = RenderType.create("slide_show_block_highlight",
+            DefaultVertexFormat.POSITION, VertexFormat.Mode.QUADS, /*buffer size*/256, /*no delegate*/false, /*need sorting data*/false,
+            RenderType.CompositeState.builder().setShaderState(SLIDE_SHOW_SHADER).
+                    setCullState(NO_CULL).setDepthTestState(NO_DEPTH_TEST).setWriteMaskState(COLOR_WRITE).createCompositeState(/*outline*/false));
 
     private static final ImmutableList<RenderStateShard> GENERAL_STATES;
 
