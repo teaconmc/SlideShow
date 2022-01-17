@@ -12,6 +12,10 @@ jobs:
         with:
           # Fetch all history 
           fetch-depth: 0
+      - uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
+          java-version: '17'
       - name: Maven Publish
         id: maven_publish
         env:
