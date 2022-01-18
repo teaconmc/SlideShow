@@ -16,7 +16,7 @@ import java.util.Objects;
  */
 public class SlideRenderType extends RenderType {
 
-    //TODO not working
+    //TODO highlight not working
     public static final RenderType HIGHLIGHT = RenderType.create("slide_show_block_highlight",
             DefaultVertexFormat.POSITION, VertexFormat.Mode.QUADS, /*buffer size*/256, /*no delegate*/false, /*need
             sorting data*/false,

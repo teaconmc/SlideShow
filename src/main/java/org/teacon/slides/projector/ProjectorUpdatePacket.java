@@ -8,6 +8,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.server.permission.PermissionAPI;
 import org.apache.logging.log4j.Marker;
@@ -22,11 +24,12 @@ public final class ProjectorUpdatePacket {
 
     private static final Marker MARKER = MarkerManager.getMarker("Network");
 
-    private BlockPos mPos = BlockPos.ZERO;
+    private BlockPos mPos;
     private ProjectorBlockEntity mEntity;
     private final ProjectorBlock.InternalRotation mRotation;
     private final CompoundTag mTag;
 
+    @OnlyIn(Dist.CLIENT)
     public ProjectorUpdatePacket(ProjectorBlockEntity entity, ProjectorBlock.InternalRotation rotation) {
         mEntity = entity;
         mRotation = rotation;
@@ -45,6 +48,7 @@ public final class ProjectorUpdatePacket {
         buffer.writeNbt(mTag);
     }
 
+    @OnlyIn(Dist.CLIENT)
     public void sendToServer() {
         mPos = mEntity.getBlockPos();
         mEntity.writeCustomTag(mTag);

@@ -92,7 +92,7 @@ public final class SlideShow {
                 .setRegistryName("projector"));
     }
 
-    //FIXME Permission resolving
+    //FIXME permission resolving
     public static final PermissionNode<Boolean> INTERACT_PERM =
             new PermissionNode<>(ID, "interact.projector", PermissionTypes.BOOLEAN,
                     (player, playerUUID, context) -> true);

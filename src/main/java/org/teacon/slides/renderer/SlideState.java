@@ -5,6 +5,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.platform.TextureUtil;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -30,11 +31,11 @@ public final class SlideState {
 
     private static final int RECYCLE_TICKS = 2400; // 2min
     private static final int RETRY_INTERVAL_TICKS = 160; // 8s
-    private static final int FORCE_RECYCLE_LIFESPAN = 36000; // 30min
+    private static final int FORCE_RECYCLE_LIFESPAN = 60000; // 50min
 
-    private static final int CLEANER_INTERVAL_TICKS = (1 << 16) - 1; // 54min
+    private static final int CLEANER_INTERVAL_TICKS = 0xFFFF; // 54.6125min, must be (powerOfTwo - 1)
 
-    private static final HashMap<String, SlideState> sCache = new HashMap<>();
+    private static volatile HashMap<String, SlideState> sCache = new HashMap<>();
 
     private static final Field IMAGE_PIXELS;
 
@@ -58,6 +59,15 @@ public final class SlideState {
                 sCleanerTimer = 0;
             }
         }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLeft(@Nonnull ClientPlayerNetworkEvent.LoggedOutEvent event) {
+        RenderSystem.recordRenderCall(() -> {
+            sCache.forEach((key, state) -> state.mSlide.close());
+            sCache = new HashMap<>();
+            SlideShow.LOGGER.info("Release all image resources");
+        });
     }
 
     @Nullable

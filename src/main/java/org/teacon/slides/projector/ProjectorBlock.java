@@ -23,6 +23,8 @@ import net.minecraft.world.level.material.Material;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -215,6 +217,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
             vector.transform(mMatrix);
         }
 
+        @OnlyIn(Dist.CLIENT)
         public void transform(PoseStack pStack) {
             PoseStack.Pose last = pStack.last();
             last.pose().multiply(mMatrix);

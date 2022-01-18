@@ -32,7 +32,7 @@ import org.teacon.slides.projector.ProjectorBlockEntity;
 import java.io.IOException;
 import java.util.Map;
 
-//TODO not working
+//TODO highlight not working
 //@Mod.EventBusSubscriber(Dist.CLIENT)
 public class ProjectorWorldRender {
 

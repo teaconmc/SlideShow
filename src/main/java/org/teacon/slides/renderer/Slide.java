@@ -8,7 +8,10 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import org.jetbrains.annotations.NotNull;
+import org.lwjgl.opengl.*;
 import org.teacon.slides.SlideShow;
 
 import javax.annotation.Nonnull;
@@ -18,6 +21,7 @@ import javax.annotation.Nonnull;
  *
  * @see SlideState
  */
+@OnlyIn(Dist.CLIENT)
 public abstract class Slide implements AutoCloseable {
 
     private Slide() {
@@ -29,6 +33,14 @@ public abstract class Slide implements AutoCloseable {
 
     @Override
     public void close() {
+    }
+
+    public int queryIntrinsicWidth() {
+        return 0;
+    }
+
+    public int queryIntrinsicHeight() {
+        return 0;
     }
 
     @Nonnull
@@ -49,6 +61,15 @@ public abstract class Slide implements AutoCloseable {
     }
 
     private static final class Image extends Slide {
+
+        private static final boolean sARB_DSA;
+        private static final boolean sEXT_DSA;
+
+        static {
+            GLCapabilities caps = GL.getCapabilities();
+            sARB_DSA = caps.OpenGL45 || caps.GL_ARB_direct_state_access;
+            sEXT_DSA = caps.GL_EXT_direct_state_access;
+        }
 
         private final int mTexture;
         private final RenderType mRenderType;
@@ -104,6 +125,32 @@ public abstract class Slide implements AutoCloseable {
         @Override
         public void close() {
             GlStateManager._deleteTexture(mTexture);
+        }
+
+        @Override
+        public int queryIntrinsicWidth() {
+            if (sARB_DSA) {
+                return ARBDirectStateAccess.glGetTextureLevelParameteri(mTexture, 0, GL32C.GL_TEXTURE_WIDTH);
+            }
+            if (sEXT_DSA) {
+                return EXTDirectStateAccess.glGetTextureLevelParameteriEXT(mTexture, GL32C.GL_TEXTURE_2D, 0,
+                        GL32C.GL_TEXTURE_WIDTH);
+            }
+            GlStateManager._bindTexture(mTexture);
+            return GL32C.glGetTexLevelParameteri(GL32C.GL_TEXTURE_2D, 0, GL32C.GL_TEXTURE_WIDTH);
+        }
+
+        @Override
+        public int queryIntrinsicHeight() {
+            if (sARB_DSA) {
+                return ARBDirectStateAccess.glGetTextureLevelParameteri(mTexture, 0, GL32C.GL_TEXTURE_HEIGHT);
+            }
+            if (sEXT_DSA) {
+                return EXTDirectStateAccess.glGetTextureLevelParameteriEXT(mTexture, GL32C.GL_TEXTURE_2D, 0,
+                        GL32C.GL_TEXTURE_HEIGHT);
+            }
+            GlStateManager._bindTexture(mTexture);
+            return GL32C.glGetTexLevelParameteri(GL32C.GL_TEXTURE_2D, 0, GL32C.GL_TEXTURE_HEIGHT);
         }
     }
 
