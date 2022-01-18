@@ -1,17 +1,16 @@
 package org.teacon.slides.renderer;
 
 import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.platform.TextureUtil;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL32C;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.cache.SlideImageStore;
 
@@ -21,7 +20,6 @@ import java.io.ByteArrayInputStream;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -36,14 +34,14 @@ public final class SlideState {
 
     private static final int CLEANER_INTERVAL_TICKS = (1 << 16) - 1; // 54min
 
-    private static final Map<String, SlideState> sCache = new HashMap<>();
+    private static final HashMap<String, SlideState> sCache = new HashMap<>();
 
-    private static final Field IMAGE_POINTER;
+    private static final Field IMAGE_PIXELS;
 
     private static int sCleanerTimer;
 
     static {
-        IMAGE_POINTER = ObfuscationReflectionHelper.findField(NativeImage.class, "pixels");
+        IMAGE_PIXELS = ObfuscationReflectionHelper.findField(NativeImage.class, "pixels");
     }
 
     @SubscribeEvent
@@ -62,12 +60,13 @@ public final class SlideState {
         }
     }
 
-    @Nonnull
-    public static Slide getSlide(String url) {
-        if (url == null || url.isEmpty()) {
-            return Slide.NOTHING;
+    @Nullable
+    public static Slide getSlide(@Nonnull String location) {
+        if (location.isEmpty()) {
+            return null;
         }
-        return sCache.computeIfAbsent(url, k -> new SlideState()).get();
+        return sCache.computeIfAbsent(location, key -> new SlideState())
+                .getWithUpdate();
     }
 
     private Slide mSlide = Slide.empty();
@@ -80,7 +79,7 @@ public final class SlideState {
     private int mLifespan = FORCE_RECYCLE_LIFESPAN;
 
     @Nonnull
-    private Slide get() {
+    private Slide getWithUpdate() {
         if (mState != State.FAILED_OR_EMPTY) {
             mCounter = RECYCLE_TICKS;
         }
@@ -104,7 +103,7 @@ public final class SlideState {
             }
         } else if (--mCounter < 0 || --mLifespan < 0) {
             RenderSystem.recordRenderCall(() -> {
-                mSlide.release();
+                mSlide.close();
                 // stop creating texture if the image is still downloading, but recycled
                 mState = State.LOADED;
             });
@@ -114,48 +113,51 @@ public final class SlideState {
     }
 
     private void loadImageRemote(URI uri, boolean releaseOld) {
-        SlideImageStore.getImage(uri, true).thenCompose(this::loadImage).thenAccept(texture -> {
-            if (mState != State.LOADED) {
-                if (releaseOld) {
-                    mSlide.release();
-                }
-                mSlide = Slide.make(texture);
-                mState = State.LOADED;
-            }
-        }).exceptionally(e -> {
-            RenderSystem.recordRenderCall(() -> {
-                if (releaseOld) {
-                    mSlide.release();
-                }
-                mSlide = Slide.failed();
-                mState = State.FAILED_OR_EMPTY;
-                mCounter = RETRY_INTERVAL_TICKS;
-            });
-            return null;
-        });
+        SlideImageStore.getImage(uri, true)
+                .thenCompose(this::loadImage)
+                .thenAccept(texture -> {
+                    if (mState != State.LOADED) {
+                        if (releaseOld) {
+                            mSlide.close();
+                        }
+                        mSlide = Slide.make(texture);
+                        mState = State.LOADED;
+                    }
+                }).exceptionally(e -> {
+                    RenderSystem.recordRenderCall(() -> {
+                        if (releaseOld) {
+                            mSlide.close();
+                        }
+                        mSlide = Slide.failed();
+                        mState = State.FAILED_OR_EMPTY;
+                        mCounter = RETRY_INTERVAL_TICKS;
+                    });
+                    return null;
+                });
     }
 
     private void loadImage(URI uri) {
-        SlideImageStore.getImage(uri, true).thenCompose(this::loadImage).thenAccept(texture -> {
-            RenderSystem.recordRenderCall(() -> {
-                if (mState != State.LOADED) {
-                    mSlide = Slide.make(texture);
-                    loadImageRemote(uri, true);
-                }
-            });
-        }).exceptionally(e -> {
-            RenderSystem.recordRenderCall(() -> {
-                if (mState != State.LOADED) {
-                    loadImageRemote(uri, false);
-                }
-            });
-            return null;
-        });
+        SlideImageStore.getImage(uri, true)
+                .thenCompose(this::loadImage)
+                .thenAccept(texture -> RenderSystem.recordRenderCall(() -> {
+                    if (mState != State.LOADED) {
+                        mSlide = Slide.make(texture);
+                        loadImageRemote(uri, true);
+                    }
+                })).exceptionally(e -> {
+                    RenderSystem.recordRenderCall(() -> {
+                        if (mState != State.LOADED) {
+                            loadImageRemote(uri, false);
+                        }
+                    });
+                    return null;
+                });
         mSlide = Slide.loading();
         mState = State.LOADING;
         mCounter = RECYCLE_TICKS;
     }
 
+    @Nonnull
     private CompletableFuture<Integer> loadImage(byte[] data) {
         CompletableFuture<Integer> future = new CompletableFuture<>();
         RenderSystem.recordRenderCall(() -> {
@@ -164,7 +166,7 @@ public final class SlideState {
                 ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
                 NativeImage image = NativeImage.read(null, inputStream);
                 future.complete(loadTexture(image));
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 future.completeExceptionally(e);
             }
         });
@@ -173,37 +175,34 @@ public final class SlideState {
 
     private int loadTexture(@Nonnull NativeImage image) {
         int texture = TextureUtil.generateTextureId();
-        // specify maximum mipmap level to 2
         TextureUtil.prepareImage(image.format() == NativeImage.Format.RGB ?
                         NativeImage.InternalGlFormat.RGB : NativeImage.InternalGlFormat.RGBA,
-                texture, 2, image.getWidth(), image.getHeight());
+                texture, 4, image.getWidth(), image.getHeight());
 
-        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR_MIPMAP_LINEAR);
+        GlStateManager._texParameter(GL32C.GL_TEXTURE_2D, GL32C.GL_TEXTURE_MAG_FILTER, GL32C.GL_NEAREST);
+        GlStateManager._texParameter(GL32C.GL_TEXTURE_2D, GL32C.GL_TEXTURE_MIN_FILTER, GL32C.GL_LINEAR_MIPMAP_LINEAR);
 
-        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_CLAMP);
-        GlStateManager._texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_CLAMP);
+        GlStateManager._texParameter(GL32C.GL_TEXTURE_2D, GL32C.GL_TEXTURE_WRAP_S, GL32C.GL_CLAMP_TO_EDGE);
+        GlStateManager._texParameter(GL32C.GL_TEXTURE_2D, GL32C.GL_TEXTURE_WRAP_T, GL32C.GL_CLAMP_TO_EDGE);
 
-        GlStateManager._pixelStore(GL11.GL_UNPACK_ROW_LENGTH, 0);
+        GlStateManager._pixelStore(GL32C.GL_UNPACK_ROW_LENGTH, 0);
 
-        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_PIXELS, 0);
-        GlStateManager._pixelStore(GL11.GL_UNPACK_SKIP_ROWS, 0);
+        GlStateManager._pixelStore(GL32C.GL_UNPACK_SKIP_PIXELS, 0);
+        GlStateManager._pixelStore(GL32C.GL_UNPACK_SKIP_ROWS, 0);
 
         // specify pixel row alignment to 1
-        GlStateManager._pixelStore(GL11.GL_UNPACK_ALIGNMENT, 1);
+        GlStateManager._pixelStore(GL32C.GL_UNPACK_ALIGNMENT, 1);
 
-        try {
-            GlStateManager._texSubImage2D(GL11.GL_TEXTURE_2D, 0, 0, 0,
-                    image.getWidth(), image.getHeight(), image.format().glFormat(), GL11.GL_UNSIGNED_BYTE,
-                    IMAGE_POINTER.getLong(image));
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException("Failed to get image pointer");
+        try (image) {
+            GlStateManager._texSubImage2D(GL32C.GL_TEXTURE_2D, 0, 0, 0,
+                    image.getWidth(), image.getHeight(), image.format().glFormat(), GL32C.GL_UNSIGNED_BYTE,
+                    IMAGE_PIXELS.getLong(image));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to get image pointer", e);
         }
 
-        image.close();
-
         // auto generate mipmap
-        GL30.glGenerateMipmap(GL11.GL_TEXTURE_2D);
+        GL32C.glGenerateMipmap(GL32C.GL_TEXTURE_2D);
 
         return texture;
     }
@@ -232,7 +231,8 @@ public final class SlideState {
          * States that will not be changed but can be expired
          * <p>
          * LOADED: a network resource is succeeded to retrieve (no expiration if the slide is rendered).
-         * FAILED_OR_EMPTY: it is empty or failed to retrieve the network resource (expired after {@link #RETRY_INTERVAL_TICKS}).
+         * FAILED_OR_EMPTY: it is empty or failed to retrieve the network resource (expired after {@link
+         * #RETRY_INTERVAL_TICKS}).
          */
         LOADED, FAILED_OR_EMPTY
     }

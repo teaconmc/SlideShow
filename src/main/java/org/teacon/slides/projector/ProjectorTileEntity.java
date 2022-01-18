@@ -1,62 +1,53 @@
 package org.teacon.slides.projector;
 
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.MenuProvider;
+import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.core.BlockPos;
-import com.mojang.math.Matrix4f;
-import com.mojang.math.Vector4f;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TranslatableComponent;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.network.NetworkHooks;
-import net.minecraftforge.registries.ObjectHolder;
-import org.teacon.slides.network.SlideData;
+import org.teacon.slides.Registries;
 import org.teacon.slides.renderer.ProjectorWorldRender;
+import org.teacon.slides.renderer.SlideData;
 
+import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Objects;
 
+@SuppressWarnings("ConstantConditions")
 @ParametersAreNonnullByDefault
 public final class ProjectorTileEntity extends BlockEntity implements MenuProvider {
-    private static final Component TITLE = new TranslatableComponent("gui.slide_show.title");
 
-    @ObjectHolder("slide_show:projector")
-    public static BlockEntityType<ProjectorTileEntity> theType;
+    private static final Component TITLE = new TranslatableComponent("gui.slide_show.title");
 
     public SlideData currentSlide = new SlideData();
 
     public ProjectorTileEntity(BlockPos blockPos, BlockState blockState) {
-        super(Objects.requireNonNull(theType), blockPos, blockState);
+        super(Registries.TILE_TYPE, blockPos, blockState);
     }
 
-    public void openGUI(BlockState state, BlockPos pos, Player player) {
-        if (player instanceof ServerPlayer) {
-            NetworkHooks.openGui((ServerPlayer) player, this, buffer -> {
-                buffer.writeBlockPos(pos);
-                buffer.writeNbt(this.currentSlide.serializeNBT());
-                buffer.writeEnum(state.getValue(ProjectorBlock.ROTATION));
-            });
-        }
+    public void openGui(BlockState state, BlockPos pos, Player player) {
+        NetworkHooks.openGui((ServerPlayer) player, this, buf -> {
+            buf.writeBlockPos(pos);
+            buf.writeNbt(this.currentSlide.serializeNBT());
+            buf.writeEnum(state.getValue(ProjectorBlock.ROTATION));
+        });
     }
 
+    @Nonnull
     @Override
-    public AbstractContainerMenu createMenu(int id, Inventory inv, Player player) {
-        return ProjectorControlContainerMenu.fromServer(id, inv, this);
+    public AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player player) {
+        return ProjectorControlContainerMenu.fromServer(containerId, inventory, this);
     }
 
+    @Nonnull
     @Override
     public Component getDisplayName() {
         return TITLE;
@@ -65,7 +56,7 @@ public final class ProjectorTileEntity extends BlockEntity implements MenuProvid
     @Override
     public void onLoad() {
         super.onLoad();
-        if (Objects.requireNonNull(this.level).isClientSide) {
+        if (level.isClientSide) {
             ProjectorWorldRender.add(this);
         }
     }
@@ -73,7 +64,7 @@ public final class ProjectorTileEntity extends BlockEntity implements MenuProvid
     @Override
     public void onChunkUnloaded() {
         super.onChunkUnloaded();
-        if (Objects.requireNonNull(this.level).isClientSide) {
+        if (level.isClientSide) {
             ProjectorWorldRender.remove(this);
         }
     }
@@ -81,23 +72,23 @@ public final class ProjectorTileEntity extends BlockEntity implements MenuProvid
     @Override
     public void setRemoved() {
         super.setRemoved();
-        if (Objects.requireNonNull(this.level).isClientSide) {
+        if (level.isClientSide) {
             ProjectorWorldRender.remove(this);
         }
     }
 
     @Override
-    public CompoundTag save(CompoundTag data) {
-        super.save(data);
-        return data.merge(this.currentSlide.serializeNBT());
+    public void saveAdditional(CompoundTag tag) {
+        tag.merge(currentSlide.serializeNBT());
     }
 
     @Override
-    public void load(CompoundTag data) {
-        super.load(data);
-        this.currentSlide.deserializeNBT(data);
+    public void load(CompoundTag tag) {
+        super.load(tag);
+        currentSlide.deserializeNBT(tag);
     }
 
+    @Nonnull
     @Override
     public ClientboundBlockEntityDataPacket getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
@@ -105,28 +96,31 @@ public final class ProjectorTileEntity extends BlockEntity implements MenuProvid
 
     @Override
     public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket packet) {
-        this.currentSlide.deserializeNBT(packet.getTag());
+        currentSlide.deserializeNBT(packet.getTag());
     }
 
+    @Nonnull
     @Override
     public CompoundTag getUpdateTag() {
-        return this.save(new CompoundTag());
+        CompoundTag tag = super.getUpdateTag();
+        saveAdditional(tag);
+        return tag;
     }
 
     @Override
-    public void handleUpdateTag(CompoundTag data) {
-        this.load(data);
+    public void handleUpdateTag(CompoundTag tag) {
+        load(tag);
     }
 
-        //TODO:距离
-//    @OnlyIn(Dist.CLIENT)
-//    @Override
-//    public double getViewDistance() {
-//        return 65536.0D;
-//    }
-//
+    // NO USE, see ProjectorRenderer.getViewDistance
+    /*@OnlyIn(Dist.CLIENT)
+    @Override
+    public double getViewDistance() {
+        return 65536.0D;
+    }*/
 
-    @OnlyIn(Dist.CLIENT)
+    // NO USE, see ProjectorRenderer.shouldRenderOffScreen()
+    /*@OnlyIn(Dist.CLIENT)
     @Override
     public AABB getRenderBoundingBox() {
         final Matrix4f transformation = getTransformation();
@@ -136,28 +130,5 @@ public final class ProjectorTileEntity extends BlockEntity implements MenuProvid
         v11.transform(transformation);
         AABB base = new AABB(v00.x(), v00.y(), v00.z(), v11.x(), v11.y(), v11.z());
         return base.move(this.getBlockPos()).inflate(0.5);
-    }
-
-    @OnlyIn(Dist.CLIENT)
-    public Matrix4f getTransformation() {
-        SlideData data = this.currentSlide;
-        Direction facing = this.getBlockState().getValue(BlockStateProperties.FACING);
-        ProjectorBlock.InternalRotation rotation = this.getBlockState().getValue(ProjectorBlock.ROTATION);
-        // matrix 1: translation to block center
-        final Matrix4f result = Matrix4f.createTranslateMatrix(0.5F, 0.5F, 0.5F);
-        // matrix 2: rotation
-        result.multiply(facing.getRotation());
-        // matrix 3: translation to block surface
-        result.multiply(Matrix4f.createTranslateMatrix(0.0F, 0.5F, 0.0F));
-        // matrix 4: internal rotation
-        result.multiply(rotation.getTransformation());
-        // matrix 5: translation for slide
-        result.multiply(Matrix4f.createTranslateMatrix(-0.5F, 0.0F, 0.5F - data.getSize().y));
-        // matrix 6: offset for slide
-        result.multiply(Matrix4f.createTranslateMatrix(data.getOffset().x(), -data.getOffset().z(), data.getOffset().y()));
-        // matrix 7: scaling
-        result.multiply(Matrix4f.createScaleMatrix(data.getSize().x, 1.0F, data.getSize().y));
-        // TODO: cache transformation
-        return result;
-    }
+    }*/
 }

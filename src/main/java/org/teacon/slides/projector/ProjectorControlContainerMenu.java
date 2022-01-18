@@ -4,14 +4,13 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.MenuType;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.core.BlockPos;
-import net.minecraftforge.registries.ObjectHolder;
 import net.minecraftforge.server.permission.PermissionAPI;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.teacon.slides.network.SlideData;
+import org.teacon.slides.Registries;
+import org.teacon.slides.renderer.SlideData;
 import org.teacon.slides.SlideShow;
 
 import javax.annotation.Nullable;
@@ -23,9 +22,6 @@ import java.util.Optional;
 public final class ProjectorControlContainerMenu extends AbstractContainerMenu {
 
     private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
-
-    @ObjectHolder("slide_show:projector")
-    public static MenuType<ProjectorControlContainerMenu> theType;
 
     public static ProjectorControlContainerMenu fromServer(int id, Inventory inv, ProjectorTileEntity tileEntity) {
         BlockPos pos = tileEntity.getBlockPos();
@@ -53,7 +49,7 @@ public final class ProjectorControlContainerMenu extends AbstractContainerMenu {
     final ProjectorBlock.InternalRotation rotation;
 
     private ProjectorControlContainerMenu(int id, BlockPos pos, SlideData data, ProjectorBlock.InternalRotation rotation) {
-        super(theType, id);
+        super(Registries.MENU_TYPE, id);
         this.pos = pos;
         this.currentSlide = data;
         this.rotation = rotation;
@@ -61,6 +57,6 @@ public final class ProjectorControlContainerMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return PermissionAPI.getPermission((ServerPlayer) player, SlideShow.INTERACT_PERN);
+        return PermissionAPI.getPermission((ServerPlayer) player, SlideShow.INTERACT_PERM);
     }
 }

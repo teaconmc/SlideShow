@@ -1,8 +1,8 @@
-package org.teacon.slides.network;
+package org.teacon.slides.renderer;
 
+import com.mojang.math.Vector3f;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.phys.Vec2;
-import com.mojang.math.Vector3f;
 import net.minecraftforge.common.util.INBTSerializable;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -12,6 +12,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
  */
 @ParametersAreNonnullByDefault
 public final class SlideData implements INBTSerializable<CompoundTag> {
+
     private String url;
     private int imgColor;
     private Vec2 imgSize;

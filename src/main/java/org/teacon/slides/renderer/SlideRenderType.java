@@ -2,12 +2,12 @@ package org.teacon.slides.renderer;
 
 import com.google.common.collect.ImmutableList;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import net.minecraft.resources.ResourceLocation;
+import org.teacon.slides.SlideShow;
 
 import java.util.Objects;
 
@@ -19,24 +19,23 @@ import static org.teacon.slides.SlideShow.SLIDE_SHOW_SHADER;
  */
 public class SlideRenderType extends RenderType {
 
+    //TODO review this
     public static final RenderType HIGHLIGHT = RenderType.create("slide_show_block_highlight",
-            DefaultVertexFormat.POSITION, VertexFormat.Mode.QUADS, /*buffer size*/256, /*no delegate*/false, /*need sorting data*/false,
-            RenderType.CompositeState.builder().setShaderState(SLIDE_SHOW_SHADER).
+            DefaultVertexFormat.POSITION, VertexFormat.Mode.QUADS, /*buffer size*/256, /*no delegate*/false, /*need
+            sorting data*/false,
+            RenderType.CompositeState.builder()./*setShaderState(SLIDE_SHOW_SHADER).*/
                     setCullState(NO_CULL).setDepthTestState(NO_DEPTH_TEST).setWriteMaskState(COLOR_WRITE).createCompositeState(/*outline*/false));
 
     private static final ImmutableList<RenderStateShard> GENERAL_STATES;
 
     static {
         GENERAL_STATES = ImmutableList.of(
+                RENDERTYPE_ENTITY_TRANSLUCENT_CULL_SHADER,
                 TRANSLUCENT_TRANSPARENCY,
-//                NO_DIFFUSE_LIGHTING,
-//                FLAT_SHADE,
-//                DEFAULT_ALPHA,
                 LEQUAL_DEPTH_TEST,
                 CULL,
                 LIGHTMAP,
-                NO_OVERLAY,
-//                FOG,
+                OVERLAY,
                 NO_LAYERING,
                 MAIN_TARGET,
                 DEFAULT_TEXTURING,
@@ -48,24 +47,24 @@ public class SlideRenderType extends RenderType {
     private final int mHashCode;
 
     SlideRenderType(int texture) {
-        super("slide_show", DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP,
+        super(SlideShow.ID, DefaultVertexFormat.NEW_ENTITY,
                 VertexFormat.Mode.QUADS, 256, false, true,
                 () -> {
                     GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
                     RenderSystem.enableTexture();
-                    RenderSystem.bindTexture(texture);
+                    RenderSystem.setShaderTexture(0, texture);
                 },
                 () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
         mHashCode = Objects.hash(super.hashCode(), GENERAL_STATES, texture);
     }
 
     SlideRenderType(ResourceLocation texture) {
-        super("slide_show", DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP,
+        super(SlideShow.ID, DefaultVertexFormat.NEW_ENTITY,
                 VertexFormat.Mode.QUADS, 256, false, true,
                 () -> {
                     GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
                     RenderSystem.enableTexture();
-                    Minecraft.getInstance().getTextureManager().bindForSetup(texture);
+                    RenderSystem.setShaderTexture(0, texture);
                 },
                 () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
         mHashCode = Objects.hash(super.hashCode(), GENERAL_STATES, texture);

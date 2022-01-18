@@ -1,42 +1,39 @@
 package org.teacon.slides.renderer;
 
 import com.google.common.collect.MapMaker;
-import com.mojang.blaze3d.vertex.*;
+import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.world.level.block.state.BlockState;
 import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.block.BlockRenderDispatcher;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import com.mojang.blaze3d.pipeline.RenderTarget;
 import net.minecraft.client.renderer.PostChain;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.renderer.block.BlockRenderDispatcher;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.client.model.data.EmptyModelData;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.teacon.slides.Registries;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.projector.ProjectorTileEntity;
 
 import java.io.IOException;
 import java.util.Map;
 
-import static org.teacon.slides.SlideShow.SLIDE_SHOW_SHADER;
-
-
-@Mod.EventBusSubscriber(Dist.CLIENT)
+//FIXME not working
+//@Mod.EventBusSubscriber(Dist.CLIENT)
 public class ProjectorWorldRender {
 
     @SubscribeEvent
@@ -94,7 +91,8 @@ public class ProjectorWorldRender {
         try {
             final Minecraft mc = Minecraft.getInstance();
             final Window mainWindow = mc.getWindow();
-            shaderGroup = new PostChain(mc.getTextureManager(), mc.getResourceManager(), mc.getMainRenderTarget(), location);
+            shaderGroup = new PostChain(mc.getTextureManager(), mc.getResourceManager(), mc.getMainRenderTarget(),
+                    location);
             shaderGroup.resize(mainWindow.getWidth(), mainWindow.getHeight());
             framebuffer = shaderGroup.getTempTarget("slide_show:final");
         } catch (IOException e) {
@@ -105,7 +103,7 @@ public class ProjectorWorldRender {
     }
 
     private static boolean isProjector(ItemStack i) {
-        return SlideShow.projector.asItem().equals(i.getItem());
+        return Registries.PROJECTOR.asItem().equals(i.getItem());
     }
 
     @SuppressWarnings("deprecation")
@@ -127,7 +125,8 @@ public class ProjectorWorldRender {
 
                 matrixStack.pushPose();
                 matrixStack.translate(pos.getX() - viewPos.x, pos.getY() - viewPos.y, pos.getZ() - viewPos.z);
-                dispatcher.getModelRenderer().renderModel(matrixStack.last(), builder, state, model, 1.0F, 1.0F, 1.0F, 0xF000F0, OverlayTexture.NO_OVERLAY, EmptyModelData.INSTANCE);
+                dispatcher.getModelRenderer().renderModel(matrixStack.last(), builder, state, model, 1.0F, 1.0F, 1.0F
+                        , 0xF000F0, OverlayTexture.NO_OVERLAY, EmptyModelData.INSTANCE);
                 matrixStack.popPose();
             }
 //            builder.end();
@@ -146,7 +145,9 @@ public class ProjectorWorldRender {
             main.bindWrite(false);
             // step 6: render our frame buffer to main frame buffer
             RenderSystem.enableBlend();
-            RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ZERO, GlStateManager.DestFactor.ONE);
+            RenderSystem.blendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
+                    GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ZERO,
+                    GlStateManager.DestFactor.ONE);
             framebuffer.blitToScreen(mainWindow.getWidth(), mainWindow.getHeight(), false);
             RenderSystem.disableBlend();
         }

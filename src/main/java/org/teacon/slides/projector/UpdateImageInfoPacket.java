@@ -1,4 +1,4 @@
-package org.teacon.slides.network;
+package org.teacon.slides.projector;
 
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -19,6 +19,7 @@ import org.apache.logging.log4j.Marker;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.projector.ProjectorBlock;
 import org.teacon.slides.projector.ProjectorTileEntity;
+import org.teacon.slides.renderer.SlideData;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -48,13 +49,12 @@ public final class UpdateImageInfoPacket {
         buffer.writeEnum(this.rotation);
     }
 
-    @SuppressWarnings("deprecation") // Heck, Mojang what do you mean by this @Deprecated here this time?
     public void handle(Supplier<NetworkEvent.Context> context) {
         context.get().enqueueWork(() -> {
             ServerPlayer player = context.get().getSender();
             if (player != null) {
                 ServerLevel world = player.getLevel();
-                if (PermissionAPI.getPermission(player, SlideShow.INTERACT_PERN) && world.hasChunkAt(pos)) {
+                if (PermissionAPI.getPermission(player, SlideShow.INTERACT_PERM) && world.isLoaded(pos)) {
                     BlockEntity tileEntity = world.getBlockEntity(this.pos);
                     if (tileEntity instanceof ProjectorTileEntity) {
                         BlockState newBlockState = world.getBlockState(pos).setValue(ProjectorBlock.ROTATION, rotation);
@@ -66,9 +66,11 @@ public final class UpdateImageInfoPacket {
                 }
             }
             // Silently drop invalid packets and log them
+            LOGGER.info("??");
             GameProfile profile = player != null ? player.getGameProfile() : null;
             LOGGER.debug(MARKER, "Received invalid packet: player = {}, pos = {}", profile, this.pos);
         });
+        LOGGER.info("Handle packet");
         context.get().setPacketHandled(true);
     }
 }
