@@ -27,12 +27,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.teacon.slides.Registries;
 import org.teacon.slides.SlideShow;
-import org.teacon.slides.projector.ProjectorTileEntity;
+import org.teacon.slides.projector.ProjectorBlockEntity;
 
 import java.io.IOException;
 import java.util.Map;
 
-//FIXME not working
+//TODO not working
 //@Mod.EventBusSubscriber(Dist.CLIENT)
 public class ProjectorWorldRender {
 
@@ -71,13 +71,13 @@ public class ProjectorWorldRender {
 
     private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
 
-    private static final Map<BlockPos, ProjectorTileEntity> projectors = new MapMaker().weakValues().makeMap();
+    private static final Map<BlockPos, ProjectorBlockEntity> projectors = new MapMaker().weakValues().makeMap();
 
-    public static void add(ProjectorTileEntity tileEntity) {
+    public static void add(ProjectorBlockEntity tileEntity) {
         projectors.put(tileEntity.getBlockPos(), tileEntity);
     }
 
-    public static void remove(ProjectorTileEntity tileEntity) {
+    public static void remove(ProjectorBlockEntity tileEntity) {
         projectors.remove(tileEntity.getBlockPos(), tileEntity);
     }
 
@@ -118,7 +118,7 @@ public class ProjectorWorldRender {
             final Vec3 viewPos = mc.gameRenderer.getMainCamera().getPosition();
 
             // step 1: prepare vertices and faces
-            for (Map.Entry<BlockPos, ProjectorTileEntity> entry : projectors.entrySet()) {
+            for (Map.Entry<BlockPos, ProjectorBlockEntity> entry : projectors.entrySet()) {
                 BlockPos pos = entry.getKey();
                 BlockState state = entry.getValue().getBlockState();
                 BakedModel model = dispatcher.getBlockModel(state);

@@ -1,20 +1,15 @@
 package org.teacon.slides;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.datafixers.DSL;
 import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.client.renderer.ItemBlockRenderTypes;
-import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Rarity;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.world.level.material.Material;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.ModelRegistryEvent;
@@ -37,11 +32,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.teacon.slides.projector.*;
 import org.teacon.slides.renderer.ProjectorRenderer;
-import org.teacon.slides.renderer.ProjectorWorldRender;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.io.IOException;
 import java.util.Optional;
+import java.util.Set;
 
 @Mod(SlideShow.ID)
 @ParametersAreNonnullByDefault
@@ -58,7 +52,8 @@ public final class SlideShow {
      */
     // Remember to update the network version when MAJOR is bumped
     // Last Update: Thu, 17 Dec 2020 15:00:00 +0800 (0 => 1)
-    private static final String NETWORK_VERSION = "1";
+    // Last Update: Tue, 18 Jan 2022 20:00:00 +0800 (1 => 2)
+    private static final String NETWORK_VERSION = "2";
     public static SimpleChannel CHANNEL;
 
     static {
@@ -75,42 +70,34 @@ public final class SlideShow {
     }
 
     @SubscribeEvent
-    public static void regBlock(final RegistryEvent.Register<Block> event) {
-        event.getRegistry().register(
-                new ProjectorBlock(Block.Properties.of(Material.METAL)
-                        .strength(20F)
-                        .lightLevel(state -> 15) // TODO Configurable
-                        .noCollission())
-                        .setRegistryName("projector"));
+    public static void registerBlocks(final RegistryEvent.Register<Block> event) {
+        event.getRegistry().register(new ProjectorBlock().setRegistryName("projector"));
     }
 
     @SubscribeEvent
-    public static void regContainer(final RegistryEvent.Register<MenuType<?>> event) {
-        event.getRegistry().register(IForgeMenuType.create(ProjectorControlContainerMenu::fromClient)
+    public static void registerItems(final RegistryEvent.Register<Item> event) {
+        event.getRegistry().register(new ProjectorItem().setRegistryName("projector"));
+    }
+
+    @SubscribeEvent
+    public static void registerMenus(final RegistryEvent.Register<MenuType<?>> event) {
+        event.getRegistry().register(IForgeMenuType.create(ProjectorContainerMenu::new)
                 .setRegistryName("projector"));
     }
 
     @SubscribeEvent
-    public static void regItem(final RegistryEvent.Register<Item> event) {
-        event.getRegistry().register(
-                new ProjectorItem(new Item.Properties()
-                        .tab(CreativeModeTab.TAB_MISC)
-                        .rarity(Rarity.RARE))
-                        .setRegistryName("projector"));
+    public static void registerBlockEntities(final RegistryEvent.Register<BlockEntityType<?>> event) {
+        event.getRegistry().register(new BlockEntityType<>(ProjectorBlockEntity::new,
+                Set.of(Registries.PROJECTOR), DSL.remainderType())
+                .setRegistryName("projector"));
     }
 
-    @SubscribeEvent
-    public static void regTile(final RegistryEvent.Register<BlockEntityType<?>> event) {
-        event.getRegistry().register(BlockEntityType.Builder.of(ProjectorTileEntity::new, Registries.PROJECTOR)
-                .build(DSL.remainderType()).setRegistryName("projector"));
-    }
-
-    //TODO
+    //FIXME Permission resolving
     public static final PermissionNode<Boolean> INTERACT_PERM =
             new PermissionNode<>(ID, "interact.projector", PermissionTypes.BOOLEAN,
                     (player, playerUUID, context) -> true);
 
-    private static void gatherPermNodes(PermissionGatherEvent.Nodes event) {
+    private static void gatherPermNodes(final PermissionGatherEvent.Nodes event) {
         event.addNodes(INTERACT_PERM);
     }
 
@@ -120,34 +107,31 @@ public final class SlideShow {
                 NETWORK_VERSION::equals, NETWORK_VERSION::equals);
         int index = 0;
         // noinspection UnusedAssignment
-        CHANNEL.registerMessage(index++, UpdateImageInfoPacket.class,
-                UpdateImageInfoPacket::write,
-                UpdateImageInfoPacket::new,
-                UpdateImageInfoPacket::handle,
+        CHANNEL.registerMessage(index++, ProjectorUpdatePacket.class,
+                ProjectorUpdatePacket::write,
+                ProjectorUpdatePacket::new,
+                ProjectorUpdatePacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
     }
-
-    public static RenderStateShard.ShaderStateShard SLIDE_SHOW_SHADER;
 
     @OnlyIn(Dist.CLIENT)
     @SubscribeEvent
     public static void setupClient(final FMLClientSetupEvent event) {
+        MenuScreens.register(Registries.MENU, ProjectorScreen::new);
         ItemBlockRenderTypes.setRenderLayer(Registries.PROJECTOR, RenderType.cutout());
-        MenuScreens.register(Registries.MENU_TYPE, ProjectorControlScreen::new);
-        BlockEntityRenderers.register(Registries.TILE_TYPE, ProjectorRenderer.INSTANCE::onCreate);
+        BlockEntityRenderers.register(Registries.BLOCK_ENTITY, ProjectorRenderer.INSTANCE::onCreate);
     }
 
     @OnlyIn(Dist.CLIENT)
     @SubscribeEvent
-    public static void modelLoad(final ModelRegistryEvent event) {
-        RenderSystem.recordRenderCall(ProjectorWorldRender::loadShader);
+    public static void onModelRegistry(final ModelRegistryEvent event) {
+        //RenderSystem.recordRenderCall(ProjectorWorldRender::loadShader);
     }
 
     @OnlyIn(Dist.CLIENT)
     @SubscribeEvent
-    public static void onRegisterShadersEvent(final RegisterShadersEvent event) throws IOException {
+    public static void onRegisterShadersEvent(final RegisterShadersEvent event) {
         final ResourceLocation location = new ResourceLocation("slide_show", "shaders/post/projector_outline");
-
         /*event.registerShader(new ShaderInstance(event.getResourceManager(), location, DefaultVertexFormat.BLOCK),
                 (i) -> {
                     SLIDE_SHOW_SHADER = new RenderStateShard.ShaderStateShard(() -> i);

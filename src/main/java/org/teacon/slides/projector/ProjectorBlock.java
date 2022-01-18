@@ -19,6 +19,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition.Builder;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.material.Material;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -44,9 +45,12 @@ public final class ProjectorBlock extends Block implements EntityBlock {
     private static final VoxelShape SHAPE_WITH_BASE_UP = Block.box(0.0, 4.0, 0.0, 16.0, 16.0, 16.0);
     private static final VoxelShape SHAPE_WITH_BASE_DOWN = Block.box(0.0, 0.0, 0.0, 16.0, 12.0, 16.0);
 
-    public ProjectorBlock(Properties properties) {
-        super(properties);
-        registerDefaultState(getStateDefinition().any()
+    public ProjectorBlock() {
+        super(Block.Properties.of(Material.METAL)
+                .strength(20F)
+                .lightLevel(state -> 15) // TODO Configurable
+                .noCollission());
+        registerDefaultState(defaultBlockState()
                 .setValue(BASE, Direction.DOWN)
                 .setValue(FACING, Direction.EAST)
                 .setValue(POWERED, Boolean.FALSE)
@@ -131,7 +135,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
     @Nonnull
     @Override
     public BlockEntity newBlockEntity(BlockPos blockPos, BlockState blockState) {
-        return new ProjectorTileEntity(blockPos, blockState);
+        return new ProjectorBlockEntity(blockPos, blockState);
     }
 
     @Nonnull
@@ -141,8 +145,8 @@ public final class ProjectorBlock extends Block implements EntityBlock {
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }
-        if (level.getBlockEntity(pos) instanceof ProjectorTileEntity tile) {
-            tile.openGui(state, pos, player);
+        if (level.getBlockEntity(pos) instanceof ProjectorBlockEntity tile) {
+            tile.openGui(pos, player);
         }
         return InteractionResult.CONSUME;
     }

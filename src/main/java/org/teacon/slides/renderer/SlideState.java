@@ -208,7 +208,7 @@ public final class SlideState {
     }
 
     @Nullable
-    private static URI createURI(String location) {
+    public static URI createURI(String location) {
         if (StringUtils.isNotBlank(location)) {
             try {
                 return URI.create(location);

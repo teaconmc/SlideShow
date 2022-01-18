@@ -9,13 +9,13 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import org.teacon.slides.projector.ProjectorBlock;
-import org.teacon.slides.projector.ProjectorTileEntity;
+import org.teacon.slides.projector.ProjectorBlockEntity;
 
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 
 @ParametersAreNonnullByDefault
-public class ProjectorRenderer implements BlockEntityRenderer<ProjectorTileEntity> {
+public class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlockEntity> {
 
     public static final ProjectorRenderer INSTANCE = new ProjectorRenderer();
 
@@ -28,28 +28,26 @@ public class ProjectorRenderer implements BlockEntityRenderer<ProjectorTileEntit
     }
 
     @Override
-    public void render(ProjectorTileEntity tile, float partialTick, PoseStack pStack,
+    public void render(ProjectorBlockEntity tile, float partialTick, PoseStack pStack,
                        MultiBufferSource source, int packedLight, int packedOverlay) {
         // always update slide state
-        final Slide slide = SlideState.getSlide(tile.currentSlide.getImageLocation());
+        final Slide slide = SlideState.getSlide(tile.mLocation);
         if (slide == null) {
             return;
         }
         if (!tile.getBlockState().getValue(BlockStateProperties.POWERED)) {
-            final SlideData data = tile.currentSlide;
-            final boolean renderFront = data.isFrontVisible(), renderBack =
-                    data.isBackVisible();
-            if (!renderFront && !renderBack)
+            int color = tile.mColor;
+            if ((color & 0xFF000000) == 0) {
                 return;
-            int color = data.getColor();
-            if ((color & 0xFF000000) == 0)
-                return;
+            }
+            ProjectorBlock.InternalRotation rotation = tile.getBlockState().getValue(ProjectorBlock.ROTATION);
+            final boolean flipped = rotation.isFlipped();
+
             pStack.pushPose();
 
-            final float width = data.getSize().x, height = data.getSize().y;
+            final float width = tile.mWidth, height = tile.mHeight;
 
             Direction facing = tile.getBlockState().getValue(BlockStateProperties.FACING);
-            ProjectorBlock.InternalRotation rotation = tile.getBlockState().getValue(ProjectorBlock.ROTATION);
             // matrix 1: translation to block center
             pStack.translate(0.5, 0.5, 0.5);
             // matrix 2: rotation
@@ -59,25 +57,24 @@ public class ProjectorRenderer implements BlockEntityRenderer<ProjectorTileEntit
             // matrix 4: internal rotation
             rotation.transform(pStack);
             // matrix 5: translation for slide
-            pStack.translate(-0.5F, 0.0F, 0.5F - data.getSize().y);
+            pStack.translate(-0.5F, 0.0F, 0.5F - height);
             // matrix 6: offset for slide
-            pStack.translate(data.getOffset().x(), -data.getOffset().z(), data.getOffset().y());
+            pStack.translate(tile.mOffsetX, -tile.mOffsetZ, tile.mOffsetY);
             // matrix 7: scaling
-            pStack.scale(data.getSize().x, 1.0F, data.getSize().y);
+            pStack.scale(width, 1.0F, height);
 
             PoseStack.Pose last = pStack.last();
 
-            slide.render(source, last.pose(), last.normal(), width, height,
-                    color, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, renderFront, renderBack);
+            slide.render(source, last.pose(), last.normal(), width, height, color, LightTexture.FULL_BRIGHT,
+                    OverlayTexture.NO_OVERLAY, flipped || tile.mDoubleSided, !flipped || tile.mDoubleSided);
 
             pStack.popPose();
         }
     }
 
     @Override
-    public boolean shouldRenderOffScreen(ProjectorTileEntity tile) {
-        // slide image may be larger than block AABB, so always render it
-        // whether the block is on the screen or not (i.e. global rendering like beacon)
+    public boolean shouldRenderOffScreen(ProjectorBlockEntity tile) {
+        // global rendering
         return true;
     }
 

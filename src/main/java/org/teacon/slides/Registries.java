@@ -4,8 +4,8 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraftforge.registries.ObjectHolder;
-import org.teacon.slides.projector.ProjectorControlContainerMenu;
-import org.teacon.slides.projector.ProjectorTileEntity;
+import org.teacon.slides.projector.ProjectorBlockEntity;
+import org.teacon.slides.projector.ProjectorContainerMenu;
 
 @ObjectHolder(SlideShow.ID)
 public final class Registries {
@@ -14,8 +14,8 @@ public final class Registries {
     public static Block PROJECTOR;
 
     @ObjectHolder("projector")
-    public static BlockEntityType<ProjectorTileEntity> TILE_TYPE;
+    public static BlockEntityType<ProjectorBlockEntity> BLOCK_ENTITY;
 
     @ObjectHolder("projector")
-    public static MenuType<ProjectorControlContainerMenu> MENU_TYPE;
+    public static MenuType<ProjectorContainerMenu> MENU;
 }

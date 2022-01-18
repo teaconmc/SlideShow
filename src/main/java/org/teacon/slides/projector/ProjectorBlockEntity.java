@@ -16,35 +16,42 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.network.NetworkHooks;
 import org.teacon.slides.Registries;
 import org.teacon.slides.renderer.ProjectorWorldRender;
-import org.teacon.slides.renderer.SlideData;
 
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 
 @SuppressWarnings("ConstantConditions")
 @ParametersAreNonnullByDefault
-public final class ProjectorTileEntity extends BlockEntity implements MenuProvider {
+public final class ProjectorBlockEntity extends BlockEntity implements MenuProvider {
 
     private static final Component TITLE = new TranslatableComponent("gui.slide_show.title");
 
-    public SlideData currentSlide = new SlideData();
+    public String mLocation = "";
+    public int mColor = ~0;
+    public float mWidth = 1;
+    public float mHeight = 1;
+    public float mOffsetX = 0;
+    public float mOffsetY = 0;
+    public float mOffsetZ = 0;
+    public boolean mDoubleSided = true;
 
-    public ProjectorTileEntity(BlockPos blockPos, BlockState blockState) {
-        super(Registries.TILE_TYPE, blockPos, blockState);
+    public ProjectorBlockEntity(BlockPos blockPos, BlockState blockState) {
+        super(Registries.BLOCK_ENTITY, blockPos, blockState);
     }
 
-    public void openGui(BlockState state, BlockPos pos, Player player) {
+    public void openGui(BlockPos pos, Player player) {
         NetworkHooks.openGui((ServerPlayer) player, this, buf -> {
             buf.writeBlockPos(pos);
-            buf.writeNbt(this.currentSlide.serializeNBT());
-            buf.writeEnum(state.getValue(ProjectorBlock.ROTATION));
+            CompoundTag tag = new CompoundTag();
+            writeCustomTag(tag);
+            buf.writeNbt(tag);
         });
     }
 
     @Nonnull
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player player) {
-        return ProjectorControlContainerMenu.fromServer(containerId, inventory, this);
+        return new ProjectorContainerMenu(containerId, this);
     }
 
     @Nonnull
@@ -77,15 +84,37 @@ public final class ProjectorTileEntity extends BlockEntity implements MenuProvid
         }
     }
 
+    public void writeCustomTag(CompoundTag tag) {
+        tag.putString("ImageLocation", mLocation);
+        tag.putInt("Color", mColor);
+        tag.putFloat("Width", mWidth);
+        tag.putFloat("Height", mHeight);
+        tag.putFloat("OffsetX", mOffsetX);
+        tag.putFloat("OffsetY", mOffsetY);
+        tag.putFloat("OffsetZ", mOffsetZ);
+        tag.putBoolean("DoubleSided", mDoubleSided);
+    }
+
+    public void readCustomTag(CompoundTag tag) {
+        mLocation = tag.getString("ImageLocation");
+        mColor = tag.getInt("Color");
+        mWidth = tag.getFloat("Width");
+        mHeight = tag.getFloat("Height");
+        mOffsetX = tag.getFloat("OffsetX");
+        mOffsetY = tag.getFloat("OffsetY");
+        mOffsetZ = tag.getFloat("OffsetZ");
+        mDoubleSided = tag.getBoolean("DoubleSided");
+    }
+
     @Override
     public void saveAdditional(CompoundTag tag) {
-        tag.merge(currentSlide.serializeNBT());
+        writeCustomTag(tag);
     }
 
     @Override
     public void load(CompoundTag tag) {
         super.load(tag);
-        currentSlide.deserializeNBT(tag);
+        readCustomTag(tag);
     }
 
     @Nonnull
@@ -96,14 +125,14 @@ public final class ProjectorTileEntity extends BlockEntity implements MenuProvid
 
     @Override
     public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket packet) {
-        currentSlide.deserializeNBT(packet.getTag());
+        readCustomTag(packet.getTag());
     }
 
     @Nonnull
     @Override
     public CompoundTag getUpdateTag() {
         CompoundTag tag = super.getUpdateTag();
-        saveAdditional(tag);
+        writeCustomTag(tag);
         return tag;
     }
 
@@ -111,24 +140,4 @@ public final class ProjectorTileEntity extends BlockEntity implements MenuProvid
     public void handleUpdateTag(CompoundTag tag) {
         load(tag);
     }
-
-    // NO USE, see ProjectorRenderer.getViewDistance
-    /*@OnlyIn(Dist.CLIENT)
-    @Override
-    public double getViewDistance() {
-        return 65536.0D;
-    }*/
-
-    // NO USE, see ProjectorRenderer.shouldRenderOffScreen()
-    /*@OnlyIn(Dist.CLIENT)
-    @Override
-    public AABB getRenderBoundingBox() {
-        final Matrix4f transformation = getTransformation();
-        final Vector4f v00 = new Vector4f(0, 0, 0, 1);
-        final Vector4f v11 = new Vector4f(1, 0, 1, 1);
-        v00.transform(transformation);
-        v11.transform(transformation);
-        AABB base = new AABB(v00.x(), v00.y(), v00.z(), v11.x(), v11.y(), v11.z());
-        return base.move(this.getBlockPos()).inflate(0.5);
-    }*/
 }

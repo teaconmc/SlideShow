@@ -11,15 +11,12 @@ import org.teacon.slides.SlideShow;
 
 import java.util.Objects;
 
-import static org.teacon.slides.SlideShow.SLIDE_SHOW_SHADER;
-
-
 /**
  * @author BloCamLimb
  */
 public class SlideRenderType extends RenderType {
 
-    //TODO review this
+    //TODO not working
     public static final RenderType HIGHLIGHT = RenderType.create("slide_show_block_highlight",
             DefaultVertexFormat.POSITION, VertexFormat.Mode.QUADS, /*buffer size*/256, /*no delegate*/false, /*need
             sorting data*/false,
