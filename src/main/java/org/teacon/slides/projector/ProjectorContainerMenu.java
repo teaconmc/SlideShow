@@ -11,6 +11,7 @@ import org.teacon.slides.Registries;
 import org.teacon.slides.SlideShow;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Objects;
 
 @ParametersAreNonnullByDefault
 public final class ProjectorContainerMenu extends AbstractContainerMenu {
@@ -25,8 +26,7 @@ public final class ProjectorContainerMenu extends AbstractContainerMenu {
     public ProjectorContainerMenu(int containerId, Inventory inventory, FriendlyByteBuf buf) {
         super(Registries.MENU, containerId);
         if (inventory.player.level.getBlockEntity(buf.readBlockPos()) instanceof ProjectorBlockEntity t) {
-            CompoundTag tag = buf.readNbt();
-            assert tag != null;
+            CompoundTag tag = Objects.requireNonNull(buf.readNbt());
             t.readCustomTag(tag);
             mEntity = t;
         }

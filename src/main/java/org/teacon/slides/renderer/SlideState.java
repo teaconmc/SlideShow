@@ -35,7 +35,7 @@ public final class SlideState {
 
     private static final int CLEANER_INTERVAL_TICKS = 0xFFFF; // 54.6125min, must be (powerOfTwo - 1)
 
-    private static volatile HashMap<String, SlideState> sCache = new HashMap<>();
+    private static final HashMap<String, SlideState> sCache = new HashMap<>();
 
     private static final Field IMAGE_PIXELS;
 
@@ -65,7 +65,7 @@ public final class SlideState {
     public static void onPlayerLeft(@Nonnull ClientPlayerNetworkEvent.LoggedOutEvent event) {
         RenderSystem.recordRenderCall(() -> {
             sCache.forEach((key, state) -> state.mSlide.close());
-            sCache = new HashMap<>();
+            sCache.clear();
             SlideShow.LOGGER.info("Release all image resources");
         });
     }

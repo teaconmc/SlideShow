@@ -154,24 +154,14 @@ public final class ProjectorBlock extends Block implements EntityBlock {
     }
 
     public enum InternalRotation implements StringRepresentable {
-        NONE(null) {
-            @Override
-            public void transform(Vector4f vector) {
-                // NO-OP
-            }
-
-            @Override
-            public void transform(PoseStack pStack) {
-                // NO-OP
-            }
-        },
-        CLOCKWISE_90(Vector3f.YN.rotationDegrees(90)),
-        CLOCKWISE_180(Vector3f.YN.rotationDegrees(180)),
-        COUNTERCLOCKWISE_90(Vector3f.YP.rotationDegrees(90)),
-        HORIZONTAL_FLIPPED(Vector3f.ZN.rotationDegrees(180)),
-        DIAGONAL_FLIPPED(new Vector3f(0.7071068f, 0, -0.7071068f).rotationDegrees(180)),
-        VERTICAL_FLIPPED(Vector3f.XN.rotationDegrees(180)),
-        ANTI_DIAGONAL_FLIPPED(new Vector3f(0.7071068f, 0, 0.7071068f).rotationDegrees(180));
+        NONE(new float[]{1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F}),
+        CLOCKWISE_90(new float[]{0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F}),
+        CLOCKWISE_180(new float[]{-1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F}),
+        COUNTERCLOCKWISE_90(new float[]{0F, 0F, 1F, 0F, 0F, 1F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F}),
+        HORIZONTAL_FLIPPED(new float[]{-1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F}),
+        DIAGONAL_FLIPPED(new float[]{0F, 0F, -1F, 0F, 0F, -1F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F}),
+        VERTICAL_FLIPPED(new float[]{1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F}),
+        ANTI_DIAGONAL_FLIPPED(new float[]{0F, 0F, 1F, 0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F});
 
         public static final InternalRotation[] VALUES = values();
 
@@ -186,15 +176,13 @@ public final class ProjectorBlock extends Block implements EntityBlock {
         };
 
         private final String mSerializedName;
-        private Matrix4f mMatrix;
-        private Matrix3f mNormal;
+        private final Matrix4f mMatrix;
+        private final Matrix3f mNormal;
 
-        InternalRotation(@Nullable Quaternion rotation) {
+        InternalRotation(float[] matrix) {
             mSerializedName = name().toLowerCase(Locale.ROOT);
-            if (rotation != null) {
-                mMatrix = new Matrix4f(rotation);
-                mNormal = new Matrix3f(rotation);
-            }
+            mMatrix = new Matrix4f(matrix);
+            mNormal = new Matrix3f(mMatrix);
         }
 
         public InternalRotation compose(Rotation rotation) {

@@ -22,10 +22,7 @@ import javax.annotation.Nonnull;
  * @see SlideState
  */
 @OnlyIn(Dist.CLIENT)
-public abstract class Slide implements AutoCloseable {
-
-    private Slide() {
-    }
+public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, Slide.Image {
 
     public abstract void render(@Nonnull MultiBufferSource source, @Nonnull Matrix4f matrix,
                                 @Nonnull Matrix3f normal, float width, float height, int color,
@@ -60,7 +57,7 @@ public abstract class Slide implements AutoCloseable {
         return Icon.DEFAULT_LOADING;
     }
 
-    private static final class Image extends Slide {
+    public static final class Image extends Slide {
 
         private static final boolean sARB_DSA;
         private static final boolean sEXT_DSA;
@@ -157,7 +154,7 @@ public abstract class Slide implements AutoCloseable {
     /**
      * A transition thumbnail.
      */
-    private static final class Icon extends Slide {
+    public static final class Icon extends Slide {
 
         private static final ResourceLocation
                 BACKGROUND = new ResourceLocation(SlideShow.ID, "textures/gui/slide_default.png"),
@@ -245,23 +242,25 @@ public abstract class Slide implements AutoCloseable {
              *
              * xs = [('0F', '0F'), ('x1', 'u1'), ('x2', 'u2'), ('1F', '1F')]
              * ys = [('0F', '0F'), ('y1', 'u1'), ('y2', 'u2'), ('1F', '1F')]
-             * fmt = '    builder.pos(matrix, {}, {}, {}).color(255, 255, 255, alpha).tex({}, {}).lightmap(light)
-             * .endVertex();'
              *
-             * print('if (renderFront) {')
+             * fmt = '    builder.vertex(matrix, {}, {}, {}).color(255, 255, 255, alpha)\n'
+             * fmt += '            .uv({}, {}).overlayCoords(overlay).uv2(light)\n'
+             * fmt += '            .normal(normal, 0, {}, 0).endVertex();'
+             *
+             * print('if (front) {')
              * for i in range(3):
              *     for j in range(3):
              *         a, b, c, d = xs[i], xs[i + 1], ys[j], ys[j + 1]
              *         for k, l in [(a, d), (b, d), (b, c), (a, c)]:
-             *             print(fmt.format(k[0], '1F / 256F', l[0], k[1], l[1]))
+             *             print(fmt.format(k[0], '1F / 256F', l[0], k[1], l[1], 1))
              * print('}')
              *
-             * print('if (renderBack) {')
+             * print('if (back) {')
              * for i in range(3):
              *     for j in range(3):
              *         a, b, c, d = xs[i], xs[i + 1], ys[j], ys[j + 1]
              *         for k, l in [(a, c), (b, c), (b, d), (a, d)]:
-             *             print(fmt.format(k[0], '-1F / 256F', l[0], k[1], l[1]))
+             *             print(fmt.format(k[0], '-1F / 256F', l[0], k[1], l[1], -1))
              * print('}')
              */
             if (front) {
