@@ -22,6 +22,7 @@ import java.lang.reflect.Field;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author BloCamLimb
@@ -35,7 +36,7 @@ public final class SlideState {
 
     private static final int CLEANER_INTERVAL_TICKS = 0xFFFF; // 54.6125min, must be (powerOfTwo - 1)
 
-    private static final HashMap<String, SlideState> sCache = new HashMap<>();
+    private static final AtomicReference<HashMap<String, SlideState>> sCache = new AtomicReference<>(new HashMap<>());
 
     private static final Field IMAGE_PIXELS;
 
@@ -48,8 +49,9 @@ public final class SlideState {
     @SubscribeEvent
     public static void tick(@Nonnull TickEvent.ClientTickEvent event) {
         if (event.phase == TickEvent.Phase.START) {
-            if (!sCache.isEmpty()) {
-                sCache.entrySet().removeIf(entry -> entry.getValue().tick(entry.getKey()));
+            HashMap<String, SlideState> map = sCache.getAcquire();
+            if (!map.isEmpty()) {
+                map.entrySet().removeIf(entry -> entry.getValue().tick(entry.getKey()));
             }
             if ((++sCleanerTimer & CLEANER_INTERVAL_TICKS) == 0) {
                 int c = SlideImageStore.cleanImages();
@@ -64,8 +66,7 @@ public final class SlideState {
     @SubscribeEvent
     public static void onPlayerLeft(@Nonnull ClientPlayerNetworkEvent.LoggedOutEvent event) {
         RenderSystem.recordRenderCall(() -> {
-            sCache.forEach((key, state) -> state.mSlide.close());
-            sCache.clear();
+            sCache.getAndSet(new HashMap<>()).forEach((key, state) -> state.mSlide.close());
             SlideShow.LOGGER.info("Release all image resources");
         });
     }
@@ -75,7 +76,7 @@ public final class SlideState {
         if (location.isEmpty()) {
             return null;
         }
-        return sCache.computeIfAbsent(location, key -> new SlideState())
+        return sCache.getAcquire().computeIfAbsent(location, key -> new SlideState())
                 .getWithUpdate();
     }
 
