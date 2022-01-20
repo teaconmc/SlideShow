@@ -20,7 +20,9 @@ import javax.annotation.Nullable;
 import java.io.ByteArrayInputStream;
 import java.lang.reflect.Field;
 import java.net.URI;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -36,20 +38,21 @@ public final class SlideState {
 
     private static final int CLEANER_INTERVAL_TICKS = 0xFFFF; // 54.6125min, must be (powerOfTwo - 1)
 
-    private static final AtomicReference<HashMap<String, SlideState>> sCache = new AtomicReference<>(new HashMap<>());
+    private static final AtomicReference<Map<String, SlideState>> sCache;
 
     private static final Field IMAGE_PIXELS;
 
     private static int sCleanerTimer;
 
     static {
+        sCache = new AtomicReference<>(Collections.synchronizedMap(new HashMap<>()));
         IMAGE_PIXELS = ObfuscationReflectionHelper.findField(NativeImage.class, "pixels");
     }
 
     @SubscribeEvent
     public static void tick(@Nonnull TickEvent.ClientTickEvent event) {
         if (event.phase == TickEvent.Phase.START) {
-            HashMap<String, SlideState> map = sCache.getAcquire();
+            Map<String, SlideState> map = sCache.getAcquire();
             if (!map.isEmpty()) {
                 map.entrySet().removeIf(entry -> entry.getValue().tick(entry.getKey()));
             }
@@ -66,7 +69,8 @@ public final class SlideState {
     @SubscribeEvent
     public static void onPlayerLeft(@Nonnull ClientPlayerNetworkEvent.LoggedOutEvent event) {
         RenderSystem.recordRenderCall(() -> {
-            sCache.getAndSet(new HashMap<>()).forEach((key, state) -> state.mSlide.close());
+            Map<String, SlideState> newCache = Collections.synchronizedMap(new HashMap<>());
+            sCache.getAndSet(newCache).forEach((key, state) -> state.mSlide.close());
             SlideShow.LOGGER.info("Release all image resources");
         });
     }
