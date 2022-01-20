@@ -7,14 +7,13 @@ import org.apache.http.util.Args;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
 
-class ResourceReference extends PhantomReference<HttpCacheEntry> {
+final class ResourceReference extends PhantomReference<HttpCacheEntry> {
 
     private final Resource resource;
 
     public ResourceReference(final HttpCacheEntry entry, final ReferenceQueue<HttpCacheEntry> q) {
         super(entry, q);
-        Args.notNull(entry.getResource(), "Resource");
-        this.resource = entry.getResource();
+        this.resource = Args.notNull(entry.getResource(), "Resource");
     }
 
     public Resource getResource() {
@@ -27,7 +26,7 @@ class ResourceReference extends PhantomReference<HttpCacheEntry> {
     }
 
     @Override
-    public boolean equals(final Object obj) {
-        return this.resource.equals(obj);
+    public boolean equals(Object obj) {
+        return obj == this; // reference equals
     }
 }

@@ -1,18 +1,20 @@
 package org.teacon.slides.cache;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import com.google.common.hash.Hashing;
-import com.google.common.util.concurrent.Uninterruptibles;
-import com.google.gson.*;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import net.minecraft.Util;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.Header;
-import org.apache.http.StatusLine;
 import org.apache.http.client.cache.HttpCacheEntry;
 import org.apache.http.client.cache.HttpCacheStorage;
 import org.apache.http.client.cache.HttpCacheUpdateCallback;
-import org.apache.http.client.cache.Resource;
 import org.apache.http.client.utils.DateUtils;
 import org.apache.http.impl.client.cache.FileResource;
 import org.apache.http.message.BasicLineParser;
@@ -25,12 +27,8 @@ import org.teacon.slides.SlideShow;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.stream.ImageInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.Reader;
-import java.io.Writer;
 import java.lang.ref.ReferenceQueue;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -38,6 +36,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -56,25 +55,25 @@ final class CacheStorage implements HttpCacheStorage {
     private final AtomicInteger markedDirty = new AtomicInteger();
     private final Map<String, Pair<Path, HttpCacheEntry>> entries = new LinkedHashMap<>();
 
-    private final ReferenceQueue<HttpCacheEntry> morque;
-    private final Set<ResourceReference> resources;
+    private final ReferenceQueue<HttpCacheEntry> referenceQueue;
+    private final Set<ResourceReference> resourceReferenceHolder;
 
     private static Pair<Path, HttpCacheEntry> normalize(Path parentPath, HttpCacheEntry entry) throws IOException {
-        byte[] bytes = IOUtils.toByteArray(entry.getResource().getInputStream());
-        Path tmp = Files.write(Files.createTempFile("slideshow-", ".tmp"), bytes);
-        Path path = Files.move(tmp, parentPath.resolve(allocateImageName(bytes)), StandardCopyOption.REPLACE_EXISTING);
+        var bytes = IOUtils.toByteArray(entry.getResource().getInputStream());
+        var tmp = Files.write(Files.createTempFile("slideshow-", ".tmp"), bytes);
+        var path = Files.move(tmp, parentPath.resolve(allocateImageName(bytes)), StandardCopyOption.REPLACE_EXISTING);
         return Pair.of(path, new HttpCacheEntry(entry.getRequestDate(), entry.getResponseDate(),
                 entry.getStatusLine(), entry.getAllHeaders(), new FileResource(path.toFile()), entry.getVariantMap()));
     }
 
     private static String allocateImageName(byte[] bytes) {
         // noinspection UnstableApiUsage
-        String hashString = Hashing.sha1().hashBytes(bytes).toString();
-        try (ByteArrayInputStream stream = new ByteArrayInputStream(bytes)) {
-            try (ImageInputStream imageStream = ImageIO.createImageInputStream(stream)) {
-                Iterator<ImageReader> readers = ImageIO.getImageReaders(imageStream);
+        @SuppressWarnings("deprecation") var hashString = Hashing.sha1().hashBytes(bytes).toString();
+        try (var stream = new ByteArrayInputStream(bytes)) {
+            try (var imageStream = ImageIO.createImageInputStream(stream)) {
+                var readers = ImageIO.getImageReaders(imageStream);
                 if (readers.hasNext()) {
-                    String[] suffixes = readers.next().getOriginatingProvider().getFileSuffixes();
+                    var suffixes = readers.next().getOriginatingProvider().getFileSuffixes();
                     if (suffixes.length > 0) {
                         return hashString + "." + suffixes[0].toLowerCase(Locale.ENGLISH);
                     }
@@ -87,21 +86,21 @@ final class CacheStorage implements HttpCacheStorage {
     }
 
     private static void saveJson(Map<String, Pair<Path, HttpCacheEntry>> entries, JsonObject root) {
-        for (Map.Entry<String, Pair<Path, HttpCacheEntry>> entry : entries.entrySet()) {
-            Path filePath = entry.getValue().getKey();
-            HttpCacheEntry cacheEntry = entry.getValue().getValue();
+        for (var entry : entries.entrySet()) {
+            var filePath = entry.getValue().getKey();
+            var cacheEntry = entry.getValue().getValue();
             root.add(entry.getKey(), Util.make(new JsonObject(), child -> {
                 child.addProperty("request_date", DateUtils.formatDate(cacheEntry.getRequestDate()));
                 child.addProperty("response_date", DateUtils.formatDate(cacheEntry.getResponseDate()));
                 child.addProperty("status_line", cacheEntry.getStatusLine().toString());
                 child.add("headers", Util.make(new JsonArray(), array -> {
-                    for (Header header : cacheEntry.getAllHeaders()) {
+                    for (var header : cacheEntry.getAllHeaders()) {
                         array.add(header.toString());
                     }
                 }));
                 child.addProperty("resource", filePath.toString());
                 child.add("variant_map", Util.make(new JsonObject(), object -> {
-                    for (Map.Entry<String, String> variantEntry : cacheEntry.getVariantMap().entrySet()) {
+                    for (var variantEntry : cacheEntry.getVariantMap().entrySet()) {
                         object.addProperty(variantEntry.getKey(), variantEntry.getValue());
                     }
                 }));
@@ -110,32 +109,41 @@ final class CacheStorage implements HttpCacheStorage {
     }
 
     private static void loadJson(Map<String, Pair<Path, HttpCacheEntry>> entries, JsonObject root) {
-        for (Map.Entry<String, JsonElement> entry : root.entrySet()) {
-            JsonObject child = entry.getValue().getAsJsonObject();
-            Date requestDate = DateUtils.parseDate(child.get("request_date").getAsString());
-            Date responseDate = DateUtils.parseDate(child.get("response_date").getAsString());
-            StatusLine statusLine = BasicLineParser.parseStatusLine(child.get("status_line").getAsString(), null);
-            // noinspection UnstableApiUsage
-            Header[] headers = Streams.stream(child.get("headers").getAsJsonArray())
-                    .map(elem -> BasicLineParser.parseHeader(elem.getAsString(), null)).toArray(Header[]::new);
-            Path filePath = Paths.get(child.get("resource").getAsString());
-            Resource resource = new FileResource(filePath.toFile());
-            Map<String, String> variantMap = new LinkedHashMap<>();
-            for (Map.Entry<String, JsonElement> variantEntry : child.get("variant_map").getAsJsonObject().entrySet()) {
-                variantMap.put(variantEntry.getKey(), variantEntry.getValue().getAsString());
-            }
-            HttpCacheEntry cacheEntry = new HttpCacheEntry(requestDate, responseDate, statusLine, headers, resource, variantMap);
+        for (var entry : root.entrySet()) {
+            var child = entry.getValue().getAsJsonObject();
+            var requestDate = DateUtils.parseDate(child.get("request_date").getAsString());
+            var responseDate = DateUtils.parseDate(child.get("response_date").getAsString());
+            var statusLine = BasicLineParser.parseStatusLine(child.get("status_line").getAsString(), null);
+            var filePath = Paths.get(child.get("resource").getAsString());
+            var headers = loadHeaders(child);
+            var variantMap = loadVariantMap(child);
+            var cacheEntry = new HttpCacheEntry(requestDate, responseDate,
+                    statusLine, headers, new FileResource(filePath.toFile()), variantMap);
             entries.put(entry.getKey(), Pair.of(filePath, cacheEntry));
         }
     }
 
+    private static Map<String, String> loadVariantMap(JsonObject child) {
+        var builder = ImmutableMap.<String, String>builder();
+        var map = child.has("variant_map") ? child.get("variant_map").getAsJsonObject() : new JsonObject();
+        for (var entry : map.entrySet()) {
+            builder.put(entry.getKey(), entry.getValue().getAsString());
+        }
+        return builder.build();
+    }
+
+    private static Header[] loadHeaders(JsonObject child) {
+        var list = child.has("headers") ? child.get("headers").getAsJsonArray() : new JsonArray();
+        return Streams.stream(list).map(e -> BasicLineParser.parseHeader(e.getAsString(), null)).toArray(Header[]::new);
+    }
+
     private void save() {
-        JsonObject root = new JsonObject();
+        var root = new JsonObject();
         synchronized (this.entries) {
             saveJson(this.entries, root);
         }
         synchronized (this.keyLock) {
-            try (Writer writer = Files.newBufferedWriter(this.keyFilePath, StandardCharsets.UTF_8)) {
+            try (var writer = Files.newBufferedWriter(this.keyFilePath, StandardCharsets.UTF_8)) {
                 GSON.toJson(root, writer);
             } catch (Exception e) {
                 LOGGER.warn(MARKER, "Failed to save cache storage. ", e);
@@ -144,9 +152,9 @@ final class CacheStorage implements HttpCacheStorage {
     }
 
     private void load() {
-        JsonObject root = new JsonObject();
+        var root = new JsonObject();
         synchronized (this.keyLock) {
-            try (Reader reader = Files.newBufferedReader(this.keyFilePath, StandardCharsets.UTF_8)) {
+            try (var reader = Files.newBufferedReader(this.keyFilePath, StandardCharsets.UTF_8)) {
                 root = GSON.fromJson(reader, JsonObject.class);
             } catch (Exception e) {
                 LOGGER.warn(MARKER, "Failed to load cache storage. ", e);
@@ -159,11 +167,10 @@ final class CacheStorage implements HttpCacheStorage {
 
     private void scheduleSave() {
         if (this.markedDirty.getAndIncrement() == 0) {
-            Util.backgroundExecutor().execute(() -> {
-                // noinspection UnstableApiUsage
-                Uninterruptibles.sleepUninterruptibly(5000, TimeUnit.MILLISECONDS);
-                this.save();
-                LOGGER.debug(MARKER, "Save {} change(s) to cache storage. ", this.markedDirty.getAndSet(0));
+            var executor = CompletableFuture.delayedExecutor(5, TimeUnit.SECONDS, Util.backgroundExecutor());
+            CompletableFuture.runAsync(this::save, executor).thenRun(() -> {
+                var changes = this.markedDirty.getAndSet(0);
+                LOGGER.debug(MARKER, "Attempted to save {} change(s) to cache storage. ", changes);
             });
         }
     }
@@ -177,16 +184,16 @@ final class CacheStorage implements HttpCacheStorage {
         } else if (LegacyStorage.loadLegacy(parentPath, this.entries)) {
             this.save();
         }
-        this.morque = new ReferenceQueue<>();
-        this.resources = new HashSet<>();
+        this.referenceQueue = new ReferenceQueue<>();
+        this.resourceReferenceHolder = Sets.newConcurrentHashSet();
     }
 
     private void keepResourceReference(final HttpCacheEntry entry) {
-        final Resource resource = entry.getResource();
+        var resource = entry.getResource();
         if (resource != null) {
             // Must deallocate the resource when the entry is no longer in used
-            final ResourceReference ref = new ResourceReference(entry, this.morque);
-            this.resources.add(ref);
+            var ref = new ResourceReference(entry, this.referenceQueue);
+            this.resourceReferenceHolder.add(ref);
         }
     }
 
@@ -194,7 +201,7 @@ final class CacheStorage implements HttpCacheStorage {
     @Override
     public HttpCacheEntry getEntry(String url) {
         synchronized (this.entries) {
-            Pair<Path, HttpCacheEntry> pair = this.entries.get(url);
+            var pair = this.entries.get(url);
             return pair != null ? pair.getValue() : null;
         }
     }
@@ -202,9 +209,9 @@ final class CacheStorage implements HttpCacheStorage {
     @Override
     public void putEntry(String url, HttpCacheEntry entry) throws IOException {
         synchronized (this.entries) {
-            Pair<Path, HttpCacheEntry> normalizedEntry = normalize(this.parentPath, entry);
+            var normalizedEntry = normalize(this.parentPath, entry);
             this.entries.put(url, normalizedEntry);
-            keepResourceReference(entry);
+            this.keepResourceReference(entry);
         }
         this.scheduleSave();
     }
@@ -220,27 +227,24 @@ final class CacheStorage implements HttpCacheStorage {
     @Override
     public void updateEntry(String url, HttpCacheUpdateCallback cb) throws IOException {
         synchronized (this.entries) {
-            Pair<Path, HttpCacheEntry> pair = this.entries.get(url);
+            var pair = this.entries.get(url);
             this.entries.put(url, normalize(this.parentPath, cb.update(pair != null ? pair.getValue() : null)));
-            final HttpCacheEntry existing = this.entries.get(url).getValue();
-            final HttpCacheEntry updated = cb.update(existing);
+            var existing = this.entries.get(url).getValue();
+            var updated = cb.update(existing);
             if (existing != updated) {
-                keepResourceReference(updated);
+                this.keepResourceReference(updated);
             }
         }
         this.scheduleSave();
     }
 
     public int cleanResources() {
-        int count = 0;
-        ResourceReference ref;
-        while ((ref = (ResourceReference) this.morque.poll()) != null) {
-            synchronized (this) {
-                this.resources.remove(ref);
-            }
+        var ref = (ResourceReference) null;
+        var prevCount = this.resourceReferenceHolder.size();
+        while ((ref = (ResourceReference) this.referenceQueue.poll()) != null) {
+            this.resourceReferenceHolder.remove(ref);
             ref.getResource().dispose();
-            count++;
         }
-        return count;
+        return prevCount - this.resourceReferenceHolder.size();
     }
 }
