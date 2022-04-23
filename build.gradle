@@ -23,7 +23,7 @@ apply plugin: 'org.parchmentmc.librarian.forgegradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '0.6.0'
+version = '0.6.0-rc.1'
 group = 'org.teaconmc'
 archivesBaseName = 'SlideShow'
 
