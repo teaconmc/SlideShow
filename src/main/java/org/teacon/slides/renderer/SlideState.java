@@ -46,7 +46,7 @@ public final class SlideState {
 
     static {
         sCache = new AtomicReference<>(Collections.synchronizedMap(new HashMap<>()));
-        IMAGE_PIXELS = ObfuscationReflectionHelper.findField(NativeImage.class, "pixels");
+        IMAGE_PIXELS = ObfuscationReflectionHelper.findField(NativeImage.class, "f_84964_"); // pixels
     }
 
     @SubscribeEvent
