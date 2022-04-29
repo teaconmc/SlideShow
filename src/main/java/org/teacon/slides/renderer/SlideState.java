@@ -22,7 +22,6 @@ import java.lang.reflect.Field;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
-import java.util.HashMap;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -44,7 +43,8 @@ public final class SlideState {
     private static final int CLEANER_INTERVAL_SECONDS = 720; // 12min
     private static int sCleanerTimer;
 
-    private static final AtomicReference<HashMap<String, SlideState>> sCache = new AtomicReference<>(new HashMap<>());
+    private static final AtomicReference<ConcurrentHashMap<String, SlideState>> sCache =
+            new AtomicReference<>(new ConcurrentHashMap<>());
 
     private static final Field IMAGE_PIXELS;
 
@@ -58,7 +58,7 @@ public final class SlideState {
     static void tick(@Nonnull TickEvent.ClientTickEvent event) {
         if (event.phase == TickEvent.Phase.START) {
             if (++sTimer > 20) {
-                HashMap<String, SlideState> map = sCache.getAcquire();
+                ConcurrentHashMap<String, SlideState> map = sCache.getAcquire();
                 if (!map.isEmpty()) {
                     map.entrySet().removeIf(entry -> entry.getValue().update());
                 }
@@ -88,7 +88,7 @@ public final class SlideState {
     @SubscribeEvent
     static void onPlayerLeft(@Nonnull ClientPlayerNetworkEvent.LoggedOutEvent event) {
         RenderSystem.recordRenderCall(() -> {
-            HashMap<String, SlideState> map = sCache.getAndSet(new HashMap<>());
+            ConcurrentHashMap<String, SlideState> map = sCache.getAndSet(new ConcurrentHashMap<>());
             map.values().forEach(s -> s.mSlide.close());
             SlideShow.LOGGER.debug("Release {} slide images", map.size());
             map.clear();
