@@ -15,7 +15,7 @@ buildscript {
 }
 
 plugins {
-    id 'com.github.johnrengelman.shadow' version '7.0.0'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
 apply plugin: 'net.minecraftforge.gradle'
@@ -23,15 +23,15 @@ apply plugin: 'org.parchmentmc.librarian.forgegradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '0.6.1'
+version = '0.6.2'
 group = 'org.teaconmc'
 archivesBaseName = 'SlideShow'
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 minecraft {
-    // mappings channel: 'official', version: '1.17.1'
-    mappings channel: 'parchment', version: '2021.12.19-1.18.1'
+    // mappings channel: 'official', version: '1.18.2'
+    mappings channel: 'parchment', version: '2022.03.06-1.18.1'
 
     runs {
         client {
@@ -82,8 +82,8 @@ configurations {
 }
 
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.18.1-39.0.9'
-    shadow 'org.apache.httpcomponents:httpclient-cache:4.3.6'
+    minecraft 'net.minecraftforge:forge:1.18.2-40.0.12'
+    shadow 'org.apache.httpcomponents:httpclient-cache:4.5.13'
 }
 
 shadowJar {
@@ -132,17 +132,17 @@ publishing {
     publications {
         release(MavenPublication) {
             groupId = "org.teacon"
-            artifactId = "SlideShow-Forge-1.16"
+            artifactId = "SlideShow-Forge-1.18"
 
             artifact shadowJar
             pom {
-                name = 'SlideShow for Minecraft 1.16'
+                name = 'SlideShow for Minecraft 1.18'
                 description = 'Minecraft mod, adding a projector that can display online images.'
                 url = 'https://github.com/teaconmc/SlideShow'
                 licenses {
                     license {
                         name = 'BSD-3-Clause'
-                        url = 'https://github.com/teaconmc/SlideShow/blob/1.16-forge/LICENSE'
+                        url = 'https://github.com/teaconmc/SlideShow/blob/1.18-forge/LICENSE'
                     }
                 }
                 developers {
