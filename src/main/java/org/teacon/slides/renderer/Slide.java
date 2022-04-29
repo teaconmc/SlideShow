@@ -82,39 +82,39 @@ public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, 
             int red = (color >> 16) & 255, green = (color >> 8) & 255, blue = color & 255, alpha = color >>> 24;
             final VertexConsumer builder = source.getBuffer(mRenderType);
             if (front) {
-                builder.vertex(matrix, 0, 1 / 256F, 1)
+                builder.vertex(matrix, 0, 1 / 192F, 1)
                         .color(red, green, blue, alpha).uv(0, 1)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
-                builder.vertex(matrix, 1, 1 / 256F, 1)
+                builder.vertex(matrix, 1, 1 / 192F, 1)
                         .color(red, green, blue, alpha).uv(1, 1)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
-                builder.vertex(matrix, 1, 1 / 256F, 0)
+                builder.vertex(matrix, 1, 1 / 192F, 0)
                         .color(red, green, blue, alpha).uv(1, 0)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
-                builder.vertex(matrix, 0, 1 / 256F, 0)
+                builder.vertex(matrix, 0, 1 / 192F, 0)
                         .color(red, green, blue, alpha).uv(0, 0)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
             }
             if (back) {
                 builder.vertex(matrix, 0, -1 / 256F, 0)
                         .color(red, green, blue, alpha).uv(0, 0)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 1, -1 / 256F, 0)
                         .color(red, green, blue, alpha).uv(1, 0)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 1, -1 / 256F, 1)
                         .color(red, green, blue, alpha).uv(1, 1)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 0, -1 / 256F, 1)
                         .color(red, green, blue, alpha).uv(0, 1)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
             }
         }
@@ -148,6 +148,14 @@ public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, 
             }
             GlStateManager._bindTexture(mTexture);
             return GL32C.glGetTexLevelParameteri(GL32C.GL_TEXTURE_2D, 0, GL32C.GL_TEXTURE_HEIGHT);
+        }
+
+        @Override
+        public String toString() {
+            return "Image{" +
+                    "texture=" + mTexture +
+                    ", renderType=" + mRenderType +
+                    '}';
         }
     }
 
@@ -196,37 +204,37 @@ public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, 
             if (front) {
                 builder.vertex(matrix, x1, 1F / 128F, y2)
                         .color(255, 255, 255, alpha).uv(0F, 1F)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 128F, y2)
                         .color(255, 255, 255, alpha).uv(1F, 1F)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 128F, y1)
                         .color(255, 255, 255, alpha).uv(1F, 0F)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x1, 1F / 128F, y1)
                         .color(255, 255, 255, alpha).uv(0F, 0F)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
             }
             if (back) {
                 builder.vertex(matrix, x1, -1F / 128F, y1)
                         .color(255, 255, 255, alpha).uv(0F, 0F)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 128F, y1)
                         .color(255, 255, 255, alpha).uv(1F, 0F)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 128F, y2)
                         .color(255, 255, 255, alpha).uv(1F, 1F)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x1, -1F / 128F, y2)
                         .color(255, 255, 255, alpha).uv(0F, 1F)
-                        .overlayCoords(overlay).uv2(light)
+                        .uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
             }
         }
@@ -244,7 +252,7 @@ public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, 
              * ys = [('0F', '0F'), ('y1', 'u1'), ('y2', 'u2'), ('1F', '1F')]
              *
              * fmt = '    builder.vertex(matrix, {}, {}, {}).color(255, 255, 255, alpha)\n'
-             * fmt += '            .uv({}, {}).overlayCoords(overlay).uv2(light)\n'
+             * fmt += '            .uv({}, {}).uv2(light)\n'
              * fmt += '            .normal(normal, 0, {}, 0).endVertex();'
              *
              * print('if (front) {')
@@ -265,224 +273,231 @@ public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, 
              */
             if (front) {
                 builder.vertex(matrix, 0F, 1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(0F, u1).overlayCoords(overlay).uv2(light)
+                        .uv(0F, u1).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x1, 1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u1, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u1).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x1, 1F / 256F, 0F).color(255, 255, 255, alpha)
-                        .uv(u1, 0F).overlayCoords(overlay).uv2(light)
+                        .uv(u1, 0F).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, 0F, 1F / 256F, 0F).color(255, 255, 255, alpha)
-                        .uv(0F, 0F).overlayCoords(overlay).uv2(light)
+                        .uv(0F, 0F).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, 0F, 1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(0F, u2).overlayCoords(overlay).uv2(light)
+                        .uv(0F, u2).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x1, 1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u1, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u2).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x1, 1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u1, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u1).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, 0F, 1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(0F, u1).overlayCoords(overlay).uv2(light)
+                        .uv(0F, u1).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, 0F, 1F / 256F, 1F).color(255, 255, 255, alpha)
-                        .uv(0F, 1F).overlayCoords(overlay).uv2(light)
+                        .uv(0F, 1F).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x1, 1F / 256F, 1F).color(255, 255, 255, alpha)
-                        .uv(u1, 1F).overlayCoords(overlay).uv2(light)
+                        .uv(u1, 1F).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x1, 1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u1, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u2).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, 0F, 1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(0F, u2).overlayCoords(overlay).uv2(light)
+                        .uv(0F, u2).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x1, 1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u1, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u1).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u2, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u1).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 256F, 0F).color(255, 255, 255, alpha)
-                        .uv(u2, 0F).overlayCoords(overlay).uv2(light)
+                        .uv(u2, 0F).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x1, 1F / 256F, 0F).color(255, 255, 255, alpha)
-                        .uv(u1, 0F).overlayCoords(overlay).uv2(light)
+                        .uv(u1, 0F).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x1, 1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u1, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u2).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u2, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u2).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u2, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u1).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x1, 1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u1, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u1).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x1, 1F / 256F, 1F).color(255, 255, 255, alpha)
-                        .uv(u1, 1F).overlayCoords(overlay).uv2(light)
+                        .uv(u1, 1F).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 256F, 1F).color(255, 255, 255, alpha)
-                        .uv(u2, 1F).overlayCoords(overlay).uv2(light)
+                        .uv(u2, 1F).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u2, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u2).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x1, 1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u1, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u2).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u2, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u1).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, 1F, 1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(1F, u1).overlayCoords(overlay).uv2(light)
+                        .uv(1F, u1).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, 1F, 1F / 256F, 0F).color(255, 255, 255, alpha)
-                        .uv(1F, 0F).overlayCoords(overlay).uv2(light)
+                        .uv(1F, 0F).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 256F, 0F).color(255, 255, 255, alpha)
-                        .uv(u2, 0F).overlayCoords(overlay).uv2(light)
+                        .uv(u2, 0F).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u2, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u2).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, 1F, 1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(1F, u2).overlayCoords(overlay).uv2(light)
+                        .uv(1F, u2).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, 1F, 1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(1F, u1).overlayCoords(overlay).uv2(light)
+                        .uv(1F, u1).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u2, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u1).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 256F, 1F).color(255, 255, 255, alpha)
-                        .uv(u2, 1F).overlayCoords(overlay).uv2(light)
+                        .uv(u2, 1F).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, 1F, 1F / 256F, 1F).color(255, 255, 255, alpha)
-                        .uv(1F, 1F).overlayCoords(overlay).uv2(light)
+                        .uv(1F, 1F).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, 1F, 1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(1F, u2).overlayCoords(overlay).uv2(light)
+                        .uv(1F, u2).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
                 builder.vertex(matrix, x2, 1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u2, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u2).uv2(light)
                         .normal(normal, 0, 1, 0).endVertex();
             }
             if (back) {
                 builder.vertex(matrix, 0F, -1F / 256F, 0F).color(255, 255, 255, alpha)
-                        .uv(0F, 0F).overlayCoords(overlay).uv2(light)
+                        .uv(0F, 0F).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x1, -1F / 256F, 0F).color(255, 255, 255, alpha)
-                        .uv(u1, 0F).overlayCoords(overlay).uv2(light)
+                        .uv(u1, 0F).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x1, -1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u1, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u1).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 0F, -1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(0F, u1).overlayCoords(overlay).uv2(light)
+                        .uv(0F, u1).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 0F, -1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(0F, u1).overlayCoords(overlay).uv2(light)
+                        .uv(0F, u1).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x1, -1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u1, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u1).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x1, -1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u1, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u2).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 0F, -1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(0F, u2).overlayCoords(overlay).uv2(light)
+                        .uv(0F, u2).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 0F, -1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(0F, u2).overlayCoords(overlay).uv2(light)
+                        .uv(0F, u2).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x1, -1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u1, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u2).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x1, -1F / 256F, 1F).color(255, 255, 255, alpha)
-                        .uv(u1, 1F).overlayCoords(overlay).uv2(light)
+                        .uv(u1, 1F).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 0F, -1F / 256F, 1F).color(255, 255, 255, alpha)
-                        .uv(0F, 1F).overlayCoords(overlay).uv2(light)
+                        .uv(0F, 1F).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x1, -1F / 256F, 0F).color(255, 255, 255, alpha)
-                        .uv(u1, 0F).overlayCoords(overlay).uv2(light)
+                        .uv(u1, 0F).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 256F, 0F).color(255, 255, 255, alpha)
-                        .uv(u2, 0F).overlayCoords(overlay).uv2(light)
+                        .uv(u2, 0F).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u2, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u1).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x1, -1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u1, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u1).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x1, -1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u1, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u1).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u2, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u1).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u2, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u2).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x1, -1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u1, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u2).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x1, -1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u1, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u1, u2).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u2, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u2).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 256F, 1F).color(255, 255, 255, alpha)
-                        .uv(u2, 1F).overlayCoords(overlay).uv2(light)
+                        .uv(u2, 1F).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x1, -1F / 256F, 1F).color(255, 255, 255, alpha)
-                        .uv(u1, 1F).overlayCoords(overlay).uv2(light)
+                        .uv(u1, 1F).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 256F, 0F).color(255, 255, 255, alpha)
-                        .uv(u2, 0F).overlayCoords(overlay).uv2(light)
+                        .uv(u2, 0F).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 1F, -1F / 256F, 0F).color(255, 255, 255, alpha)
-                        .uv(1F, 0F).overlayCoords(overlay).uv2(light)
+                        .uv(1F, 0F).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 1F, -1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(1F, u1).overlayCoords(overlay).uv2(light)
+                        .uv(1F, u1).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u2, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u1).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(u2, u1).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u1).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 1F, -1F / 256F, y1).color(255, 255, 255, alpha)
-                        .uv(1F, u1).overlayCoords(overlay).uv2(light)
+                        .uv(1F, u1).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 1F, -1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(1F, u2).overlayCoords(overlay).uv2(light)
+                        .uv(1F, u2).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u2, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u2).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(u2, u2).overlayCoords(overlay).uv2(light)
+                        .uv(u2, u2).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 1F, -1F / 256F, y2).color(255, 255, 255, alpha)
-                        .uv(1F, u2).overlayCoords(overlay).uv2(light)
+                        .uv(1F, u2).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, 1F, -1F / 256F, 1F).color(255, 255, 255, alpha)
-                        .uv(1F, 1F).overlayCoords(overlay).uv2(light)
+                        .uv(1F, 1F).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
                 builder.vertex(matrix, x2, -1F / 256F, 1F).color(255, 255, 255, alpha)
-                        .uv(u2, 1F).overlayCoords(overlay).uv2(light)
+                        .uv(u2, 1F).uv2(light)
                         .normal(normal, 0, -1, 0).endVertex();
             }
+        }
+
+        @Override
+        public String toString() {
+            return "Icon{" +
+                    "iconRenderType=" + mIconRenderType +
+                    '}';
         }
     }
 }

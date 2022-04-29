@@ -1,6 +1,7 @@
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+
 buildscript {
     repositories {
         maven { url = 'https://maven.minecraftforge.net' }
@@ -10,12 +11,11 @@ buildscript {
     dependencies {
         classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
         classpath group: 'org.parchmentmc', name: 'librarian', version: '1.+'
-
     }
 }
 
 plugins {
-    id 'com.github.johnrengelman.shadow' version '6.1.0'
+    id 'com.github.johnrengelman.shadow' version '7.0.0'
 }
 
 apply plugin: 'net.minecraftforge.gradle'
@@ -23,7 +23,7 @@ apply plugin: 'org.parchmentmc.librarian.forgegradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '0.6.0'
+version = '0.6.1'
 group = 'org.teaconmc'
 archivesBaseName = 'SlideShow'
 
@@ -103,13 +103,13 @@ jar {
     archiveClassifier.set('pure')
     manifest {
         attributes([
-            "Specification-Title": "Slide-Show",
-            "Specification-Vendor": "TeaConMC",
-            "Specification-Version": "1",
-            "Implementation-Title": project.name,
-            "Implementation-Version": "${project.version}",
-            "Implementation-Vendor": "TeaConMC",
-            "Implementation-Timestamp": DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+                "Specification-Title"     : "Slide-Show",
+                "Specification-Vendor"    : "TeaConMC",
+                "Specification-Version"   : "1",
+                "Implementation-Title"    : project.name,
+                "Implementation-Version"  : "${project.version}",
+                "Implementation-Vendor"   : "TeaConMC",
+                "Implementation-Timestamp": DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(ChronoUnit.SECONDS))
         ])
     }
 }
@@ -153,6 +153,10 @@ publishing {
                     developer {
                         id = 'ustc-zzzz'
                         name = 'ustc-zzzz'
+                    }
+                    developer {
+                        id = 'BloCamLimb'
+                        name = 'BloCamLimb'
                     }
                 }
                 issueManagement {

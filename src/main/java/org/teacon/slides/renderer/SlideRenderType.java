@@ -27,12 +27,14 @@ public class SlideRenderType extends RenderType {
 
     static {
         GENERAL_STATES = ImmutableList.of(
-                RENDERTYPE_ENTITY_TRANSLUCENT_CULL_SHADER,
+                //RENDERTYPE_ENTITY_TRANSLUCENT_CULL_SHADER,
+                RENDERTYPE_TRANSLUCENT_NO_CRUMBLING_SHADER,
+                //RENDERTYPE_TRANSLUCENT_SHADER,
                 TRANSLUCENT_TRANSPARENCY,
                 LEQUAL_DEPTH_TEST,
                 CULL,
                 LIGHTMAP,
-                OVERLAY,
+                NO_OVERLAY,
                 NO_LAYERING,
                 MAIN_TARGET,
                 DEFAULT_TEXTURING,
@@ -44,7 +46,7 @@ public class SlideRenderType extends RenderType {
     private final int mHashCode;
 
     SlideRenderType(int texture) {
-        super(SlideShow.ID, DefaultVertexFormat.NEW_ENTITY,
+        super(SlideShow.ID, DefaultVertexFormat.BLOCK,
                 VertexFormat.Mode.QUADS, 256, false, true,
                 () -> {
                     GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
@@ -56,7 +58,7 @@ public class SlideRenderType extends RenderType {
     }
 
     SlideRenderType(ResourceLocation texture) {
-        super(SlideShow.ID, DefaultVertexFormat.NEW_ENTITY,
+        super(SlideShow.ID, DefaultVertexFormat.BLOCK,
                 VertexFormat.Mode.QUADS, 256, false, true,
                 () -> {
                     GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
