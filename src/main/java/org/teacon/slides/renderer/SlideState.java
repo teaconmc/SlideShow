@@ -104,7 +104,7 @@ public final class SlideState {
         if (location.isEmpty()) {
             return null;
         }
-        return sCache.getAcquire().computeIfAbsent(location, SlideState::new).get();
+        return sCache.getAcquire().computeIfAbsent(location, SlideState::new).getWithUpdate();
     }
 
     /**
