@@ -80,6 +80,6 @@ public class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlockEnti
 
     @Override
     public int getViewDistance() {
-        return 512;
+        return 256;
     }
 }

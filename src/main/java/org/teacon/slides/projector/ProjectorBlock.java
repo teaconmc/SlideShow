@@ -61,7 +61,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
 
     @Nonnull
     @Override
-    public VoxelShape getShape(BlockState state, BlockGetter worldIn, BlockPos pos, CollisionContext context) {
+    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return switch (state.getValue(BASE)) {
             case DOWN:
                 yield SHAPE_WITH_BASE_DOWN;

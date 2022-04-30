@@ -1,6 +1,7 @@
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+
 buildscript {
     repositories {
         maven { url = 'https://maven.minecraftforge.net' }
@@ -10,7 +11,6 @@ buildscript {
     dependencies {
         classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
         classpath group: 'org.parchmentmc', name: 'librarian', version: '1.+'
-
     }
 }
 
@@ -23,7 +23,7 @@ apply plugin: 'org.parchmentmc.librarian.forgegradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '0.6.0-rc.2'
+version = '0.6.2-rc.1'
 group = 'org.teaconmc'
 archivesBaseName = 'SlideShow'
 
@@ -103,13 +103,13 @@ jar {
     archiveClassifier.set('pure')
     manifest {
         attributes([
-            "Specification-Title": "Slide-Show",
-            "Specification-Vendor": "TeaConMC",
-            "Specification-Version": "1",
-            "Implementation-Title": project.name,
-            "Implementation-Version": "${project.version}",
-            "Implementation-Vendor": "TeaConMC",
-            "Implementation-Timestamp": DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(ChronoUnit.SECONDS))
+                "Specification-Title"     : "Slide-Show",
+                "Specification-Vendor"    : "TeaConMC",
+                "Specification-Version"   : "1",
+                "Implementation-Title"    : project.name,
+                "Implementation-Version"  : "${project.version}",
+                "Implementation-Vendor"   : "TeaConMC",
+                "Implementation-Timestamp": DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(ChronoUnit.SECONDS))
         ])
     }
 }
@@ -153,6 +153,10 @@ publishing {
                     developer {
                         id = 'ustc-zzzz'
                         name = 'ustc-zzzz'
+                    }
+                    developer {
+                        id = 'BloCamLimb'
+                        name = 'BloCamLimb'
                     }
                 }
                 issueManagement {

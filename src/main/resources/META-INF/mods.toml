@@ -1,16 +1,24 @@
 modLoader="javafml"
-
 loaderVersion="[40,)"
 license="BSD-3-Clause"
 
 [[mods]]
-modId="slide_show"
-version="${file.jarVersion}"
-displayName="Slide Show"
+    modId="slide_show"
+    version="${file.jarVersion}"
+    displayName="Slide Show"
+    credits="ustc_zzzz, BloCamLimb"
+    authors="3TUSK"
+    description="Slide projectors in Minecraft."
 
-# We will come back later.
-credits="ustc_zzzz, BloCamLimb"
-
-authors="3TUSK"
-
-description="Simple slide show projector in Minecraft."
+[[dependencies.slide_show]]
+    modId="forge"
+    mandatory=true
+    versionRange="[39.1.0,)"
+    ordering="NONE"
+    side="BOTH"
+[[dependencies.slide_show]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.18.1, 1.19)"
+    ordering="NONE"
+    side="BOTH"
