@@ -2,6 +2,7 @@ package org.teacon.slides.renderer;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.platform.TextureUtil;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -22,6 +23,9 @@ import java.lang.reflect.Field;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -43,15 +47,15 @@ public final class SlideState {
     private static final int CLEANER_INTERVAL_SECONDS = 720; // 12min
     private static int sCleanerTimer;
 
-    private static final AtomicReference<ConcurrentHashMap<String, SlideState>> sCache =
-            new AtomicReference<>(new ConcurrentHashMap<>());
+    private static final AtomicReference<ConcurrentHashMap<String, SlideState>> sCache;
 
     private static final Field IMAGE_PIXELS;
 
     private static float sMaxAnisotropic = -1;
 
     static {
-        IMAGE_PIXELS = ObfuscationReflectionHelper.findField(NativeImage.class, "f_84964_");
+        sCache = new AtomicReference<>(new ConcurrentHashMap<>());
+        IMAGE_PIXELS = ObfuscationReflectionHelper.findField(NativeImage.class, "f_84964_"); // pixels
     }
 
     @SubscribeEvent
@@ -144,7 +148,7 @@ public final class SlideState {
     }
 
     @Nonnull
-    private Slide get() {
+    private Slide getWithUpdate() {
         if (mState != State.FAILED_OR_EMPTY) {
             mCounter = RECYCLE_SECONDS;
         }

@@ -1,13 +1,20 @@
 package org.teacon.slides.cache;
 
-import com.google.common.collect.*;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import com.google.common.hash.Hashing;
-import com.google.gson.*;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import net.minecraft.Util;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.Header;
-import org.apache.http.client.cache.*;
+import org.apache.http.client.cache.HttpCacheEntry;
+import org.apache.http.client.cache.HttpCacheStorage;
+import org.apache.http.client.cache.HttpCacheUpdateCallback;
 import org.apache.http.client.utils.DateUtils;
 import org.apache.http.impl.client.cache.FileResource;
 import org.apache.http.message.BasicLineParser;

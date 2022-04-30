@@ -152,10 +152,7 @@ public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, 
 
         @Override
         public String toString() {
-            return "Image{" +
-                    "texture=" + mTexture +
-                    ", renderType=" + mRenderType +
-                    '}';
+            return "Image{texture=" + mTexture + ", renderType=" + mRenderType + "}";
         }
     }
 
