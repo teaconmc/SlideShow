@@ -10,9 +10,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
+      - name: Setup Java 17
+        uses: actions/setup-java@v2
         with:
           distribution: 'temurin'
           java-version: '17'
       - name: Build
-        run: ./gradlew build --stacktrace
+        id: build
+        run: ./gradlew build githubActionOutput --stacktrace
+      - name: GitHub Action Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.build.outputs.artifact_name }}
+          path: ${{ steps.build.outputs.artifact_path }}

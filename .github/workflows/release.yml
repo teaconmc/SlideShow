@@ -68,6 +68,6 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ${{ steps.maven_publish.outputs.artifact_path }}
-          asset_name: ${{ steps.maven_publish.outputs.artifact_name }}
+          asset_name: ${{ steps.maven_publish.outputs.artifact_publish_name }}
           # https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
           asset_content_type: "application/java-archive"

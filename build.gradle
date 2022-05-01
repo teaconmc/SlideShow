@@ -1,7 +1,3 @@
-import java.time.Instant
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-
 buildscript {
     repositories {
         maven { url = 'https://maven.minecraftforge.net' }
@@ -18,62 +14,36 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
-apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'org.parchmentmc.librarian.forgegradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
+apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'org.parchmentmc.librarian.forgegradle'
 
-version = '0.6.2-rc.1'
-group = 'org.teaconmc'
-archivesBaseName = 'SlideShow'
+apply from: 'gradle/teacon-forge.gradle'
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
-minecraft {
-    // mappings channel: 'official', version: '1.18.2'
-    mappings channel: 'parchment', version: '2022.03.06-1.18.1'
+// definitions at gradle/teacon-forge.gradle
+teacon {
+    modId = 'slideshow'
+    modVersion = '0.6.2-rc.1'
+    modLicense = 'BSD-3-Clause'
+    modGitHubRepo = 'teaconmc/SlideShow'
+    modAuthors = ['BloCamLimb', '3TUSK', 'ustc-zzzz']
+    modDescription = 'Minecraft mod, adding a projector that can display online images.'
 
-    runs {
-        client {
-            workingDirectory project.file('run')
-            property 'forge.logging.console.level', 'info'
-            mods {
-                slide_show {
-                    source sourceSets.main
-                }
-            }
-            lazyToken('minecraft_classpath') {
-                project.configurations.shadow.asPath
-            }
-        }
+    platform = 'forge-1.18.2-40.1.0'
+    parchment = '2022.03.13'
 
-        server {
-            workingDirectory project.file('run_server')
-            property 'forge.logging.console.level', 'info'
-            mods {
-                slide_show {
-                    source sourceSets.main
-                }
-            }
-            lazyToken('minecraft_classpath') {
-                project.configurations.shadow.asPath
-            }
-        }
+    // uncomment these lines if you need
+    modName = 'Slide Show' // default to repo name
+    // modGitHubBranch = 1.18-forge // for referring the license
+    // modifyMemberAccess = true // for access transformer
+    // useDataGeneration = true // for data generation
+    publishTask = shadowJar // for shadow jar or other usages
+    lazyTokens = ['minecraft_classpath': { project.configurations.shadow.asPath }] // for runtime tokens
 
-        data {
-            workingDirectory project.file('run')
-            property 'forge.logging.console.level', 'info'
-            args '--mod', 'slide_show', '--all', '--output', file('src/generated/resources/')
-            mods {
-                slide_show {
-                    source sourceSets.main
-                }
-            }
-            lazyToken('minecraft_classpath') {
-                project.configurations.shadow.asPath
-            }
-        }
-    }
+    // use './gradlew -q printModMeta > src/main/resources/META-INF/mods.toml' to generate mod meta
 }
 
 configurations {
@@ -82,7 +52,6 @@ configurations {
 }
 
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.18.2-40.0.12'
     shadow 'org.apache.httpcomponents:httpclient-cache:4.5.13'
 }
 
@@ -99,107 +68,8 @@ shadowJar {
     relocate 'org.apache.http.impl.client.cache', 'org.teacon.slides.http.impl.client.cache'
 }
 
-jar {
-    archiveClassifier.set('pure')
-    manifest {
-        attributes([
-                "Specification-Title"     : "Slide-Show",
-                "Specification-Vendor"    : "TeaConMC",
-                "Specification-Version"   : "1",
-                "Implementation-Title"    : project.name,
-                "Implementation-Version"  : "${project.version}",
-                "Implementation-Vendor"   : "TeaConMC",
-                "Implementation-Timestamp": DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(ChronoUnit.SECONDS))
-        ])
-    }
-}
+jar { it.enabled false }
 
 reobf {
-    shadowJar {} // Re-obfuscate the shadowed JAR
-}
-
-artifacts {
-    archives shadowJar
-}
-
-jar.finalizedBy('reobfJar')
-shadowJar.finalizedBy('reobfShadowJar')
-
-publish.dependsOn('reobfJar')
-publish.dependsOn('reobfShadowJar')
-
-publishing {
-    publications {
-        release(MavenPublication) {
-            groupId = "org.teacon"
-            artifactId = "SlideShow-Forge-1.18"
-
-            artifact shadowJar
-            pom {
-                name = 'SlideShow for Minecraft 1.18'
-                description = 'Minecraft mod, adding a projector that can display online images.'
-                url = 'https://github.com/teaconmc/SlideShow'
-                licenses {
-                    license {
-                        name = 'BSD-3-Clause'
-                        url = 'https://github.com/teaconmc/SlideShow/blob/1.18-forge/LICENSE'
-                    }
-                }
-                developers {
-                    developer {
-                        id = '3TUSK'
-                        name = '3TUSK'
-                    }
-                    developer {
-                        id = 'ustc-zzzz'
-                        name = 'ustc-zzzz'
-                    }
-                    developer {
-                        id = 'BloCamLimb'
-                        name = 'BloCamLimb'
-                    }
-                }
-                issueManagement {
-                    system = 'GitHub Issues'
-                    url = 'https://github.com/teaconmc/SlideShow/issues'
-                }
-                scm {
-                    url = 'https://github.com/teaconmc/SlideShow'
-                    connection = 'scm:git:git://github.com/teaconmc/SlideShow.git'
-                    developerConnection = 'scm:git:git@github.com:teaconmc/SlideShow.git'
-                }
-            }
-        }
-    }
-    repositories {
-        maven {
-            name = "teacon"
-            url = "s3://maven/"
-            credentials(AwsCredentials) {
-                accessKey = System.env.ARCHIVE_ACCESS_KEY
-                secretKey = System.env.ARCHIVE_SECRET_KEY
-            }
-        }
-    }
-}
-
-tasks.withType(PublishToMavenRepository) {
-    if (repository && repository.name == "archive") {
-        onlyIf {
-            System.env.MAVEN_USERNAME && System.env.MAVEN_PASSWORD
-        }
-    }
-}
-
-/**
- * A simple task to pass down the artifact name and path to other GitHub actions.
- */
-task("githubActionOutput") {
-    onlyIf {
-        System.env.GITHUB_ACTIONS
-    }
-    doLast {
-        println "::set-output name=artifact_path::${shadowJar.archiveFile.get().asFile.absolutePath}"
-        println "::set-output name=artifact_name::${shadowJar.archiveFileName.get()}"
-    }
+    jar { it.enabled false }
 }
