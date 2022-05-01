@@ -186,7 +186,7 @@ gradle.afterProject { Project current ->
     current.publishing { PublishingExtension it ->
         it.publications {
             // noinspection GroovyAssignabilityCheck
-            mavenJava(MavenPublication) {
+            release(MavenPublication) {
                 // noinspection GroovyAssignabilityCheck
                 groupId = "org.teacon"
                 // noinspection GroovyAssignabilityCheck
