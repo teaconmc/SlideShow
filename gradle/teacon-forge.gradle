@@ -43,7 +43,7 @@ gradle.afterProject { Project current ->
     def (repoAuthor, repoName) = teacon.modGitHubRepo.get().split('/', 2)
 
     // check mod id
-    assert modId ==~ /[0-9a-z_]+/
+    assert modId ==~ /[a-z_\d]+/
 
     // check if it is from teacon
     if (repoAuthor != 'teaconmc') {
@@ -216,7 +216,7 @@ gradle.afterProject { Project current ->
                     }
                     developers {
                         for (def modAuthor : modAuthors) {
-                            assert modAuthor == modAuthor.strip()
+                            assert modAuthor == (modAuthor =~ /^\s+|\s+$/).replaceAll('')
 
                             def matcher = modAuthor =~ /([^(\s]+)\s*\(([^)]+)\)/
                             def modAuthorName = modAuthor
@@ -267,7 +267,7 @@ gradle.afterProject { Project current ->
 
     current.tasks.withType(PublishToMavenRepository) {
         if (repository && repository.name == "archive") {
-            onlyIf {
+            it.onlyIf {
                 System.env.MAVEN_USERNAME && System.env.MAVEN_PASSWORD
             }
         }
@@ -275,9 +275,9 @@ gradle.afterProject { Project current ->
 
     // A simple task to pass down the artifact name and path to other GitHub actions
     current.tasks.register("githubActionOutput") {
-//        it.onlyIf {
-//            System.env.GITHUB_ACTIONS
-//        }
+        it.onlyIf {
+            System.env.GITHUB_ACTIONS
+        }
         it.doLast {
             println "::set-output name=artifact_name::${publishJarTask.archiveFileName.get()}"
             println "::set-output name=artifact_publish_name::${jarArchiveBaseName}-${artifactVersion}.jar"
@@ -287,54 +287,56 @@ gradle.afterProject { Project current ->
 
     // A task for generating mods.toml
     current.tasks.register("printModMeta") {
-        // noinspection GroovyAssignabilityCheck
-        def escaped = { String input ->
-            input = input.replace('\"', '\\\"')
-            input = input.replace('\b', '\\\b')
-            input = input.replace('\f', '\\\f')
-            input = input.replace('\n', '\\\n')
-            input = input.replace('\r', '\\\r')
-            input = input.replace('\t', '\\\t')
-            return input
+        it.doLast {
+            // noinspection GroovyAssignabilityCheck
+            def escaped = { String input ->
+                input = input.replace('\"', '\\\"')
+                input = input.replace('\b', '\\\b')
+                input = input.replace('\f', '\\\f')
+                input = input.replace('\n', '\\\n')
+                input = input.replace('\r', '\\\r')
+                input = input.replace('\t', '\\\t')
+                return input
+            }
+
+            def lines = []
+
+            // loaders
+            lines += "modLoader=\"javafml\""
+            lines += "loaderVersion=\"[${escaped(platformVersion.split('\\.')[0])},)\""
+            lines += "license=\"${escaped(publishLicense)}\""
+            lines += ""
+
+            // mods
+            lines += "[[mods]]"
+            lines += "modId=\"${escaped(modId)}\""
+            lines += "version=\"\${file.jarVersion}\""
+            lines += "displayName=\"${escaped(modName)}\""
+            lines += "authors=\"TeaConMC${modAuthors.collect { ', ' + escaped(it) }.join()}\""
+            lines += "displayName=\"${escaped(publishDescription)}\""
+            lines += ""
+
+            // forge dependency
+            lines += "[[dependencies.${modId}]]"
+            lines += "modId=\"forge\""
+            lines += "mandatory=true"
+            lines += "versionRange=\"[${escaped(platformVersion.split('\\.')[0])},)\""
+            lines += "ordering=\"NONE\""
+            lines += "side=\"BOTH\""
+            lines += ""
+
+            // minecraft dependency
+            lines += "[[dependencies.${modId}]]"
+            lines += "modId=\"minecraft\""
+            lines += "mandatory=true"
+            lines += "versionRange=\"[${escaped("${gameVersions[0]}.${gameVersions[1]}")},)\""
+            lines += "ordering=\"NONE\""
+            lines += "side=\"BOTH\""
+            lines += ""
+
+            // print lines
+            lines.each { println it }
         }
-
-        def lines = []
-
-        // loaders
-        lines += "modLoader=\"javafml\""
-        lines += "loaderVersion=\"[${escaped(platformVersion.split('\\.')[0])},)\""
-        lines += "license=\"${escaped(publishLicense)}\""
-        lines += ""
-
-        // mods
-        lines += "[[mods]]"
-        lines += "modId=\"${escaped(modId)}\""
-        lines += "version=\"\${file.jarVersion}\""
-        lines += "displayName=\"${escaped(modName)}\""
-        lines += "authors=\"TeaConMC${modAuthors.collect { ', ' + escaped(it) }.join()}\""
-        lines += "displayName=\"${escaped(publishDescription)}\""
-        lines += ""
-
-        // forge dependency
-        lines += "[[dependencies.${modId}]]"
-        lines += "modId=\"forge\""
-        lines += "mandatory=true"
-        lines += "versionRange=\"[${escaped(platformVersion.split('\\.')[0])},)\""
-        lines += "ordering=\"NONE\""
-        lines += "side=\"BOTH\""
-        lines += ""
-
-        // minecraft dependency
-        lines += "[[dependencies.${modId}]]"
-        lines += "modId=\"minecraft\""
-        lines += "mandatory=true"
-        lines += "versionRange=\"[${escaped("${gameVersions[0]}.${gameVersions[1]}")},)\""
-        lines += "ordering=\"NONE\""
-        lines += "side=\"BOTH\""
-        lines += ""
-
-        // print lines
-        lines.each { println it }
     }
 }
 
