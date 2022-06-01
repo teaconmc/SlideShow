@@ -15,8 +15,13 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+      - name: Get Short Identifier
+        uses: benjlevesque/short-sha@v1.2
+        id: short-sha
       - name: Build
         id: build
+        env:
+          VERSION_IDENTIFIER: SNAPSHOT+${{ steps.short-sha.outputs.sha }}
         run: ./gradlew build githubActionOutput --stacktrace
       - name: GitHub Action Artifact
         uses: actions/upload-artifact@v3
