@@ -24,5 +24,6 @@ build
 eclipse
 run
 run_server
+run_client
 *.txt
 
