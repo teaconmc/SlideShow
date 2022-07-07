@@ -2,8 +2,6 @@ package org.teacon.slides.texture;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.NativeImage;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import org.lwjgl.opengl.GL46C;
 
@@ -12,18 +10,17 @@ import java.nio.IntBuffer;
 
 import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.opengl.GL12C.*;
-import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
 import static org.lwjgl.opengl.GL14C.GL_TEXTURE_LOD_BIAS;
 import static org.lwjgl.opengl.GL30C.glGenerateMipmap;
 
-@OnlyIn(Dist.CLIENT)
-public class NativeImageTexture implements FrameTexture{
+public final class NativeImageTexture implements FrameTexture {
     private static final Field IMAGE_PIXELS;
     private int texture;
 
     static {
         IMAGE_PIXELS = ObfuscationReflectionHelper.findField(NativeImage.class, "f_84964_"); // pixels
     }
+
     public NativeImageTexture(NativeImage image, float sMaxAnisotropic) {
         texture = glGenTextures();
         final int width = image.getWidth();
@@ -78,4 +75,11 @@ public class NativeImageTexture implements FrameTexture{
         return texture;
     }
 
+    @Override
+    public void release() {
+        int textureID = textureID();
+        if (textureID > -1) {
+            GlStateManager._deleteTexture(textureID);
+        }
+    }
 }

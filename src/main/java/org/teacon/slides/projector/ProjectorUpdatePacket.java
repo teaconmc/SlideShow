@@ -10,6 +10,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.server.permission.PermissionAPI;
 import org.apache.logging.log4j.Marker;
@@ -18,6 +19,8 @@ import org.teacon.slides.SlideShow;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.function.Supplier;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 @ParametersAreNonnullByDefault
 public final class ProjectorUpdatePacket {
@@ -29,8 +32,9 @@ public final class ProjectorUpdatePacket {
     private final ProjectorBlock.InternalRotation mRotation;
     private final CompoundTag mTag;
 
-    @OnlyIn(Dist.CLIENT)
     public ProjectorUpdatePacket(ProjectorBlockEntity entity, ProjectorBlock.InternalRotation rotation) {
+        checkArgument(FMLEnvironment.dist.isClient());
+
         mEntity = entity;
         mRotation = rotation;
         mTag = new CompoundTag();
@@ -48,8 +52,9 @@ public final class ProjectorUpdatePacket {
         buffer.writeNbt(mTag);
     }
 
-    @OnlyIn(Dist.CLIENT)
     public void sendToServer() {
+        checkArgument(FMLEnvironment.dist.isClient());
+
         mPos = mEntity.getBlockPos();
         mEntity.writeCustomTag(mTag);
         SlideShow.CHANNEL.sendToServer(this);

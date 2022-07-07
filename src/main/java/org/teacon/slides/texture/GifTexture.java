@@ -1,8 +1,6 @@
 package org.teacon.slides.texture;
 
 import com.mojang.blaze3d.platform.GlStateManager;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL46C;
@@ -15,18 +13,17 @@ import java.util.Arrays;
 
 import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.opengl.GL12C.*;
-import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
 import static org.lwjgl.opengl.GL14C.GL_TEXTURE_LOD_BIAS;
 import static org.lwjgl.opengl.GL30C.glGenerateMipmap;
 
-@OnlyIn(Dist.CLIENT)
-public class GifTexture implements FrameTexture {
+public final class GifTexture implements FrameTexture {
     private final int[] textures;
     private final long[] delay;
     private final long duration;
     private final float sMaxAnisotropic;
     private final GifDecoder gif;
-    public GifTexture (GifDecoder gif, float sMaxAnisotropic) {
+
+    public GifTexture(GifDecoder gif, float sMaxAnisotropic) {
         this.sMaxAnisotropic = sMaxAnisotropic;
         delay = new long[gif.getFrameCount()];
         long time = 0;
