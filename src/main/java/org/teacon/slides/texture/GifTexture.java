@@ -1,6 +1,7 @@
 package org.teacon.slides.texture;
 
 import com.mojang.blaze3d.platform.GlStateManager;
+import net.minecraft.util.Mth;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL46C;
@@ -17,6 +18,8 @@ import static org.lwjgl.opengl.GL14C.GL_TEXTURE_LOD_BIAS;
 import static org.lwjgl.opengl.GL30C.glGenerateMipmap;
 
 public final class GifTexture implements FrameTexture {
+    private static final int TICK_AS_MILLIS = 1000 / 20;
+
     private final int[] textures;
     private final long[] delay;
     private final long duration;
@@ -108,8 +111,8 @@ public final class GifTexture implements FrameTexture {
     }
 
     @Override
-    public int textureID() {
-        long time = duration > 0 ? System.currentTimeMillis() % duration : 0;
+    public int currentTextureID(long tick, float partialTick) {
+        long time = duration > 0 ? (tick * TICK_AS_MILLIS + Mth.floor(partialTick * TICK_AS_MILLIS)) % duration : 0;
         int index = 0;
         for (int i = 0; i < delay.length; i++) {
             if (delay[i] >= time) {

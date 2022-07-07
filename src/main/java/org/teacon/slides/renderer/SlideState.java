@@ -2,6 +2,7 @@ package org.teacon.slides.renderer;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
@@ -9,7 +10,9 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.apache.commons.lang3.StringUtils;
-import org.lwjgl.opengl.*;
+import org.lwjgl.opengl.GL;
+import org.lwjgl.opengl.GL46C;
+import org.lwjgl.opengl.GLCapabilities;
 import org.lwjgl.system.MemoryUtil;
 import org.teacon.slides.GifDecoder;
 import org.teacon.slides.SlideShow;
@@ -27,10 +30,13 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.lwjgl.opengl.GL32C.*;
+import static org.lwjgl.opengl.GL32C.glGetFloat;
 
 /**
  * @author BloCamLimb
@@ -43,7 +49,7 @@ public final class SlideState {
 
     private static final int RECYCLE_SECONDS = 120; // 2min
     private static final int RETRY_INTERVAL_SECONDS = 30; // 30s
-    private static int sTimer;
+    private static long sAnimationTick;
 
     private static final int CLEANER_INTERVAL_SECONDS = 720; // 12min
     private static int sCleanerTimer;
@@ -58,8 +64,8 @@ public final class SlideState {
 
     @SubscribeEvent
     static void tick(@Nonnull TickEvent.ClientTickEvent event) {
-        if (event.phase == TickEvent.Phase.START) {
-            if (++sTimer > 20) {
+        if (event.phase == TickEvent.Phase.START && !Minecraft.getInstance().isPaused()) {
+            if (++sAnimationTick % 20 == 0) {
                 ConcurrentHashMap<String, SlideState> map = sCache.getAcquire();
                 if (!map.isEmpty()) {
                     map.entrySet().removeIf(entry -> entry.getValue().update());
@@ -74,15 +80,14 @@ public final class SlideState {
                 if (sMaxAnisotropic < 0) {
                     GLCapabilities caps = GL.getCapabilities();
                     if (caps.OpenGL46 ||
-                            caps.GL_ARB_texture_filter_anisotropic ||
-                            caps.GL_EXT_texture_filter_anisotropic) {
+                        caps.GL_ARB_texture_filter_anisotropic ||
+                        caps.GL_EXT_texture_filter_anisotropic) {
                         sMaxAnisotropic = Math.max(0, glGetFloat(GL46C.GL_MAX_TEXTURE_MAX_ANISOTROPY));
                         SlideShow.LOGGER.info("Max anisotropic: {}", sMaxAnisotropic);
                     } else {
                         sMaxAnisotropic = 0;
                     }
                 }
-                sTimer = 0;
             }
         }
     }
@@ -95,6 +100,10 @@ public final class SlideState {
             SlideShow.LOGGER.debug("Release {} slide images", map.size());
             map.clear();
         });
+    }
+
+    public static long getAnimationTick() {
+        return sAnimationTick;
     }
 
     @Nullable
@@ -181,10 +190,10 @@ public final class SlideState {
     @Override
     public String toString() {
         return "SlideState{" +
-                "slide=" + mSlide +
-                ", state=" + mState +
-                ", counter=" + mCounter +
-                '}';
+               "slide=" + mSlide +
+               ", state=" + mState +
+               ", counter=" + mCounter +
+               '}';
     }
 
     /**

@@ -2,7 +2,7 @@ package org.teacon.slides.texture;
 
 public sealed interface FrameTexture permits NativeImageTexture, GifTexture {
 
-    int textureID();
+    int currentTextureID(long tick, float partialTick);
 
     void release();
 }

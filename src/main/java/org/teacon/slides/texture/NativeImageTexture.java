@@ -71,13 +71,13 @@ public final class NativeImageTexture implements FrameTexture {
     }
 
     @Override
-    public int textureID() {
+    public int currentTextureID(long tick, float partialTick) {
         return texture;
     }
 
     @Override
     public void release() {
-        int textureID = textureID();
+        int textureID = texture;
         if (textureID > -1) {
             GlStateManager._deleteTexture(textureID);
         }

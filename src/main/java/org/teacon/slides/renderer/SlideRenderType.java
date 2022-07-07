@@ -8,7 +8,6 @@ import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import org.teacon.slides.SlideShow;
-import org.teacon.slides.texture.FrameTexture;
 
 import java.util.Objects;
 
@@ -53,18 +52,6 @@ public class SlideRenderType extends RenderType {
                     GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
                     RenderSystem.enableTexture();
                     RenderSystem.setShaderTexture(0, texture);
-                },
-                () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
-        mHashCode = Objects.hash(super.hashCode(), GENERAL_STATES, texture);
-    }
-
-    SlideRenderType(FrameTexture texture) {
-        super(SlideShow.ID, DefaultVertexFormat.BLOCK,
-                VertexFormat.Mode.QUADS, 256, false, true,
-                () -> {
-                    GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
-                    RenderSystem.enableTexture();
-                    RenderSystem.setShaderTexture(0, texture.textureID());
                 },
                 () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
         mHashCode = Objects.hash(super.hashCode(), GENERAL_STATES, texture);
