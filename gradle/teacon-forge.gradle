@@ -30,7 +30,8 @@ interface TeaConExtension {
 }
 
 gradle.afterProject { Project current ->
-    // configure all the things
+    if (current != project) return
+
     def teacon = current.extensions.teacon as TeaConExtension
 
     def (platformName, gameVersion, platformVersion) = teacon.getPlatform().get().split('-', 3)
