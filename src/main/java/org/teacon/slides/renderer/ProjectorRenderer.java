@@ -66,7 +66,8 @@ public class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlockEnti
             PoseStack.Pose last = pStack.last();
 
             slide.render(source, last.pose(), last.normal(), width, height, color, LightTexture.FULL_BRIGHT,
-                    OverlayTexture.NO_OVERLAY, flipped || tile.mDoubleSided, !flipped || tile.mDoubleSided);
+                    OverlayTexture.NO_OVERLAY, flipped || tile.mDoubleSided, !flipped || tile.mDoubleSided,
+                    SlideState.getAnimationTick(), partialTick);
 
             pStack.popPose();
         }
