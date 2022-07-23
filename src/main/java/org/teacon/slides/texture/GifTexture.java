@@ -19,6 +19,9 @@ import static org.lwjgl.opengl.GL30C.glGenerateMipmap;
 
 public final class GifTexture implements FrameTexture {
     private static final int TICK_AS_MILLIS = 1000 / 20;
+    private static final int MAX_WIDTH = 4096;
+    private static final int MAX_HEIGHT = 2160;
+    private static final int MAX_Frame = 1024;
 
     private final int[] textures;
     private final long[] delay;
@@ -44,6 +47,9 @@ public final class GifTexture implements FrameTexture {
         try {
             int width = image.getWidth();
             int height = image.getHeight();
+            if (width > MAX_WIDTH || height > MAX_HEIGHT) { // 4K
+                return -2;
+            }
             int[] pixels = new int[width * height];
             image.getRGB(0, 0, width, height, pixels, 0, width);
             boolean hasAlpha = false;
@@ -112,6 +118,7 @@ public final class GifTexture implements FrameTexture {
 
     @Override
     public int currentTextureID(long tick, float partialTick) {
+        if (gif.getFrameCount() > MAX_Frame) return -1;
         long time = duration > 0 ? (tick * TICK_AS_MILLIS + Mth.floor(partialTick * TICK_AS_MILLIS)) % duration : 0;
         int index = 0;
         for (int i = 0; i < delay.length; i++) {

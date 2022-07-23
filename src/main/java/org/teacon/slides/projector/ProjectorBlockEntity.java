@@ -1,6 +1,7 @@
 package org.teacon.slides.projector;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
@@ -13,6 +14,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.NetworkHooks;
 import org.teacon.slides.Registries;
 import org.teacon.slides.renderer.ProjectorWorldRender;
@@ -139,5 +143,66 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     @Override
     public void handleUpdateTag(CompoundTag tag) {
         load(tag);
+    }
+
+    @Override
+    public AABB getRenderBoundingBox() {
+        float fromOffsetX = 0;
+        float fromOffsetY = 0;
+        float fromOffsetZ = 0;
+        float widthX = 1;
+        float widthY = 1;
+        float widthZ = 1;
+
+        ProjectorBlock.InternalRotation rotation = getBlockState().getValue(ProjectorBlock.ROTATION);
+
+        Direction facing = getBlockState().getValue(BlockStateProperties.FACING);
+        fromOffsetX += facing.getStepX() * (mOffsetZ + 0.5);
+        fromOffsetY += facing.getStepY() * (mOffsetZ + 0.5);
+        fromOffsetZ += facing.getStepZ() * (mOffsetZ + 0.5);
+
+        if (facing.getAxis() == Direction.Axis.Y) {
+            if (rotation == ProjectorBlock.InternalRotation.HORIZONTAL_FLIPPED) {
+                fromOffsetX -= mOffsetX + (mWidth - 1) / 2;
+                fromOffsetZ += mOffsetY - (mHeight - 1) / 2;
+                widthX = mWidth;
+                widthZ = mHeight;
+            } else if (rotation == ProjectorBlock.InternalRotation.DIAGONAL_FLIPPED) {
+                fromOffsetX -= mOffsetY - (mHeight - 1) / 2;
+                fromOffsetZ -= mOffsetX + (mWidth - 1) / 2;
+                widthX = mHeight;
+                widthZ = mWidth;
+            } else if (rotation == ProjectorBlock.InternalRotation.VERTICAL_FLIPPED) {
+                fromOffsetX += mOffsetX + (mWidth - 1) / 2;
+                fromOffsetZ -= mOffsetY - (mHeight - 1) / 2;
+                widthX = mWidth;
+                widthZ = mHeight;
+            } else if (rotation == ProjectorBlock.InternalRotation.ANTI_DIAGONAL_FLIPPED) {
+                fromOffsetX += mOffsetY - (mHeight - 1) / 2;
+                fromOffsetZ += mOffsetX + (mWidth - 1) / 2;
+                widthX = mHeight;
+                widthZ = mWidth;
+            }
+            if (facing == Direction.DOWN) {
+                fromOffsetZ = -fromOffsetZ;
+            }
+        } else {
+            widthY = mHeight;
+            fromOffsetY += (mHeight - 1) / 2 - mOffsetY;
+            if (facing.getAxis() == Direction.Axis.X) {
+                widthZ = mWidth;
+                fromOffsetZ += facing.getStepX() * ((mWidth - 1) / 2 + mOffsetX);
+            } else {
+                widthX = mWidth;
+                fromOffsetX -= facing.getStepZ() * ((mWidth - 1) / 2 + mOffsetX);
+            }
+        }
+
+        widthX /= 2;
+        widthZ /= 2;
+        widthY /= 2;
+
+        return new AABB(Vec3.atCenterOf(worldPosition).add(fromOffsetX + widthX, fromOffsetY + widthY, fromOffsetZ + widthZ),
+                Vec3.atCenterOf(worldPosition).add(fromOffsetX - widthX, fromOffsetY - widthY, fromOffsetZ - widthZ));
     }
 }
