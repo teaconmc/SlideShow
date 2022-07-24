@@ -1,6 +1,11 @@
 package org.teacon.slides.projector;
 
+import com.mojang.math.Matrix3f;
+import com.mojang.math.Matrix4f;
+import com.mojang.math.Vector3f;
+import com.mojang.math.Vector4f;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
@@ -13,6 +18,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.phys.AABB;
 import net.minecraftforge.network.NetworkHooks;
 import org.teacon.slides.Registries;
 import org.teacon.slides.renderer.ProjectorWorldRender;
@@ -139,5 +146,46 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     @Override
     public void handleUpdateTag(CompoundTag tag) {
         load(tag);
+    }
+
+    @Override
+    public AABB getRenderBoundingBox() {
+        Matrix3f normal = Matrix3f.createScaleMatrix(1, 1, 1); // identity
+        Matrix4f pose = Matrix4f.createScaleMatrix(1, 1, 1); // identity
+        this.transformToSlideSpace(pose, normal);
+
+        Vector3f nHalf = new Vector3f(0, 0.5f, 0);
+        Vector4f v00 = new Vector4f(0, 0, 0, 1);
+        Vector4f v01 = new Vector4f(1, 0, 1, 1);
+        nHalf.transform(normal);
+        v00.transform(pose);
+        v01.transform(pose);
+
+        AABB base = new AABB(v00.x(), v00.y(), v00.z(), v01.x(), v01.y(), v01.z());
+        return base.move(this.getBlockPos()).inflate(nHalf.x(), nHalf.y(), nHalf.z());
+    }
+
+    public void transformToSlideSpace(Matrix4f pose, Matrix3f normal) {
+        BlockState state = getBlockState();
+        // get direction
+        Direction direction = state.getValue(BlockStateProperties.FACING);
+        // get internal rotation
+        ProjectorBlock.InternalRotation rotation = state.getValue(ProjectorBlock.ROTATION);
+        // matrix 1: translation to block center
+        pose.multiplyWithTranslation(0.5f, 0.5f, 0.5f);
+        // matrix 2: rotation
+        pose.multiply(direction.getRotation());
+        normal.mul(direction.getRotation());
+        // matrix 3: translation to block surface
+        pose.multiplyWithTranslation(0.0f, 0.5f, 0.0f);
+        // matrix 4: internal rotation
+        rotation.transform(pose);
+        rotation.transform(normal);
+        // matrix 5: translation for slide
+        pose.multiplyWithTranslation(-0.5F, 0.0F, 0.5F - mHeight);
+        // matrix 6: offset for slide
+        pose.multiplyWithTranslation(mOffsetX, -mOffsetZ, mOffsetY);
+        // matrix 7: scaling
+        pose.multiply(Matrix4f.createScaleMatrix(mWidth, 1.0F, mHeight));
     }
 }

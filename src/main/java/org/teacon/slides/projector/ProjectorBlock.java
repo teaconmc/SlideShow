@@ -1,7 +1,8 @@
 package org.teacon.slides.projector;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.*;
+import com.mojang.math.Matrix3f;
+import com.mojang.math.Matrix4f;
+import com.mojang.math.Vector4f;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.StringRepresentable;
@@ -23,11 +24,8 @@ import net.minecraft.world.level.material.Material;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
 import java.util.Locale;
@@ -205,11 +203,12 @@ public final class ProjectorBlock extends Block implements EntityBlock {
             vector.transform(mMatrix);
         }
 
-        @OnlyIn(Dist.CLIENT)
-        public void transform(PoseStack pStack) {
-            PoseStack.Pose last = pStack.last();
-            last.pose().multiply(mMatrix);
-            last.normal().mul(mNormal);
+        public void transform(Matrix4f poseMatrix) {
+            poseMatrix.multiply(mMatrix);
+        }
+
+        public void transform(Matrix3f normalMatrix) {
+            normalMatrix.mul(mNormal);
         }
 
         @Nonnull
