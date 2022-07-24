@@ -1,6 +1,5 @@
 package org.teacon.slides.renderer;
 
-import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
@@ -13,8 +12,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL46C;
 import org.lwjgl.opengl.GLCapabilities;
-import org.lwjgl.system.MemoryUtil;
-import org.teacon.slides.GifDecoder;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.cache.ImageCache;
 import org.teacon.slides.texture.FrameTexture;
@@ -28,10 +25,8 @@ import javax.imageio.ImageReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
@@ -206,29 +201,9 @@ public final class SlideState {
     private static CompletableFuture<FrameTexture> createTexture(byte[] data) {
         return CompletableFuture.supplyAsync(() -> {
             if (isGif(data)) {
-                try (ByteArrayInputStream stream = new ByteArrayInputStream(data)) {
-                    GifDecoder gif = new GifDecoder();
-                    int status = gif.read(stream);
-                    if (status == GifDecoder.STATUS_OK) {
-                        return new GifTexture(gif);
-                    } else {
-                        SlideShow.LOGGER.error("Failed to decode gif: {}", status);
-                    }
-                } catch (IOException exception) {
-                    SlideShow.LOGGER.error("Failed to read gif", exception);
-                }
-            }
-            // copy to native memory
-            ByteBuffer buffer = MemoryUtil.memAlloc(data.length)
-                    .put(data)
-                    .rewind();
-            // specify null to use image intrinsic format
-            try (NativeImage image = NativeImage.read(null, buffer)) {
-                return new NativeImageTexture(image, sMaxAnisotropic);
-            } catch (Throwable t) {
-                throw new CompletionException(t);
-            } finally {
-                MemoryUtil.memFree(buffer);
+                return new GifTexture(data, sMaxAnisotropic);
+            } else {
+                return new NativeImageTexture(data, sMaxAnisotropic);
             }
         }, RENDER_EXECUTOR);
     }
