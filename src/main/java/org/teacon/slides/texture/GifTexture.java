@@ -4,18 +4,14 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.util.Mth;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL46C;
+import org.lwjgl.opengl.GL12;
 import org.teacon.slides.GifDecoder;
 
 import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 import java.util.Arrays;
 
 import static org.lwjgl.opengl.GL11C.*;
-import static org.lwjgl.opengl.GL12C.*;
-import static org.lwjgl.opengl.GL14C.GL_TEXTURE_LOD_BIAS;
-import static org.lwjgl.opengl.GL30C.glGenerateMipmap;
 
 public final class GifTexture implements FrameTexture {
     private static final int TICK_AS_MILLIS = 1000 / 20;
@@ -27,11 +23,9 @@ public final class GifTexture implements FrameTexture {
     private final int[] textures;
     private final long[] delay;
     private final long duration;
-    private final float sMaxAnisotropic;
     private final GifDecoder gif;
 
-    public GifTexture(GifDecoder gif, float sMaxAnisotropic) {
-        this.sMaxAnisotropic = sMaxAnisotropic;
+    public GifTexture(GifDecoder gif) {
         delay = new long[gif.getFrameCount()];
         long time = 0;
         for (int i = 0; i < gif.getFrameCount(); i++) {
@@ -45,6 +39,7 @@ public final class GifTexture implements FrameTexture {
     }
 
     private int uploadFrame(BufferedImage image) {
+        int texture = -1;
         try {
             int width = image.getWidth();
             int height = image.getHeight();
@@ -74,29 +69,14 @@ public final class GifTexture implements FrameTexture {
             }
             buffer.flip();
 
-            final int texture = glGenTextures();
-            final int maxLevel = 31 - Integer.numberOfLeadingZeros(Math.max(width, height));
+            texture = glGenTextures();
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture);
 
-            GlStateManager._bindTexture(texture);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, maxLevel);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, 0.0F);
-            if (sMaxAnisotropic > 0) {
-                glTexParameterf(GL_TEXTURE_2D, GL46C.GL_TEXTURE_MAX_ANISOTROPY, sMaxAnisotropic);
-            }
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
 
-            int internalFormat = hasAlpha ? GL_RGBA8 : GL_RGB8;
-            for (int level = 0; level <= maxLevel; ++level) {
-                glTexImage2D(GL_TEXTURE_2D, level, internalFormat, width >> level, height >> level, 0, GL_RED, GL_UNSIGNED_BYTE, (IntBuffer) null);
-            }
-
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
 
             // specify 0 to use width * bbp
             glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
@@ -107,12 +87,16 @@ public final class GifTexture implements FrameTexture {
             // specify pixel row alignment to 1
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, hasAlpha ? GL11.GL_RGBA8 : GL11.GL_RGB8, width, height, 0, hasAlpha ? GL11.GL_RGBA : GL11.GL_RGB, GL11.GL_UNSIGNED_BYTE, buffer);
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, hasAlpha ? GL11.GL_RGBA8 : GL11.GL_RGB8, width, height, 0,
+                    hasAlpha ? GL11.GL_RGBA : GL11.GL_RGB, GL11.GL_UNSIGNED_BYTE, buffer);
 
-            // auto generate mipmap
-            glGenerateMipmap(GL_TEXTURE_2D);
             return texture;
         } catch (Throwable e) {
+            if (texture != -1 ) {
+                if (texture > 0) {
+                    GlStateManager._deleteTexture(texture);
+                }
+            }
             return -2;
         }
     }

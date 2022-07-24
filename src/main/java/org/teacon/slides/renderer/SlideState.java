@@ -210,7 +210,7 @@ public final class SlideState {
                     GifDecoder gif = new GifDecoder();
                     int status = gif.read(stream);
                     if (status == GifDecoder.STATUS_OK) {
-                        return new GifTexture(gif, sMaxAnisotropic);
+                        return new GifTexture(gif);
                     } else {
                         SlideShow.LOGGER.error("Failed to decode gif: {}", status);
                     }
