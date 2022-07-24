@@ -93,8 +93,9 @@ public final class GifTexture implements FrameTexture {
             boolean hasAlpha = channelCount > 3;
             int bytesPerPixel = hasAlpha ? 4 : 3;
 
-            buffer = MemoryUtil.memAlloc(width * height * bytesPerPixel);
-            for (int i = index * width * height; i < (index + 1) * width * height; i++) {
+            int size = width * height;
+            buffer = MemoryUtil.memAlloc(size * bytesPerPixel);
+            for (int i = index * size; i < (index + 1) * size; i++) {
                 int pixel = pixels[i];
                 buffer.put((byte) (pixel & 0xFF)); // Blue component
                 buffer.put((byte) ((pixel >> 8) & 0xFF)); // Green component
