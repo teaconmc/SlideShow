@@ -1,7 +1,8 @@
 package org.teacon.slides.projector;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.*;
+import com.mojang.math.Matrix3f;
+import com.mojang.math.Matrix4f;
+import com.mojang.math.Vector4f;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.StringRepresentable;
@@ -11,7 +12,10 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.Mirror;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition.Builder;
@@ -20,15 +24,14 @@ import net.minecraft.world.level.material.Material;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
 import java.util.Locale;
 
-import static net.minecraft.world.level.block.state.properties.BlockStateProperties.*;
+import static net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING;
+import static net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED;
 
 @SuppressWarnings("deprecation")
 @ParametersAreNonnullByDefault
@@ -56,7 +59,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
 
     @Nonnull
     @Override
-    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+    public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return switch (state.getValue(BASE)) {
             case DOWN:
                 yield SHAPE_WITH_BASE_DOWN;
@@ -200,11 +203,12 @@ public final class ProjectorBlock extends Block implements EntityBlock {
             vector.transform(mMatrix);
         }
 
-        @OnlyIn(Dist.CLIENT)
-        public void transform(PoseStack pStack) {
-            PoseStack.Pose last = pStack.last();
-            last.pose().multiply(mMatrix);
-            last.normal().mul(mNormal);
+        public void transform(Matrix4f poseMatrix) {
+            poseMatrix.multiply(mMatrix);
+        }
+
+        public void transform(Matrix3f normalMatrix) {
+            normalMatrix.mul(mNormal);
         }
 
         @Nonnull

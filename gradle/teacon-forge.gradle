@@ -1,0 +1,345 @@
+interface TeaConExtension {
+    // get the mod id
+    Property<String> getModId()
+    // get the mod name
+    Property<String> getModName()
+    // get the mod version
+    Property<String> getModVersion()
+    // get the mod license
+    Property<String> getModLicense()
+    // get the github repo
+    Property<String> getModGitHubRepo()
+    // get the github repo
+    ListProperty<String> getModAuthors()
+    // get the github branch
+    Property<String> getModGitHubBranch()
+    // get the mod description
+    Property<String> getModDescription()
+    // get the platform which should be 'forge-1.1x.x-xx.x.x'
+    Property<String> getPlatform()
+    // get the parchment mapping version which should be either '20xx.xx.xx' or null
+    Property<String> getParchment()
+    // check if access transformer is used
+    Property<Boolean> getModifyMemberAccess()
+    // check if data generation is used
+    Property<Boolean> getUseDataGeneration()
+    // get publish jar task (default task is jar)
+    Property<Task> getPublishTask()
+    // get lazy tokens used in generating runs
+    MapProperty<String, Object> getLazyTokens()
+}
+
+gradle.afterProject { Project current ->
+    if (current != project) return
+
+    def teacon = current.extensions.teacon as TeaConExtension
+
+    def (platformName, gameVersion, platformVersion) = teacon.getPlatform().get().split('-', 3)
+
+    // check if it is forge
+    assert platformName == 'forge'
+
+    def modId = teacon.modId.get()
+    def artifactVersion = teacon.modVersion.get()
+    def (repoAuthor, repoName) = teacon.modGitHubRepo.get().split('/', 2)
+
+    // check mod id
+    assert modId ==~ /[a-z_\d]+/
+
+    // check if it is from teacon
+    if (repoAuthor != 'teaconmc') {
+        logger.log(LogLevel.WARN,
+                'An project whose repo not under https://github.com/teaconmc is configured. Use at your own risk.')
+    }
+
+    current.group = 'org.teacon'
+    current.version = artifactVersion
+    current.archivesBaseName = repoName
+
+    def useDataGeneration = teacon.useDataGeneration.getOrElse(false)
+
+    // check if generated source is included
+    if (useDataGeneration) {
+        current.sourceSets.main.resources { it.srcDir 'src/generated/resources' }
+    }
+
+    // configure minecraft
+    current.minecraft { /* net.minecraftforge.gradle.common.util.MinecraftExtension */ it ->
+        def parchment = teacon.getParchment().getOrElse(null)
+        def channel = parchment != null ? 'parchment' : 'official'
+
+        it.mappings 'channel': channel, 'version': (parchment != null ? parchment + '-' : '') + gameVersion
+
+        def modifyMemberAccess = teacon.modifyMemberAccess.getOrElse(false)
+
+        if (modifyMemberAccess) {
+            it.accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
+        }
+
+        def runtimeLazyTokens = teacon.lazyTokens.getOrElse([:])
+
+        it.runs {
+            client {
+                workingDirectory current.file('run_client')
+                property 'forge.logging.markers', 'REGISTRIES'
+                property 'forge.logging.console.level', 'debug'
+                property 'forge.enabledGameTestNamespaces', modId
+                mods {
+                    // noinspection GroovyAssignabilityCheck
+                    create(modId) { it.source sourceSets.main }
+                }
+                // noinspection GroovyAssignabilityCheck
+                runtimeLazyTokens.each { k, v -> lazyToken(k, v) }
+            }
+
+            server {
+                workingDirectory current.file('run_server')
+                property 'forge.logging.markers', 'REGISTRIES'
+                property 'forge.logging.console.level', 'debug'
+                property 'forge.enabledGameTestNamespaces', modId
+                mods {
+                    // noinspection GroovyAssignabilityCheck
+                    create(modId) { it.source sourceSets.main }
+                }
+                // noinspection GroovyAssignabilityCheck
+                runtimeLazyTokens.each { k, v -> lazyToken(k, v) }
+            }
+
+            gameTestServer {
+                workingDirectory current.file('run_test')
+                property 'forge.logging.markers', 'REGISTRIES'
+                property 'forge.logging.console.level', 'debug'
+                property 'forge.enabledGameTestNamespaces', modId
+                mods {
+                    // noinspection GroovyAssignabilityCheck
+                    create(modId) { it.source sourceSets.main }
+                }
+                // noinspection GroovyAssignabilityCheck
+                runtimeLazyTokens.each { k, v -> lazyToken(k, v) }
+            }
+
+            if (useDataGeneration) {
+                data {
+                    workingDirectory current.file('run_data')
+                    property 'forge.logging.markers', 'REGISTRIES'
+                    property 'forge.logging.console.level', 'debug'
+                    // noinspection GroovyAssignabilityCheck
+                    args '--mod', modId, '--all', '--output',
+                            file('src/generated/resources/'), '--existing', file('src/main/resources/')
+                    mods {
+                        // noinspection GroovyAssignabilityCheck
+                        create(modId) { it.source sourceSets.main }
+                    }
+                    // noinspection GroovyAssignabilityCheck
+                    runtimeLazyTokens.each { k, v -> lazyToken(k, v) }
+                }
+            }
+        }
+    }
+
+    // configure dependencies
+    current.dependencies { DependencyHandler it ->
+        it.minecraft 'net.minecraftforge:forge:' + gameVersion + '-' + platformVersion
+    }
+
+    // noinspection GroovyAssignabilityCheck
+    def generateArtifactAttributes = { String name, String specVersion, String implVersion ->
+        return [
+                "Specification-Title"     : name,
+                "Specification-Vendor"    : "TeaConMC",
+                "Specification-Version"   : specVersion,
+                "Implementation-Title"    : name,
+                "Implementation-Version"  : implVersion,
+                "Implementation-Vendor"   : "TeaConMC",
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ]
+    }
+
+    def gameVersions = gameVersion.split('\\.')
+    def identifier = System.env.VERSION_IDENTIFIER
+
+    def publishJarTask = teacon.publishTask.getOrElse(current.tasks.jar)
+    def jarArchiveBaseName = "${repoName}-Forge-${gameVersions[0]}.${gameVersions[1]}" as String
+
+    // configure jar and re-obf
+    publishJarTask.configure { Jar it ->
+        it.archiveBaseName.set(jarArchiveBaseName)
+        it.archiveVersion.set("${artifactVersion}${identifier ? '-' + identifier : ''}")
+        it.manifest.attributes(generateArtifactAttributes(repoName, '1', it.archiveVersion.get()) as Map<String, ?>)
+    }
+
+    current.reobf {
+        it.create(publishJarTask.name) {
+            current.publish.dependsOn it
+            publishJarTask.finalizedBy it
+        }
+    }
+
+    def modAuthors = teacon.modAuthors.getOrElse([])
+    // noinspection GroovyAssignabilityCheck
+    def modName = teacon.modName.getOrElse(repoName)
+
+    def publishBranchName = teacon.modGitHubBranch.getOrElse("${gameVersions[0]}.${gameVersions[1]}-forge")
+    def publishPomName = "${repoName} for Minecraft ${gameVersions[0]}.${gameVersions[1]}" as String
+    def publishDescription = teacon.modDescription.getOrElse(publishPomName)
+    def publishLicense = teacon.modLicense.get()
+
+    // configure maven publishing
+    current.publishing { PublishingExtension it ->
+        it.publications {
+            // noinspection GroovyAssignabilityCheck
+            release(MavenPublication) {
+                // noinspection GroovyAssignabilityCheck
+                groupId = "org.teacon"
+                // noinspection GroovyAssignabilityCheck
+                artifactId = jarArchiveBaseName
+                // noinspection GroovyAssignabilityCheck
+                version = artifactVersion
+                pom {
+                    // noinspection GroovyAssignabilityCheck
+                    name = publishPomName
+                    // noinspection GroovyAssignabilityCheck
+                    description = publishDescription != null ? publishDescription : publishPomName
+                    // noinspection GroovyAssignabilityCheck
+                    url = "https://github.com/${repoAuthor}/${repoName}"
+                    licenses {
+                        license {
+                            // noinspection GroovyAssignabilityCheck
+                            name = publishLicense
+                            // noinspection GroovyAssignabilityCheck
+                            url = "https://github.com/${repoAuthor}/${repoName}/blob/${publishBranchName}/LICENSE"
+                        }
+                    }
+                    organization {
+                        // noinspection GroovyAssignabilityCheck
+                        name = 'TeaConMC'
+                        // noinspection GroovyAssignabilityCheck
+                        url = 'https://github.com/teaconmc'
+                    }
+                    developers {
+                        for (def modAuthor : modAuthors) {
+                            assert modAuthor == (modAuthor =~ /^\s+|\s+$/).replaceAll('')
+
+                            def matcher = modAuthor =~ /([^(\s]+)\s*\(([^)]+)\)/
+                            def modAuthorName = modAuthor
+
+                            if (matcher.matches()) {
+                                modAuthor = matcher.group(1)
+                                modAuthorName = matcher.group(2)
+                            }
+
+                            developer {
+                                // noinspection GroovyAssignabilityCheck
+                                id = modAuthor
+                                // noinspection GroovyAssignabilityCheck
+                                name = modAuthorName
+                            }
+                        }
+                    }
+                    issueManagement {
+                        // noinspection GroovyAssignabilityCheck
+                        system = 'GitHub Issues'
+                        // noinspection GroovyAssignabilityCheck
+                        url = "https://github.com/${repoAuthor}/${repoName}/issues"
+                    }
+                    scm {
+                        // noinspection GroovyAssignabilityCheck
+                        url = "https://github.com/${repoAuthor}/${repoName}"
+                        // noinspection GroovyAssignabilityCheck
+                        connection = "scm:git:git://github.com/${repoAuthor}/${repoName}.git"
+                        // noinspection GroovyAssignabilityCheck
+                        developerConnection = "scm:git:git@github.com:${repoAuthor}/${repoName}.git"
+                    }
+                }
+                // noinspection GroovyAssignabilityCheck
+                artifact publishJarTask
+            }
+        }
+        it.repositories {
+            maven {
+                name = "teacon"
+                url = "s3://maven/"
+                credentials(AwsCredentials) {
+                    accessKey = System.env.ARCHIVE_ACCESS_KEY
+                    secretKey = System.env.ARCHIVE_SECRET_KEY
+                }
+            }
+        }
+    }
+
+    current.tasks.withType(PublishToMavenRepository) {
+        if (repository && repository.name == "archive") {
+            it.onlyIf {
+                System.env.MAVEN_USERNAME && System.env.MAVEN_PASSWORD
+            }
+        }
+    }
+
+    // A simple task to pass down the artifact name and path to other GitHub actions
+    current.tasks.register("githubActionOutput") {
+        it.onlyIf {
+            System.env.GITHUB_ACTIONS
+        }
+        it.doLast {
+            println "::set-output name=artifact_name::${publishJarTask.archiveFileName.get()}"
+            println "::set-output name=artifact_publish_name::${jarArchiveBaseName}-${artifactVersion}.jar"
+            println "::set-output name=artifact_path::${publishJarTask.archiveFile.get().asFile.absolutePath}"
+        }
+    }
+
+    // A task for generating mods.toml
+    current.tasks.register("printModMeta") {
+        it.doLast {
+            // noinspection GroovyAssignabilityCheck
+            def escaped = { String input ->
+                input = input.replace('\"', '\\\"')
+                input = input.replace('\b', '\\\b')
+                input = input.replace('\f', '\\\f')
+                input = input.replace('\n', '\\\n')
+                input = input.replace('\r', '\\\r')
+                input = input.replace('\t', '\\\t')
+                return input
+            }
+
+            def lines = []
+
+            // loaders
+            lines += "modLoader=\"javafml\""
+            lines += "loaderVersion=\"[${escaped(platformVersion.split('\\.')[0])},)\""
+            lines += "license=\"${escaped(publishLicense)}\""
+            lines += ""
+
+            // mods
+            lines += "[[mods]]"
+            lines += "modId=\"${escaped(modId)}\""
+            lines += "version=\"\${file.jarVersion}\""
+            lines += "displayName=\"${escaped(modName)}\""
+            lines += "authors=\"TeaConMC${modAuthors.collect { ', ' + escaped(it) }.join()}\""
+            lines += "displayName=\"${escaped(publishDescription)}\""
+            lines += ""
+
+            // forge dependency
+            lines += "[[dependencies.${modId}]]"
+            lines += "modId=\"forge\""
+            lines += "mandatory=true"
+            lines += "versionRange=\"[${escaped(platformVersion.split('\\.')[0])},)\""
+            lines += "ordering=\"NONE\""
+            lines += "side=\"BOTH\""
+            lines += ""
+
+            // minecraft dependency
+            lines += "[[dependencies.${modId}]]"
+            lines += "modId=\"minecraft\""
+            lines += "mandatory=true"
+            lines += "versionRange=\"[${escaped("${gameVersions[0]}.${gameVersions[1]}")},)\""
+            lines += "ordering=\"NONE\""
+            lines += "side=\"BOTH\""
+            lines += ""
+
+            // print lines
+            lines.each { println it }
+        }
+    }
+}
+
+project.extensions.create('teacon', TeaConExtension)

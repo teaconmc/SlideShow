@@ -4,6 +4,8 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Matrix3f;
 import com.mojang.math.Matrix4f;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
@@ -13,6 +15,7 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 import org.jetbrains.annotations.NotNull;
 import org.lwjgl.opengl.*;
 import org.teacon.slides.SlideShow;
+import org.teacon.slides.texture.FrameTexture;
 
 import javax.annotation.Nonnull;
 
@@ -26,22 +29,22 @@ public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, 
 
     public abstract void render(@Nonnull MultiBufferSource source, @Nonnull Matrix4f matrix,
                                 @Nonnull Matrix3f normal, float width, float height, int color,
-                                int light, int overlay, boolean front, boolean back);
+                                int light, int overlay, boolean front, boolean back, long tick, float partialTick);
 
     @Override
     public void close() {
     }
 
-    public int queryIntrinsicWidth() {
+    public int queryIntrinsicWidth(long tick, float partialTick) {
         return 0;
     }
 
-    public int queryIntrinsicHeight() {
+    public int queryIntrinsicHeight(long tick, float partialTick) {
         return 0;
     }
 
     @Nonnull
-    static Slide make(int texture) {
+    static Slide make(FrameTexture texture) {
         return new Image(texture);
     }
 
@@ -68,19 +71,21 @@ public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, 
             sEXT_DSA = caps.GL_EXT_direct_state_access;
         }
 
-        private final int mTexture;
-        private final RenderType mRenderType;
+        private final FrameTexture mTexture;
+        private final Int2ObjectMap<RenderType> mRenderTypes;
 
-        private Image(int texture) {
+        private Image(FrameTexture texture) {
             mTexture = texture;
-            mRenderType = new SlideRenderType(texture);
+            mRenderTypes = new Int2ObjectOpenHashMap<>();
         }
 
         @Override
-        public void render(@Nonnull MultiBufferSource source, @Nonnull Matrix4f matrix, @NotNull Matrix3f normal,
-                           float width, float height, int color, int light, int overlay, boolean front, boolean back) {
+        public void render(@Nonnull MultiBufferSource source, @Nonnull Matrix4f matrix,
+                           @NotNull Matrix3f normal, float width, float height, int color,
+                           int light, int overlay, boolean front, boolean back, long tick, float partialTick) {
+            int id = mTexture.currentTextureID(tick, partialTick);
             int red = (color >> 16) & 255, green = (color >> 8) & 255, blue = color & 255, alpha = color >>> 24;
-            final VertexConsumer builder = source.getBuffer(mRenderType);
+            VertexConsumer builder = source.getBuffer(mRenderTypes.computeIfAbsent(id, SlideRenderType::new));
             if (front) {
                 builder.vertex(matrix, 0, 1 / 192F, 1)
                         .color(red, green, blue, alpha).uv(0, 1)
@@ -121,41 +126,40 @@ public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, 
 
         @Override
         public void close() {
-            GlStateManager._deleteTexture(mTexture);
+            mTexture.release();
         }
 
         @Override
-        public int queryIntrinsicWidth() {
+        public int queryIntrinsicWidth(long tick, float partialTick) {
+            int id = mTexture.currentTextureID(tick, partialTick);
             if (sARB_DSA) {
-                return ARBDirectStateAccess.glGetTextureLevelParameteri(mTexture, 0, GL32C.GL_TEXTURE_WIDTH);
+                return ARBDirectStateAccess.glGetTextureLevelParameteri(id, 0, GL32C.GL_TEXTURE_WIDTH);
             }
             if (sEXT_DSA) {
-                return EXTDirectStateAccess.glGetTextureLevelParameteriEXT(mTexture, GL32C.GL_TEXTURE_2D, 0,
+                return EXTDirectStateAccess.glGetTextureLevelParameteriEXT(id, GL32C.GL_TEXTURE_2D, 0,
                         GL32C.GL_TEXTURE_WIDTH);
             }
-            GlStateManager._bindTexture(mTexture);
+            GlStateManager._bindTexture(id);
             return GL32C.glGetTexLevelParameteri(GL32C.GL_TEXTURE_2D, 0, GL32C.GL_TEXTURE_WIDTH);
         }
 
         @Override
-        public int queryIntrinsicHeight() {
+        public int queryIntrinsicHeight(long tick, float partialTick) {
+            int id = mTexture.currentTextureID(tick, partialTick);
             if (sARB_DSA) {
-                return ARBDirectStateAccess.glGetTextureLevelParameteri(mTexture, 0, GL32C.GL_TEXTURE_HEIGHT);
+                return ARBDirectStateAccess.glGetTextureLevelParameteri(id, 0, GL32C.GL_TEXTURE_HEIGHT);
             }
             if (sEXT_DSA) {
-                return EXTDirectStateAccess.glGetTextureLevelParameteriEXT(mTexture, GL32C.GL_TEXTURE_2D, 0,
+                return EXTDirectStateAccess.glGetTextureLevelParameteriEXT(id, GL32C.GL_TEXTURE_2D, 0,
                         GL32C.GL_TEXTURE_HEIGHT);
             }
-            GlStateManager._bindTexture(mTexture);
+            GlStateManager._bindTexture(id);
             return GL32C.glGetTexLevelParameteri(GL32C.GL_TEXTURE_2D, 0, GL32C.GL_TEXTURE_HEIGHT);
         }
 
         @Override
         public String toString() {
-            return "Image{" +
-                    "texture=" + mTexture +
-                    ", renderType=" + mRenderType +
-                    '}';
+            return "Image{texture=" + mTexture + ", renderTypes=" + mRenderTypes + "}";
         }
     }
 
@@ -187,18 +191,18 @@ public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, 
         }
 
         @Override
-        public void render(@Nonnull MultiBufferSource source, @Nonnull Matrix4f matrix, @NotNull Matrix3f normal,
-                           float width, float height, int color, int light, int overlay, boolean front, boolean back) {
+        public void render(@Nonnull MultiBufferSource source, @Nonnull Matrix4f matrix,
+                           @NotNull Matrix3f normal, float width, float height, int color,
+                           int light, int overlay, boolean front, boolean back, long tick, float partialTick) {
             int alpha = color >>> 24;
             float factor = getFactor(width, height);
             int xSize = Math.round(width / factor), ySize = Math.round(height / factor);
-            renderIcon(source, matrix, normal, alpha, light, overlay, xSize, ySize, front, back);
-            renderBackground(source, matrix, normal, alpha, light, overlay, xSize, ySize, front, back);
+            renderIcon(source, matrix, normal, alpha, light, xSize, ySize, front, back);
+            renderBackground(source, matrix, normal, alpha, light, xSize, ySize, front, back);
         }
 
         private void renderIcon(@Nonnull MultiBufferSource source, Matrix4f matrix, Matrix3f normal,
-                                int alpha, int light, int overlay, int xSize, int ySize,
-                                boolean front, boolean back) {
+                                int alpha, int light, int xSize, int ySize, boolean front, boolean back) {
             final VertexConsumer builder = source.getBuffer(mIconRenderType);
             float x1 = (1F - 19F / xSize) / 2F, x2 = 1F - x1, y1 = (1F - 16F / ySize) / 2F, y2 = 1F - y1;
             if (front) {
@@ -240,8 +244,7 @@ public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, 
         }
 
         private void renderBackground(@Nonnull MultiBufferSource source, Matrix4f matrix, Matrix3f normal,
-                                      int alpha, int light, int overlay, int xSize, int ySize,
-                                      boolean front, boolean back) {
+                                      int alpha, int light, int xSize, int ySize, boolean front, boolean back) {
             final VertexConsumer builder = source.getBuffer(sBackgroundRenderType);
             float u1 = 9F / 19F, u2 = 10F / 19F, x1 = 9F / xSize, x2 = 1F - x1, y1 = 9F / ySize, y2 = 1F - y1;
             // below is the generation code
@@ -496,8 +499,8 @@ public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, 
         @Override
         public String toString() {
             return "Icon{" +
-                    "iconRenderType=" + mIconRenderType +
-                    '}';
+                   "iconRenderType=" + mIconRenderType +
+                   '}';
         }
     }
 }
