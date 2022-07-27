@@ -39,6 +39,10 @@ public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, 
         return 0;
     }
 
+    public int getGPUMemorySize() {
+        return (getWidth() * getHeight()) << 2;
+    }
+
     @Nonnull
     static Slide make(TextureProvider texture) {
         return new Image(texture);

@@ -35,8 +35,8 @@ public final class StaticTextureProvider implements TextureProvider {
         ByteBuffer buffer = MemoryUtil.memAlloc(data.length)
                 .put(data)
                 .rewind();
-        // specify null to use image intrinsic format
-        try (NativeImage image = NativeImage.read(null, buffer)) {
+        // convert to RGBA
+        try (NativeImage image = NativeImage.read(buffer)) {
             mWidth = image.getWidth();
             mHeight = image.getHeight();
             if (mWidth > MAX_TEXTURE_SIZE || mHeight > MAX_TEXTURE_SIZE) {
@@ -52,9 +52,8 @@ public final class StaticTextureProvider implements TextureProvider {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, 0.0F);
 
-            int internalFormat = image.format() == NativeImage.Format.RGB ? GL_RGB8 : GL_RGBA8;
             for (int level = 0; level <= maxLevel; ++level) {
-                glTexImage2D(GL_TEXTURE_2D, level, internalFormat, mWidth >> level, mHeight >> level,
+                glTexImage2D(GL_TEXTURE_2D, level, GL_RGBA8, mWidth >> level, mHeight >> level,
                         0, GL_RED, GL_UNSIGNED_BYTE, (IntBuffer) null);
             }
 
@@ -75,7 +74,7 @@ public final class StaticTextureProvider implements TextureProvider {
 
             try (image) {
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mWidth, mHeight,
-                        image.format().glFormat(), GL_UNSIGNED_BYTE, IMAGE_PIXELS.getLong(image));
+                        GL_RGBA, GL_UNSIGNED_BYTE, IMAGE_PIXELS.getLong(image));
             }
 
             // auto generate mipmap

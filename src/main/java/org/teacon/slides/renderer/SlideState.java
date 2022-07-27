@@ -74,16 +74,17 @@ public final class SlideState {
     @SubscribeEvent
     static void onRenderOverlay(@Nonnull RenderGameOverlayEvent.Text text) {
         if (Minecraft.getInstance().options.renderDebug) {
-            text.getLeft().add("SlideShow Cache Count: " + getCacheCount());
+            ConcurrentHashMap<String, SlideState> map = sCache.getAcquire();
+            long size = 0;
+            for (var s : map.values()) {
+                size += s.mSlide.getGPUMemorySize();
+            }
+            text.getLeft().add("SlideShow Cache: " + map.size() + " (" + (size >> 20) + "MB)");
         }
     }
 
     public static long getAnimationTick() {
         return sAnimationTick;
-    }
-
-    public static int getCacheCount() {
-        return sCache.getAcquire().size();
     }
 
     @Nullable
