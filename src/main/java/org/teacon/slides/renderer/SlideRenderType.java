@@ -45,7 +45,7 @@ public class SlideRenderType extends RenderType {
 
     private final int mHashCode;
 
-    SlideRenderType(int texture) {
+    public SlideRenderType(int texture) {
         super(SlideShow.ID, DefaultVertexFormat.BLOCK,
                 VertexFormat.Mode.QUADS, 256, false, true,
                 () -> {

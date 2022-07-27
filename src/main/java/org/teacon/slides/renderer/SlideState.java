@@ -5,33 +5,20 @@ import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.apache.commons.lang3.StringUtils;
-import org.lwjgl.opengl.GL;
-import org.lwjgl.opengl.GL46C;
-import org.lwjgl.opengl.GLCapabilities;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.cache.ImageCache;
-import org.teacon.slides.texture.FrameTexture;
-import org.teacon.slides.texture.GifTexture;
-import org.teacon.slides.texture.NativeImageTexture;
+import org.teacon.slides.texture.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.net.URI;
-import java.util.Iterator;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.lwjgl.opengl.GL32C.glGetFloat;
 
 /**
  * @author BloCamLimb
@@ -50,8 +37,6 @@ public final class SlideState {
     private static int sCleanerTimer;
 
     private static final AtomicReference<ConcurrentHashMap<String, SlideState>> sCache;
-
-    private static float sMaxAnisotropic = -1;
 
     static {
         sCache = new AtomicReference<>(new ConcurrentHashMap<>());
@@ -72,17 +57,6 @@ public final class SlideState {
                     }
                     sCleanerTimer = 0;
                 }
-                if (sMaxAnisotropic < 0) {
-                    GLCapabilities caps = GL.getCapabilities();
-                    if (caps.OpenGL46 ||
-                        caps.GL_ARB_texture_filter_anisotropic ||
-                        caps.GL_EXT_texture_filter_anisotropic) {
-                        sMaxAnisotropic = Math.max(0, glGetFloat(GL46C.GL_MAX_TEXTURE_MAX_ANISOTROPY));
-                        SlideShow.LOGGER.info("Max anisotropic: {}", sMaxAnisotropic);
-                    } else {
-                        sMaxAnisotropic = 0;
-                    }
-                }
             }
         }
     }
@@ -95,6 +69,18 @@ public final class SlideState {
             SlideShow.LOGGER.debug("Release {} slide images", map.size());
             map.clear();
         });
+    }
+
+    @SubscribeEvent
+    static void onRenderOverlay(@Nonnull RenderGameOverlayEvent.Text text) {
+        if (Minecraft.getInstance().options.renderDebug) {
+            ConcurrentHashMap<String, SlideState> map = sCache.getAcquire();
+            long size = 0;
+            for (var s : map.values()) {
+                size += s.mSlide.getGPUMemorySize();
+            }
+            text.getLeft().add("SlideShow Cache: " + map.size() + " (" + (size >> 20) + "MB)");
+        }
     }
 
     public static long getAnimationTick() {
@@ -128,14 +114,14 @@ public final class SlideState {
             mState = State.LOADING;
             mCounter = RECYCLE_SECONDS;
             ImageCache.getInstance().getResource(uri, true).thenCompose(SlideState::createTexture)
-                    .thenAccept(frameTexture -> {
+                    .thenAccept(textureProvider -> {
                         if (mState == State.LOADING) {
-                            mSlide = Slide.make(frameTexture);
+                            mSlide = Slide.make(textureProvider);
                             mState = State.LOADED;
                         } else {
                             // timeout
                             assert mState == State.LOADED;
-                            frameTexture.release();
+                            textureProvider.close();
                         }
                     }).exceptionally(e -> {
                         RenderSystem.recordRenderCall(() -> {
@@ -185,10 +171,10 @@ public final class SlideState {
     @Override
     public String toString() {
         return "SlideState{" +
-               "slide=" + mSlide +
-               ", state=" + mState +
-               ", counter=" + mCounter +
-               '}';
+                "slide=" + mSlide +
+                ", state=" + mState +
+                ", counter=" + mCounter +
+                '}';
     }
 
     /**
@@ -198,23 +184,10 @@ public final class SlideState {
      * @return texture
      */
     @Nonnull
-    private static CompletableFuture<FrameTexture> createTexture(byte[] data) {
-        return CompletableFuture.supplyAsync(() -> {
-            if (isGif(data)) {
-                return new GifTexture(data, sMaxAnisotropic);
-            } else {
-                return new NativeImageTexture(data, sMaxAnisotropic);
-            }
-        }, RENDER_EXECUTOR);
-    }
-
-    public static boolean isGif(byte[] data) {
-        try (ByteArrayInputStream input = new ByteArrayInputStream(data)) {
-            Iterator<ImageReader> iter = ImageIO.getImageReaders(ImageIO.createImageInputStream(input));
-            return iter.hasNext() && iter.next().getFormatName().equalsIgnoreCase("gif");
-        } catch (IOException e) {
-            return false;
-        }
+    private static CompletableFuture<TextureProvider> createTexture(byte[] data) {
+        return CompletableFuture.supplyAsync(
+                GIFDecoder.checkMagic(data) ? () -> new AnimatedTextureProvider(data) :
+                        () -> new StaticTextureProvider(data), RENDER_EXECUTOR);
     }
 
     @Nullable
