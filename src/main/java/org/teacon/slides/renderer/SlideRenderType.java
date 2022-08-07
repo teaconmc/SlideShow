@@ -31,7 +31,7 @@ public class SlideRenderType extends RenderType {
                 RENDERTYPE_TRANSLUCENT_NO_CRUMBLING_SHADER,
                 //RENDERTYPE_TRANSLUCENT_SHADER,
                 TRANSLUCENT_TRANSPARENCY,
-                LEQUAL_DEPTH_TEST,
+                NO_DEPTH_TEST,
                 CULL,
                 LIGHTMAP,
                 NO_OVERLAY,
