@@ -52,6 +52,7 @@ configurations {
 }
 
 dependencies {
+    shadow 'net.objecthunter:exp4j:0.4.8'
     shadow 'org.apache.httpcomponents:httpclient-cache:4.5.13'
 }
 
@@ -64,6 +65,7 @@ shadowJar {
         it.exclude it.dependency('commons-logging:commons-logging:.*')
         it.exclude it.dependency('commons-codec:commons-codec:.*')
     }
+    relocate 'net.objecthunter.exp4j', 'org.teacon.slides.exp4j'
     relocate 'org.apache.http.client.cache', 'org.teacon.slides.http.client.cache'
     relocate 'org.apache.http.impl.client.cache', 'org.teacon.slides.http.impl.client.cache'
 }

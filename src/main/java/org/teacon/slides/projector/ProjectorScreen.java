@@ -16,6 +16,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.phys.Vec2;
+import net.objecthunter.exp4j.ExpressionBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.glfw.GLFW;
 import org.teacon.slides.SlideShow;
@@ -122,7 +123,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 new TranslatableComponent("gui.slide_show.width"));
         mWidthInput.setResponder(text -> {
             try {
-                Vec2 newSize = new Vec2(Float.parseFloat(text), mImageSize.y);
+                Vec2 newSize = new Vec2(parseFloat(text), mImageSize.y);
                 updateSize(newSize);
                 mInvalidWidth = false;
             } catch (Exception e) {
@@ -138,7 +139,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 new TranslatableComponent("gui.slide_show.height"));
         mHeightInput.setResponder(input -> {
             try {
-                Vec2 newSize = new Vec2(mImageSize.x, Float.parseFloat(input));
+                Vec2 newSize = new Vec2(mImageSize.x, parseFloat(input));
                 updateSize(newSize);
                 mInvalidHeight = false;
             } catch (Exception e) {
@@ -154,7 +155,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 new TranslatableComponent("gui.slide_show.offset_x"));
         mOffsetXInput.setResponder(input -> {
             try {
-                mImageOffset = new Vector3f(Float.parseFloat(input), mImageOffset.y(), mImageOffset.z());
+                mImageOffset = new Vector3f(parseFloat(input), mImageOffset.y(), mImageOffset.z());
                 mInvalidOffsetX = false;
             } catch (Exception e) {
                 mInvalidOffsetX = true;
@@ -169,7 +170,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 new TranslatableComponent("gui.slide_show.offset_y"));
         mOffsetYInput.setResponder(input -> {
             try {
-                mImageOffset = new Vector3f(mImageOffset.x(), Float.parseFloat(input), mImageOffset.z());
+                mImageOffset = new Vector3f(mImageOffset.x(), parseFloat(input), mImageOffset.z());
                 mInvalidOffsetY = false;
             } catch (Exception e) {
                 mInvalidOffsetY = true;
@@ -184,7 +185,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 new TranslatableComponent("gui.slide_show.offset_z"));
         mOffsetZInput.setResponder(input -> {
             try {
-                mImageOffset = new Vector3f(mImageOffset.x(), mImageOffset.y(), Float.parseFloat(input));
+                mImageOffset = new Vector3f(mImageOffset.x(), mImageOffset.y(), parseFloat(input));
                 mInvalidOffsetZ = false;
             } catch (Exception e) {
                 mInvalidOffsetZ = true;
@@ -370,6 +371,10 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
     private static void drawCenteredStringWithoutShadow(PoseStack stack, Font renderer, Component string, int y) {
         renderer.draw(stack, string, 88 - renderer.width(string) / 2.0F, y, 0x404040);
+    }
+
+    private static float parseFloat(String text) {
+        return (float) new ExpressionBuilder(text).implicitMultiplication(false).build().evaluate();
     }
 
     private static String toOptionalSignedString(float f) {
