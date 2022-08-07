@@ -28,7 +28,8 @@ public class SlideRenderType extends RenderType {
     static {
         GENERAL_STATES = ImmutableList.of(
                 //RENDERTYPE_ENTITY_TRANSLUCENT_CULL_SHADER,
-                RENDERTYPE_TRANSLUCENT_NO_CRUMBLING_SHADER,
+                //RENDERTYPE_TRANSLUCENT_NO_CRUMBLING_SHADER,
+                RENDERTYPE_TEXT_SEE_THROUGH_SHADER,
                 //RENDERTYPE_TRANSLUCENT_SHADER,
                 TRANSLUCENT_TRANSPARENCY,
                 LEQUAL_DEPTH_TEST,
