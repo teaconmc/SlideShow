@@ -8,7 +8,6 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.apache.logging.log4j.Marker;
@@ -54,7 +53,7 @@ public final class ProjectorUpdatePacket {
 			ServerLevel level = player.getLevel();
 			BlockEntity blockEntity = level.getBlockEntity(projectorUpdatePacket.mPos);
 			// prevent remote chunk loading
-			if (hasPermission(player) && level.isLoaded(projectorUpdatePacket.mPos) && blockEntity instanceof ProjectorBlockEntity) {
+			if (ProjectorBlock.hasPermission(player) && level.isLoaded(projectorUpdatePacket.mPos) && blockEntity instanceof ProjectorBlockEntity) {
 				BlockState state = blockEntity.getBlockState().setValue(ProjectorBlock.ROTATION, projectorUpdatePacket.mRotation);
 				((ProjectorBlockEntity) blockEntity).readCompoundTag(projectorUpdatePacket.mTag);
 				level.setBlockAndUpdate(projectorUpdatePacket.mPos, state);
@@ -66,13 +65,5 @@ public final class ProjectorUpdatePacket {
 			GameProfile profile = player.getGameProfile();
 			Slideshow.LOGGER.debug(MARKER, "Received illegal packet: player = {}, pos = {}", profile, projectorUpdatePacket.mPos);
 		});
-	}
-
-	private static boolean hasPermission(ServerPlayer serverPlayer) {
-		return hasPermission(serverPlayer.gameMode.getGameModeForPlayer());
-	}
-
-	private static boolean hasPermission(GameType gameType) {
-		return gameType == GameType.CREATIVE || gameType == GameType.SURVIVAL;
 	}
 }

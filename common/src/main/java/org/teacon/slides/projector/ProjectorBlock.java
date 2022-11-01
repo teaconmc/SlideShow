@@ -14,6 +14,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Mirror;
@@ -155,7 +156,7 @@ public final class ProjectorBlock extends Block implements EntityBlockMapper {
 	public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
 		if (level.isClientSide) {
 			return InteractionResult.SUCCESS;
-		} else {
+		} else if (player instanceof ServerPlayer && hasPermission((ServerPlayer) player)) {
 			final BlockEntity blockEntity = level.getBlockEntity(pos);
 			if (blockEntity instanceof ProjectorBlockEntity) {
 				((ProjectorBlockEntity) blockEntity).syncData();
@@ -164,7 +165,17 @@ public final class ProjectorBlock extends Block implements EntityBlockMapper {
 				Registry.sendToPlayer((ServerPlayer) player, Slideshow.PACKET_OPEN_GUI, packet);
 			}
 			return InteractionResult.CONSUME;
+		} else {
+			return InteractionResult.FAIL;
 		}
+	}
+
+	public static boolean hasPermission(ServerPlayer serverPlayer) {
+		return hasPermission(serverPlayer.gameMode.getGameModeForPlayer());
+	}
+
+	private static boolean hasPermission(GameType gameType) {
+		return gameType == GameType.CREATIVE || gameType == GameType.SURVIVAL;
 	}
 
 	public enum InternalRotation implements StringRepresentable {

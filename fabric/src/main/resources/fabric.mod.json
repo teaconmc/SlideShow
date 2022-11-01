@@ -2,18 +2,18 @@
 	"schemaVersion": 1,
 	"id": "slide_show",
 	"version": "${version}",
-	"name": "Slide Show",
-	"description": "Simple slide show projector in Minecraft.",
+	"name": "Slideshow",
+	"description": "A simple slideshow projector in Minecraft.",
 	"authors": [
 		"3TUSK",
 		"ustc_zzzz",
 		"BloCamLimb",
-		"Zbx1425"
+		"Jonathan Ho"
 	],
 	"contact": {
-		"homepage": "https://www.zbx1425.cn"
+		"homepage": "https://github.com/jonafanho/Slideshow"
 	},
-	"license": "MIT",
+	"license": "BSD-3-Clause",
 	"environment": "*",
 	"entrypoints": {
 		"client": [

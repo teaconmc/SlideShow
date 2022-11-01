@@ -1,13 +1,14 @@
 modLoader = "javafml"
 loaderVersion = "[36,)"
-license = "MIT"
+license = "BSD-3-Clause"
 
 [[mods]]
 modId = "slide_show"
 version = "${version}"
-displayName = "Slide Show"
-authors = "3TUSK, ustc_zzzz, BloCamLimb, Zbx1425"
-description = "Simple slide show projector in Minecraft."
+displayName = "Slideshow"
+credits = "ustc_zzzz, BloCamLimb, Jonathan Ho"
+authors = "3TUSK"
+description = "A simple slideshow projector in Minecraft."
 
 [[dependencies.slide_show]]
 modId = "forge"
@@ -21,4 +22,11 @@ modId = "minecraft"
 mandatory = true
 versionRange = "[1.16.5,)"
 ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.slide_show]]
+modId = "architectury"
+mandatory = true
+versionRange = "[1.26.37,)"
+ordering = "AFTER"
 side = "BOTH"
