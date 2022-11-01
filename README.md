@@ -12,7 +12,7 @@ Simply right-click the block to open the GUI and paste in the URL to the image. 
 
 ## License
 
-This project is licensed with the [BSD 3-Clause](https://github.com/jonafanho/SlideShow/blob/master/LICENSE).
+This project is licensed with the [BSD-3-Clause](https://github.com/jonafanho/SlideShow/blob/master/LICENSE).
 
 ## Questions? Comments? Complaints?
 

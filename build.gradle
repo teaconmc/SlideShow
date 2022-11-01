@@ -38,8 +38,6 @@ subprojects {
 		minecraft "com.mojang:minecraft:${minecraft_version}"
 		implementation "org.apache.httpcomponents:httpclient-cache:4.3.6"
 		shadowCommon "org.apache.httpcomponents:httpclient-cache:4.3.6"
-		implementation "net.objecthunter:exp4j:0.4.8"
-		shadow "net.objecthunter:exp4j:0.4.8"
 		mappings loom.officialMojangMappings()
 	}
 }

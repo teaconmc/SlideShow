@@ -15,7 +15,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.phys.Vec2;
-import net.objecthunter.exp4j.ExpressionBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.glfw.GLFW;
 import org.teacon.slides.Slideshow;
@@ -149,7 +148,7 @@ public final class ProjectorScreen extends ScreenMapper {
 			}
 			mWidthInput.setTextColor(mInvalidWidth ? 0xE04B4B : 0xE0E0E0);
 		});
-		mWidthInput.setValue(toOptionalSignedString(mEntity.mWidth));
+		mWidthInput.setValue(floatToString(mEntity.mWidth));
 		addDrawableChild(mWidthInput);
 
 		// height input
@@ -165,7 +164,7 @@ public final class ProjectorScreen extends ScreenMapper {
 			}
 			mHeightInput.setTextColor(mInvalidHeight ? 0xE04B4B : 0xE0E0E0);
 		});
-		mHeightInput.setValue(toOptionalSignedString(mEntity.mHeight));
+		mHeightInput.setValue(floatToString(mEntity.mHeight));
 		addDrawableChild(mHeightInput);
 
 		// offset x input
@@ -180,7 +179,7 @@ public final class ProjectorScreen extends ScreenMapper {
 			}
 			mOffsetXInput.setTextColor(mInvalidOffsetX ? 0xE04B4B : 0xE0E0E0);
 		});
-		mOffsetXInput.setValue(toSignedString(mEntity.mOffsetX));
+		mOffsetXInput.setValue(floatToString(mEntity.mOffsetX));
 		addDrawableChild(mOffsetXInput);
 
 		// offset y input
@@ -195,7 +194,7 @@ public final class ProjectorScreen extends ScreenMapper {
 			}
 			mOffsetYInput.setTextColor(mInvalidOffsetY ? 0xE04B4B : 0xE0E0E0);
 		});
-		mOffsetYInput.setValue(toSignedString(mEntity.mOffsetY));
+		mOffsetYInput.setValue(floatToString(mEntity.mOffsetY));
 		addDrawableChild(mOffsetYInput);
 
 		// offset z input
@@ -210,7 +209,7 @@ public final class ProjectorScreen extends ScreenMapper {
 			}
 			mOffsetZInput.setTextColor(mInvalidOffsetZ ? 0xE04B4B : 0xE0E0E0);
 		});
-		mOffsetZInput.setValue(toSignedString(mEntity.mOffsetZ));
+		mOffsetZInput.setValue(floatToString(mEntity.mOffsetZ));
 		addDrawableChild(mOffsetZInput);
 
 		// internal rotation buttons
@@ -246,9 +245,9 @@ public final class ProjectorScreen extends ScreenMapper {
 		if (!mInvalidOffsetX && !mInvalidOffsetY && !mInvalidOffsetZ) {
 			Vector3f absolute = relativeToAbsolute(mImageOffset, mImageSize, mRotation);
 			Vector3f newRelative = absoluteToRelative(absolute, mImageSize, newRotation);
-			mOffsetXInput.setValue(toSignedString(newRelative.x()));
-			mOffsetYInput.setValue(toSignedString(newRelative.y()));
-			mOffsetZInput.setValue(toSignedString(newRelative.z()));
+			mOffsetXInput.setValue(floatToString(newRelative.x()));
+			mOffsetYInput.setValue(floatToString(newRelative.y()));
+			mOffsetZInput.setValue(floatToString(newRelative.z()));
 		}
 		mRotation = newRotation;
 	}
@@ -257,9 +256,9 @@ public final class ProjectorScreen extends ScreenMapper {
 		if (!mInvalidOffsetX && !mInvalidOffsetY && !mInvalidOffsetZ) {
 			Vector3f absolute = relativeToAbsolute(mImageOffset, mImageSize, mRotation);
 			Vector3f newRelative = absoluteToRelative(absolute, newSize, mRotation);
-			mOffsetXInput.setValue(toSignedString(newRelative.x()));
-			mOffsetYInput.setValue(toSignedString(newRelative.y()));
-			mOffsetZInput.setValue(toSignedString(newRelative.z()));
+			mOffsetXInput.setValue(floatToString(newRelative.x()));
+			mOffsetYInput.setValue(floatToString(newRelative.y()));
+			mOffsetZInput.setValue(floatToString(newRelative.z()));
 		}
 		mImageSize = newSize;
 	}
@@ -379,16 +378,11 @@ public final class ProjectorScreen extends ScreenMapper {
 	}
 
 	private static float parseFloat(String text) {
-		return (float) new ExpressionBuilder(text).implicitMultiplication(false).build().evaluate();
+		return Math.round(Float.parseFloat(text) * 10000) / 10000F;
 	}
 
-	private static String toOptionalSignedString(float f) {
-		return Float.toString(Math.round(f * 1.0E5F) / 1.0E5F);
-	}
-
-	private static String toSignedString(float f) {
-		return Float.isNaN(f) ? "" + f : Math.copySign(1.0F, f) <= 0 ? "-" + Math.round(0.0F - f * 1.0E5F) / 1.0E5F :
-				"+" + Math.round(f * 1.0E5F) / 1.0E5F;
+	private static String floatToString(float value) {
+		return String.valueOf(Math.round(value * 10000) / 10000F);
 	}
 
 	private static Vector3f relativeToAbsolute(Vector3f relatedOffset, Vec2 size,
