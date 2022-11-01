@@ -1,17 +1,27 @@
 # SlideShow
 
-… is a Minecraft mod that adds a "Slide Show Projector" block. This block can projects any online image into the world.
+SlideShow is a Minecraft mod that adds a "Slide Show Projector" block. This block can project online image (including GIF's) into the world.
+
+This fork is a multi-build (Fabric and Forge) adaptation of [TeaConMC's Slide Show](https://github.com/teaconmc/SlideShow) under the BSD-3-Clause license.
 
 ![Preview](./docs/preview.png)
 
-Simply right-click the block to open its GUI, and paste the URL to the image, and then it will work! 
-There are also several options to adjust; hover your mouse to these icons to get familiar with these options.
+Simply right-click the block to open the GUI and paste in the URL to the image. There are also several options to adjust the dimensions, offset, and orientation. Hover over these icons for more details.
 
 ![GUI](./docs/gui.png)
 
-By now, only PNG format images are verified as supported; other image formats may or may not be supported, and further 
-testing are still needed.
+## License
 
-## Development
+This project is licensed with the [BSD 3-Clause "New" or "Revised" License](https://github.com/jonafanho/SlideShow/blob/master/LICENSE).
 
-Simply import this project as a Gradle project to your IDE(s), and wait for your IDE(s) to finish their work.
+## Questions? Comments? Complaints?
+
+Let's connect.
+
+<a href="https://discord.gg/PVZ2nfUaTW" target="_blank"><img src="https://github.com/jonafanho/Minecraft-Transit-Railway/blob/master/images/footer/discord.png" alt="Discord" width=64></a>
+&nbsp;
+<a href="https://www.linkedin.com/in/jonathanho33" target="_blank"><img src="https://github.com/jonafanho/Minecraft-Transit-Railway/blob/master/images/footer/linked_in.png" alt="LinkedIn" width=64></a>
+&nbsp;
+<a href="mailto:jonho.minecraft@gmail.com" target="_blank"><img src="https://github.com/jonafanho/Minecraft-Transit-Railway/blob/master/images/footer/email.png" alt="Email" width=64></a>
+&nbsp;
+<a href="https://www.patreon.com/minecraft_transit_railway" target="_blank"><img src="https://github.com/jonafanho/Minecraft-Transit-Railway/blob/master/images/footer/patreon.png" alt="Patreon" width=64></a>

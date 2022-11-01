@@ -1,77 +1,139 @@
-buildscript {
-    repositories {
-        maven { url = 'https://maven.minecraftforge.net' }
-        maven { url = 'https://maven.parchmentmc.org' }
-        mavenCentral()
-    }
-    dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
-        classpath group: 'org.parchmentmc', name: 'librarian', version: '1.+'
-    }
-}
+import groovy.json.JsonSlurper
+import org.apache.tools.ant.filters.ReplaceTokens
 
 plugins {
-    id 'com.github.johnrengelman.shadow' version '7.1.2'
+	id "architectury-plugin" version "3.4-SNAPSHOT"
+	id "de.undercouch.download" version "4.1.2"
+	id "dev.architectury.loom" version "0.12.0-SNAPSHOT" apply false
+	id "com.github.johnrengelman.shadow" version "7.1.2" apply false
 }
 
-apply plugin: 'eclipse'
-apply plugin: 'maven-publish'
-apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'org.parchmentmc.librarian.forgegradle'
+def default_minecraft_version = "1.16.5"
+def minecraft_version = rootProject.properties.containsKey("buildVersion") ? rootProject.getProperties().get("buildVersion") : default_minecraft_version
+def minecraft_main_version = minecraft_version.split("\\.")[1] as int
 
-apply from: 'gradle/teacon-forge.gradle'
+rootProject.ext.fabric_loader_version = new JsonSlurper().parse(("https://meta.fabricmc.net/v2/versions/loader/" + minecraft_version).toURL())[0]["loader"]["version"]
+rootProject.ext.forge_version = minecraft_version + "-" + new JsonSlurper().parse(("https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json").toURL())["promos"][minecraft_version + "-latest"]
+rootProject.ext.fabric_api_version = getModrinthVersion("fabric", minecraft_version, "fabric-api")
+rootProject.ext.architectury_version = getModrinthVersion("forge", minecraft_version, "architectury-api").split("\\+")[0]
+rootProject.ext.architectury_id = minecraft_main_version == 16 ? "me.shedaniel" : "dev.architectury"
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
-
-// definitions at gradle/teacon-forge.gradle
-teacon {
-    modId = 'slideshow'
-    modVersion = '0.6.3'
-    modLicense = 'BSD-3-Clause'
-    modGitHubRepo = 'teaconmc/SlideShow'
-    modAuthors = ['BloCamLimb', '3TUSK', 'ustc-zzzz']
-    modDescription = 'Minecraft mod, adding a projector that can display online images.'
-
-    platform = 'forge-1.18.2-40.1.0'
-    parchment = '2022.03.13'
-
-    // uncomment these lines if you need
-    modName = 'Slide Show' // default to repo name
-    // modGitHubBranch = 1.18-forge // for referring the license
-    // modifyMemberAccess = true // for access transformer
-    // useDataGeneration = true // for data generation
-    publishTask = shadowJar // for shadow jar or other usages
-    lazyTokens = ['minecraft_classpath': { project.configurations.shadow.asPath }] // for runtime tokens
-
-    // use './gradlew -q printModMeta > src/main/resources/META-INF/mods.toml' to generate mod meta
+architectury {
+	minecraft = minecraft_version
 }
 
-configurations {
-    compileClasspath.extendsFrom(shadow)
-    runtimeClasspath.extendsFrom(shadow)
+subprojects {
+	apply plugin: "dev.architectury.loom"
+	apply plugin: "com.github.johnrengelman.shadow"
+
+	loom {
+		silentMojangMappingsLicense()
+	}
+
+	configurations {
+		shadowCommon
+	}
+
+	dependencies {
+		minecraft "com.mojang:minecraft:${minecraft_version}"
+		implementation "org.apache.httpcomponents:httpclient-cache:4.3.6"
+		shadowCommon "org.apache.httpcomponents:httpclient-cache:4.3.6"
+		implementation "net.objecthunter:exp4j:0.4.8"
+		shadow "net.objecthunter:exp4j:0.4.8"
+		mappings loom.officialMojangMappings()
+	}
 }
 
-dependencies {
-    shadow 'net.objecthunter:exp4j:0.4.8'
-    shadow 'org.apache.httpcomponents:httpclient-cache:4.5.13'
+task setupFiles() {
+	System.out.println("Fabric Loader: " + rootProject.fabric_loader_version)
+	System.out.println("Forge: " + rootProject.forge_version)
+	System.out.println("Fabric API: " + rootProject.fabric_api_version)
+	System.out.println("Architectury: " + rootProject.architectury_version)
+
+	download {
+		src "https://github.com/jonafanho/Minecraft-Mappings/archive/refs/heads/1.${minecraft_main_version}.zip"
+		dest "common/src/main/java/org/teacon/slides/mappings/mappings.zip"
+		overwrite true
+		retries - 1
+	}
+	copy {
+		outputs.upToDateWhen { false }
+		from(zipTree("common/src/main/java/org/teacon/slides/mappings/mappings.zip")) { eachFile { file -> file.relativePath = new RelativePath(true, file.relativePath.segments.drop(1) as String[]) } }
+		into "common/src/main/java/org/teacon/slides/mappings"
+		filter(ReplaceTokens, tokens: ["package": "org.teacon.slides.mappings"])
+	}
+	ant.path { ant.fileset(dir: "common/src/main/java/org/teacon/slides/mappings", includes: "Fabric*.java") }.list().each {
+		ant.move(file: it, todir: "fabric/src/main/java/org/teacon/slides/mappings")
+	}
+	ant.path { ant.fileset(dir: "common/src/main/java/org/teacon/slides/mappings", includes: "Forge*.java") }.list().each {
+		ant.move(file: it, todir: "forge/src/main/java/org/teacon/slides/mappings")
+	}
+
+	if (minecraft_main_version <= 17) {
+		copy {
+			outputs.upToDateWhen { false }
+			from "fabric/src/main/BlockEntityExtensionTemplate.java"
+			into "fabric/src/main/java/" + (minecraft_main_version == 16 ? "me/shedaniel" : "dev") + "/architectury/extensions"
+			filter(ReplaceTokens, tokens: ["package": minecraft_main_version == 16 ? "me.shedaniel" : "dev"])
+			rename "(.+)Template.java", "\$1.java"
+		}
+	}
+	if (minecraft_main_version != 16) {
+		ant.delete(dir: "fabric/src/main/java/me")
+	}
+	if (minecraft_main_version != 17) {
+		ant.delete(dir: "fabric/src/main/java/dev")
+	}
+
+	copy {
+		outputs.upToDateWhen { false }
+		from "common/src/main/RenderUtils${minecraft_main_version == 16 ? "16" : "17"}.java"
+		into "common/src/main/java/org/teacon/slides/renderer"
+		rename "(.+)${minecraft_main_version == 16 ? "16" : "17"}.java", "\$1.java"
+	}
 }
 
-shadowJar {
-    archiveClassifier.set(null)
-    configurations = [project.configurations.shadow]
-    dependencies {
-        it.exclude it.dependency('org.apache.httpcomponents:httpclient:.*')
-        it.exclude it.dependency('org.apache.httpcomponents:httpcore:.*')
-        it.exclude it.dependency('commons-logging:commons-logging:.*')
-        it.exclude it.dependency('commons-codec:commons-codec:.*')
-    }
-    relocate 'net.objecthunter.exp4j', 'org.teacon.slides.exp4j'
-    relocate 'org.apache.http.client.cache', 'org.teacon.slides.http.client.cache'
-    relocate 'org.apache.http.impl.client.cache', 'org.teacon.slides.http.impl.client.cache'
+allprojects {
+	apply plugin: "architectury-plugin"
+
+	version = minecraft_version + "-" + rootProject.mod_version
+	group = rootProject.maven_group
+
+	repositories {
+		maven { url = "https://maven.terraformersmc.com/" }
+		maven { url "https://jitpack.io" }
+	}
+
+	tasks.withType(JavaCompile) {
+		options.encoding = "UTF-8"
+
+		if (minecraft_main_version == 16) {
+			def targetVersion = 9
+			if (JavaVersion.current().isJava9Compatible()) {
+				options.release = targetVersion
+			}
+		} else if (minecraft_main_version == 17) {
+			options.release = 16
+		} else {
+			options.release = 17
+		}
+	}
+
+	afterEvaluate {
+		for (def task in it.tasks) {
+			if (task != rootProject.tasks.setupFiles) {
+				task.dependsOn rootProject.tasks.setupFiles
+			}
+		}
+	}
 }
 
-jar { it.enabled false }
-
-reobf {
-    jar { it.enabled false }
+static def getModrinthVersion(loader, minecraftVersion, projectId) {
+	def versionsArray = new JsonSlurper().parse(("https://api.modrinth.com/v2/project/" + projectId + "/version").toURL())
+	for (def versionElement : versionsArray) {
+		if (versionElement["loaders"].contains(loader) && versionElement["game_versions"].contains(minecraftVersion)) {
+			return versionElement["version_number"]
+		}
+	}
+	return ""
 }
