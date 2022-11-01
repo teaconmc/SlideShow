@@ -63,18 +63,18 @@ components.java {
 task moveForgeBuilds() {
 	doLast {
 		delete fileTree("../build/release").matching {
-			include "**/SlideShow-forge*"
+			include "**/Slideshow-forge*"
 		}
 		delete fileTree("../build/libs").matching {
-			include "**/SlideShow-forge*"
+			include "**/Slideshow-forge*"
 		}
 		delete fileTree("../build/latest").matching {
-			include "**/SlideShow-forge*"
+			include "**/Slideshow-forge*"
 		}
 		copy {
 			from "build/libs"
 			into "../build/release"
-			rename "(.+)", "SlideShow-\$1"
+			rename "(.+)", "Slideshow-\$1"
 		}
 		copy {
 			from "../build/release"

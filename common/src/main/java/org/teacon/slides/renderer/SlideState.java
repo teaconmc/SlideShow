@@ -3,7 +3,7 @@ package org.teacon.slides.renderer;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import org.apache.commons.lang3.StringUtils;
-import org.teacon.slides.SlideShow;
+import org.teacon.slides.Slideshow;
 import org.teacon.slides.cache.ImageCache;
 import org.teacon.slides.texture.AnimatedTextureProvider;
 import org.teacon.slides.texture.GIFDecoder;
@@ -48,7 +48,7 @@ public final class SlideState {
 				if (++sCleanerTimer > CLEANER_INTERVAL_SECONDS) {
 					int n = ImageCache.getInstance().cleanResources();
 					if (n != 0) {
-						SlideShow.LOGGER.debug("Cleanup {} http cache image resources", n);
+						Slideshow.LOGGER.debug("Cleanup {} http cache image resources", n);
 					}
 					sCleanerTimer = 0;
 				}
@@ -60,7 +60,7 @@ public final class SlideState {
 		RenderSystem.recordRenderCall(() -> {
 			ConcurrentHashMap<String, SlideState> map = sCache.getAndSet(new ConcurrentHashMap<>());
 			map.values().forEach(s -> s.mSlide.close());
-			SlideShow.LOGGER.debug("Release {} slide images", map.size());
+			Slideshow.LOGGER.debug("Release {} slide images", map.size());
 			map.clear();
 		});
 	}
@@ -73,7 +73,7 @@ public final class SlideState {
 //			for (var s : map.values()) {
 //				size += s.mSlide.getGPUMemorySize();
 //			}
-//			text.getLeft().add("SlideShow Cache: " + map.size() + " (" + (size >> 20) + "MB)");
+//			text.getLeft().add("Slideshow Cache: " + map.size() + " (" + (size >> 20) + "MB)");
 //		}
 //	}
 

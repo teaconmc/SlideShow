@@ -1,1 +1,6 @@
-{"pack": { "description": "Things used by SlideShow mod.", "pack_format": 8 } }
+{
+	"pack": {
+		"description": "Things used by Slideshow mod.",
+		"pack_format": 8
+	}
+}

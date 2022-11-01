@@ -17,10 +17,10 @@
 	"environment": "*",
 	"entrypoints": {
 		"client": [
-			"org.teacon.slides.SlideShowFabricClient"
+			"org.teacon.slides.SlideshowFabricClient"
 		],
 		"main": [
-			"org.teacon.slides.SlideShowFabric"
+			"org.teacon.slides.SlideshowFabric"
 		]
 	},
 	"mixins": [

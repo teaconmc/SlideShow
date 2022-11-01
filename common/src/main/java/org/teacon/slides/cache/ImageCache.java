@@ -14,7 +14,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
-import org.teacon.slides.SlideShow;
+import org.teacon.slides.Slideshow;
 
 import javax.annotation.Nonnull;
 import javax.imageio.ImageIO;
@@ -28,7 +28,7 @@ import java.util.concurrent.CompletionException;
 
 public final class ImageCache {
 
-	private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
+	private static final Logger LOGGER = LogManager.getLogger(Slideshow.class);
 	private static final Marker MARKER = MarkerManager.getMarker("Cache");
 
 	private static final Path LOCAL_CACHE_PATH = Paths.get("slideshow");
@@ -39,7 +39,7 @@ public final class ImageCache {
 	private static final CacheConfig CONFIG =
 			CacheConfig.custom().setMaxObjectSize(MAX_CACHE_OBJECT_SIZE).setSharedCache(false).build();
 
-	private static final String DEFAULT_REFERER = "https://github.com/teaconmc/SlideShow";
+	private static final String DEFAULT_REFERER = "https://github.com/jonafanho/Slideshow";
 	// user agent copied from forge gradle 2.3 (class: net.minecraftforge.gradle.common.Constants)
 	private static final String DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.11 (KHTML, " +
 			"like Gecko) Chrome/23.0.1271.95 Safari/537.11";

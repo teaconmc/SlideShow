@@ -2,10 +2,10 @@ package org.teacon.slides;
 
 import net.fabricmc.api.ClientModInitializer;
 
-public class SlideShowFabricClient implements ClientModInitializer {
+public class SlideshowFabricClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
-		SlideShowClient.init();
+		SlideshowClient.init();
 	}
 }

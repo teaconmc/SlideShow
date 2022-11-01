@@ -5,7 +5,7 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
-import org.teacon.slides.SlideShow;
+import org.teacon.slides.Slideshow;
 import org.teacon.slides.mappings.UtilitiesClient;
 
 import java.util.Objects;
@@ -20,7 +20,7 @@ public class SlideRenderType extends RenderType {
 	private final int mHashCode;
 
 	public SlideRenderType(int texture) {
-		super(SlideShow.ID, DefaultVertexFormat.BLOCK,
+		super(Slideshow.ID, DefaultVertexFormat.BLOCK,
 				RenderUtils.getMode(), 256, false, true,
 				() -> {
 					GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
@@ -31,7 +31,7 @@ public class SlideRenderType extends RenderType {
 	}
 
 	SlideRenderType(ResourceLocation texture) {
-		super(SlideShow.ID, DefaultVertexFormat.BLOCK,
+		super(Slideshow.ID, DefaultVertexFormat.BLOCK,
 				RenderUtils.getMode(), 256, false, true,
 				() -> {
 					GENERAL_STATES.forEach(RenderStateShard::setupRenderState);

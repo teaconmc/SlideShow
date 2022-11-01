@@ -18,7 +18,7 @@ import net.minecraft.world.phys.Vec2;
 import net.objecthunter.exp4j.ExpressionBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.glfw.GLFW;
-import org.teacon.slides.SlideShow;
+import org.teacon.slides.Slideshow;
 import org.teacon.slides.mappings.ScreenMapper;
 import org.teacon.slides.mappings.Text;
 import org.teacon.slides.mappings.UtilitiesClient;
@@ -32,7 +32,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 public final class ProjectorScreen extends ScreenMapper {
 
 	private static final ResourceLocation
-			GUI_TEXTURE = new ResourceLocation(SlideShow.ID, "textures/gui/projector.png");
+			GUI_TEXTURE = new ResourceLocation(Slideshow.ID, "textures/gui/projector.png");
 
 	private static final Component
 			IMAGE_TEXT = Text.translatable("gui.slide_show.section.image"),

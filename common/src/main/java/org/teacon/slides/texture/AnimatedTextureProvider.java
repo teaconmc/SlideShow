@@ -5,7 +5,7 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.opengl.GL46C;
 import org.lwjgl.opengl.GLCapabilities;
 import org.lwjgl.system.MemoryUtil;
-import org.teacon.slides.SlideShow;
+import org.teacon.slides.Slideshow;
 import org.teacon.slides.renderer.SlideRenderType;
 
 import javax.annotation.Nonnull;
@@ -38,7 +38,7 @@ public final class AnimatedTextureProvider implements TextureProvider {
 					caps.GL_ARB_texture_filter_anisotropic ||
 					caps.GL_EXT_texture_filter_anisotropic) {
 				sMaxAnisotropic = Math.max(1, glGetFloat(GL46C.GL_MAX_TEXTURE_MAX_ANISOTROPY));
-				SlideShow.LOGGER.info("Max anisotropic: {}", sMaxAnisotropic);
+				Slideshow.LOGGER.info("Max anisotropic: {}", sMaxAnisotropic);
 			} else {
 				sMaxAnisotropic = 0;
 			}

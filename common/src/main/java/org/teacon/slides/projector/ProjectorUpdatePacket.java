@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
 import org.teacon.slides.RegistryClient;
-import org.teacon.slides.SlideShow;
+import org.teacon.slides.Slideshow;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -45,7 +45,7 @@ public final class ProjectorUpdatePacket {
 		buffer.writeBlockPos(mPos);
 		buffer.writeVarInt(mRotation.ordinal());
 		buffer.writeNbt(mTag);
-		RegistryClient.sendToServer(SlideShow.PACKET_UPDATE, buffer);
+		RegistryClient.sendToServer(Slideshow.PACKET_UPDATE, buffer);
 	}
 
 	public static void handle(MinecraftServer minecraftServer, ServerPlayer player, FriendlyByteBuf packet) {
@@ -64,7 +64,7 @@ public final class ProjectorUpdatePacket {
 				return;
 			}
 			GameProfile profile = player.getGameProfile();
-			SlideShow.LOGGER.debug(MARKER, "Received illegal packet: player = {}, pos = {}", profile, projectorUpdatePacket.mPos);
+			Slideshow.LOGGER.debug(MARKER, "Received illegal packet: player = {}, pos = {}", profile, projectorUpdatePacket.mPos);
 		});
 	}
 

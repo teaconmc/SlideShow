@@ -13,10 +13,10 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.function.BiConsumer;
 
 @ParametersAreNonnullByDefault
-public final class SlideShow {
+public final class Slideshow {
 
 	public static final String ID = "slide_show"; // as well as the namespace
-	public static final Logger LOGGER = LogManager.getLogger("SlideShow");
+	public static final Logger LOGGER = LogManager.getLogger("Slideshow");
 	public static final ResourceLocation PACKET_UPDATE = new ResourceLocation(ID, "update");
 	public static final ResourceLocation PACKET_OPEN_GUI = new ResourceLocation(ID, "open_gui");
 

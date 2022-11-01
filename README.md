@@ -1,6 +1,6 @@
-# SlideShow
+# Slideshow
 
-SlideShow is a Minecraft mod that adds a "Slide Show Projector" block. This block can project online image (including GIF's) into the world.
+Slideshow is a Minecraft mod that adds a Slideshow Projector block. This block can project online images (including GIF's) into the world.
 
 This fork is a multi-build (Fabric and Forge) adaptation of [TeaConMC's Slide Show](https://github.com/teaconmc/SlideShow) under the BSD-3-Clause license.
 

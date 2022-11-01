@@ -58,18 +58,18 @@ components.java {
 task moveFabricBuilds() {
 	doLast {
 		delete fileTree("../build/release").matching {
-			include "**/SlideShow-fabric*"
+			include "**/Slideshow-fabric*"
 		}
 		delete fileTree("../build/libs").matching {
-			include "**/SlideShow-fabric*"
+			include "**/Slideshow-fabric*"
 		}
 		delete fileTree("../build/latest").matching {
-			include "**/SlideShow-fabric*"
+			include "**/Slideshow-fabric*"
 		}
 		copy {
 			from "build/libs"
 			into "../build/release"
-			rename "(.+)", "SlideShow-\$1"
+			rename "(.+)", "Slideshow-\$1"
 		}
 		copy {
 			from "../build/release"

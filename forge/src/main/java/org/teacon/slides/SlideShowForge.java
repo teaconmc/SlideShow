@@ -17,26 +17,26 @@ import org.teacon.slides.mappings.BlockEntityMapper;
 import org.teacon.slides.mappings.DeferredRegisterHolder;
 import org.teacon.slides.mappings.ForgeUtilities;
 
-@Mod(SlideShow.ID)
-public class SlideShowForge {
+@Mod(Slideshow.ID)
+public class SlideshowForge {
 
-	private static final DeferredRegisterHolder<Item> ITEMS = new DeferredRegisterHolder<>(SlideShow.ID, net.minecraft.core.Registry.ITEM_REGISTRY);
-	private static final DeferredRegisterHolder<Block> BLOCKS = new DeferredRegisterHolder<>(SlideShow.ID, net.minecraft.core.Registry.BLOCK_REGISTRY);
-	private static final DeferredRegisterHolder<BlockEntityType<?>> BLOCK_ENTITY_TYPES = new DeferredRegisterHolder<>(SlideShow.ID, net.minecraft.core.Registry.BLOCK_ENTITY_TYPE_REGISTRY);
+	private static final DeferredRegisterHolder<Item> ITEMS = new DeferredRegisterHolder<>(Slideshow.ID, net.minecraft.core.Registry.ITEM_REGISTRY);
+	private static final DeferredRegisterHolder<Block> BLOCKS = new DeferredRegisterHolder<>(Slideshow.ID, net.minecraft.core.Registry.BLOCK_REGISTRY);
+	private static final DeferredRegisterHolder<BlockEntityType<?>> BLOCK_ENTITY_TYPES = new DeferredRegisterHolder<>(Slideshow.ID, net.minecraft.core.Registry.BLOCK_ENTITY_TYPE_REGISTRY);
 
 	static {
-		SlideShow.init(SlideShowForge::registerBlock, SlideShowForge::registerBlockEntityType);
+		Slideshow.init(SlideshowForge::registerBlock, SlideshowForge::registerBlockEntityType);
 	}
 
-	public SlideShowForge() {
+	public SlideshowForge() {
 		final IEventBus eventBus = FMLJavaModLoadingContext.get().getModEventBus();
-		ForgeUtilities.registerModEventBus(SlideShow.ID, eventBus);
+		ForgeUtilities.registerModEventBus(Slideshow.ID, eventBus);
 
 		ITEMS.register();
 		BLOCKS.register();
 		BLOCK_ENTITY_TYPES.register();
 
-		eventBus.register(SlideShowModEventBus.class);
+		eventBus.register(SlideshowModEventBus.class);
 		DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
 			MinecraftForge.EVENT_BUS.register(ForgeUtilities.Events.class);
 			eventBus.register(ForgeUtilities.RegisterEntityRenderer.class);
@@ -52,11 +52,11 @@ public class SlideShowForge {
 		BLOCK_ENTITY_TYPES.register(path, blockEntityType::get);
 	}
 
-	private static class SlideShowModEventBus {
+	private static class SlideshowModEventBus {
 
 		@SubscribeEvent
 		public static void onClientSetupEvent(FMLClientSetupEvent event) {
-			SlideShowClient.init();
+			SlideshowClient.init();
 		}
 	}
 }

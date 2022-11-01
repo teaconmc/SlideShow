@@ -15,7 +15,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
-import org.teacon.slides.SlideShow;
+import org.teacon.slides.Slideshow;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -34,7 +34,7 @@ import java.util.Map;
 
 @ParametersAreNonnullByDefault
 final class LegacyStorage {
-	private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
+	private static final Logger LOGGER = LogManager.getLogger(Slideshow.class);
 	private static final Marker MARKER = MarkerManager.getMarker("Downloader");
 
 	private static final Path LOCAL_CACHE_MAP_JSON_PATH = Paths.get("map.json");

@@ -8,7 +8,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import org.jetbrains.annotations.NotNull;
-import org.teacon.slides.SlideShow;
+import org.teacon.slides.Slideshow;
 import org.teacon.slides.texture.TextureProvider;
 
 import javax.annotation.Nonnull;
@@ -136,10 +136,10 @@ public abstract class Slide implements AutoCloseable {
 	public static final class Icon extends Slide {
 
 		private static final ResourceLocation
-				BACKGROUND = new ResourceLocation(SlideShow.ID, "textures/gui/slide_default.png"),
-				ICON_EMPTY = new ResourceLocation(SlideShow.ID, "textures/gui/slide_icon_empty.png"),
-				ICON_FAILED = new ResourceLocation(SlideShow.ID, "textures/gui/slide_icon_failed.png"),
-				ICON_LOADING = new ResourceLocation(SlideShow.ID, "textures/gui/slide_icon_loading.png");
+				BACKGROUND = new ResourceLocation(Slideshow.ID, "textures/gui/slide_default.png"),
+				ICON_EMPTY = new ResourceLocation(Slideshow.ID, "textures/gui/slide_icon_empty.png"),
+				ICON_FAILED = new ResourceLocation(Slideshow.ID, "textures/gui/slide_icon_failed.png"),
+				ICON_LOADING = new ResourceLocation(Slideshow.ID, "textures/gui/slide_icon_loading.png");
 
 		private static final RenderType sBackgroundRenderType = new SlideRenderType(BACKGROUND);
 

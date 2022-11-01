@@ -27,7 +27,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.teacon.slides.Registry;
-import org.teacon.slides.SlideShow;
+import org.teacon.slides.Slideshow;
 import org.teacon.slides.mappings.BlockEntityMapper;
 import org.teacon.slides.mappings.EntityBlockMapper;
 
@@ -161,7 +161,7 @@ public final class ProjectorBlock extends Block implements EntityBlockMapper {
 				((ProjectorBlockEntity) blockEntity).syncData();
 				final FriendlyByteBuf packet = new FriendlyByteBuf(Unpooled.buffer());
 				packet.writeBlockPos(pos);
-				Registry.sendToPlayer((ServerPlayer) player, SlideShow.PACKET_OPEN_GUI, packet);
+				Registry.sendToPlayer((ServerPlayer) player, Slideshow.PACKET_OPEN_GUI, packet);
 			}
 			return InteractionResult.CONSUME;
 		}

@@ -10,23 +10,23 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import org.teacon.slides.mappings.BlockEntityMapper;
 
-public class SlideShowFabric implements ModInitializer {
+public class SlideshowFabric implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		SlideShow.init(SlideShowFabric::registerBlock, SlideShowFabric::registerBlockEntityType);
+		Slideshow.init(SlideshowFabric::registerBlock, SlideshowFabric::registerBlockEntityType);
 	}
 
 	private static void registerBlock(String path, RegistryObject<Block> block) {
-		Registry.register(Registry.BLOCK, new ResourceLocation(SlideShow.ID, path), block.get());
+		Registry.register(Registry.BLOCK, new ResourceLocation(Slideshow.ID, path), block.get());
 	}
 
 	private static void registerBlock(String path, RegistryObject<Block> block, CreativeModeTab itemGroup) {
 		registerBlock(path, block);
-		Registry.register(Registry.ITEM, new ResourceLocation(SlideShow.ID, path), new BlockItem(block.get(), new Item.Properties().tab(itemGroup)));
+		Registry.register(Registry.ITEM, new ResourceLocation(Slideshow.ID, path), new BlockItem(block.get(), new Item.Properties().tab(itemGroup)));
 	}
 
 	private static void registerBlockEntityType(String path, RegistryObject<? extends BlockEntityType<? extends BlockEntityMapper>> blockEntityType) {
-		Registry.register(Registry.BLOCK_ENTITY_TYPE, new ResourceLocation(SlideShow.ID, path), blockEntityType.get());
+		Registry.register(Registry.BLOCK_ENTITY_TYPE, new ResourceLocation(Slideshow.ID, path), blockEntityType.get());
 	}
 }
