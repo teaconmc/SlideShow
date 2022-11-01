@@ -9,6 +9,7 @@ displayName = "Slideshow"
 credits = "ustc_zzzz, BloCamLimb, Jonathan Ho"
 authors = "3TUSK"
 description = "A simple slideshow projector in Minecraft."
+logoFile = "icon.png"
 
 [[dependencies.slide_show]]
 modId = "forge"

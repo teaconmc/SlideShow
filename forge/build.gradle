@@ -46,6 +46,9 @@ shadowJar {
 
 	configurations = [project.configurations.shadowCommon]
 	classifier "dev-shadow"
+	relocate "org.apache.http", "org.teacon.libraries.org.apache.http"
+	relocate "org.apache.commons.codec", "org.teacon.libraries.org.apache.commons.codec"
+	relocate "org.apache.commons.logging", "org.teacon.libraries.org.apache.commons.logging"
 }
 
 remapJar {
