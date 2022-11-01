@@ -75,8 +75,6 @@ public final class ProjectorScreen extends ScreenMapper {
 	private final ProjectorBlockEntity mEntity;
 	private final int imageWidth;
 	private final int imageHeight;
-	private final int leftPos = 0;
-	private final int topPos = 0;
 
 	public ProjectorScreen(BlockPos pos) {
 		super(Text.literal(""));
@@ -102,6 +100,9 @@ public final class ProjectorScreen extends ScreenMapper {
 			return;
 		}
 		minecraft.keyboardHandler.setSendRepeatsToGui(true);
+
+		final int leftPos = (width - imageWidth) / 2;
+		final int topPos = (height - imageHeight) / 2;
 
 		// url input
 		mURLInput = new EditBox(font, leftPos + 30, topPos + 29, 137, 16,
@@ -326,6 +327,8 @@ public final class ProjectorScreen extends ScreenMapper {
 	@Override
 	public void render(PoseStack matrices, int mouseX, int mouseY, float delta) {
 		if (mEntity != null) {
+			final int leftPos = (width - imageWidth) / 2;
+			final int topPos = (height - imageHeight) / 2;
 			renderBackground(matrices);
 			UtilitiesClient.beginDrawingTexture(GUI_TEXTURE);
 			blit(matrices, leftPos, topPos, 0, 0, imageWidth, imageHeight);
@@ -335,44 +338,44 @@ public final class ProjectorScreen extends ScreenMapper {
 			if (alpha > 0) {
 				int red = (mImageColor >> 16) & 255, green = (mImageColor >> 8) & 255, blue = mImageColor & 255;
 				RenderUtils.setShaderColor(red / 255.0F, green / 255.0F, blue / 255.0F, alpha / 255.0F);
-				blit(matrices, 38, 157, 180, 194, 10, 10);
-				blit(matrices, 82, 185, 180, 194, 17, 17);
+				blit(matrices, 38 + leftPos, 157 + topPos, 180, 194, 10, 10);
+				blit(matrices, 82 + leftPos, 185 + topPos, 180, 194, 17, 17);
 			}
 
 			RenderUtils.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-			blit(matrices, 82, 185, 202, 194 - mRotation.ordinal() * 20, 17, 17);
+			blit(matrices, 82 + leftPos, 185 + topPos, 202, 194 - mRotation.ordinal() * 20, 17, 17);
 
-			drawCenteredStringWithoutShadow(matrices, font, IMAGE_TEXT, 12);
-			drawCenteredStringWithoutShadow(matrices, font, OFFSET_TEXT, 86);
-			drawCenteredStringWithoutShadow(matrices, font, OTHERS_TEXT, 138);
+			drawCenteredStringWithoutShadow(matrices, font, IMAGE_TEXT, width / 2F, 12 + topPos);
+			drawCenteredStringWithoutShadow(matrices, font, OFFSET_TEXT, width / 2F, 86 + topPos);
+			drawCenteredStringWithoutShadow(matrices, font, OTHERS_TEXT, width / 2F, 138 + topPos);
 
 			int offsetX = mouseX - leftPos, offsetY = mouseY - topPos;
 			if (offsetX >= 9 && offsetY >= 27 && offsetX < 27 && offsetY < 46) {
-				renderTooltip(matrices, URL_TEXT, offsetX, offsetY);
+				renderTooltip(matrices, URL_TEXT, mouseX, mouseY);
 			} else if (offsetX >= 34 && offsetY >= 153 && offsetX < 52 && offsetY < 172) {
-				renderTooltip(matrices, COLOR_TEXT, offsetX, offsetY);
+				renderTooltip(matrices, COLOR_TEXT, mouseX, mouseY);
 			} else if (offsetX >= 9 && offsetY >= 49 && offsetX < 27 && offsetY < 68) {
-				renderTooltip(matrices, WIDTH_TEXT, offsetX, offsetY);
+				renderTooltip(matrices, WIDTH_TEXT, mouseX, mouseY);
 			} else if (offsetX >= 90 && offsetY >= 49 && offsetX < 108 && offsetY < 68) {
-				renderTooltip(matrices, HEIGHT_TEXT, offsetX, offsetY);
+				renderTooltip(matrices, HEIGHT_TEXT, mouseX, mouseY);
 			} else if (offsetX >= 9 && offsetY >= 101 && offsetX < 27 && offsetY < 120) {
-				renderTooltip(matrices, OFFSET_X_TEXT, offsetX, offsetY);
+				renderTooltip(matrices, OFFSET_X_TEXT, mouseX, mouseY);
 			} else if (offsetX >= 63 && offsetY >= 101 && offsetX < 81 && offsetY < 120) {
-				renderTooltip(matrices, OFFSET_Y_TEXT, offsetX, offsetY);
+				renderTooltip(matrices, OFFSET_Y_TEXT, mouseX, mouseY);
 			} else if (offsetX >= 117 && offsetY >= 101 && offsetX < 135 && offsetY < 120) {
-				renderTooltip(matrices, OFFSET_Z_TEXT, offsetX, offsetY);
+				renderTooltip(matrices, OFFSET_Z_TEXT, mouseX, mouseY);
 			} else if (offsetX >= 117 && offsetY >= 153 && offsetX < 135 && offsetY < 172) {
-				renderTooltip(matrices, FLIP_TEXT, offsetX, offsetY);
+				renderTooltip(matrices, FLIP_TEXT, mouseX, mouseY);
 			} else if (offsetX >= 142 && offsetY >= 153 && offsetX < 160 && offsetY < 172) {
-				renderTooltip(matrices, ROTATE_TEXT, offsetX, offsetY);
+				renderTooltip(matrices, ROTATE_TEXT, mouseX, mouseY);
 			} else if (offsetX >= 9 && offsetY >= 153 && offsetX < 27 && offsetY < 172) {
-				renderTooltip(matrices, SINGLE_DOUBLE_SIDED_TEXT, offsetX, offsetY);
+				renderTooltip(matrices, SINGLE_DOUBLE_SIDED_TEXT, mouseX, mouseY);
 			}
 		}
 	}
 
-	private static void drawCenteredStringWithoutShadow(PoseStack stack, Font renderer, Component string, int y) {
-		renderer.draw(stack, string, 88 - renderer.width(string) / 2.0F, y, 0x404040);
+	private static void drawCenteredStringWithoutShadow(PoseStack stack, Font renderer, Component string, float x, float y) {
+		renderer.draw(stack, string, x - renderer.width(string) / 2F, y, 0x404040);
 	}
 
 	private static float parseFloat(String text) {
