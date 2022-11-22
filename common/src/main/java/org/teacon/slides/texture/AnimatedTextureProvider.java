@@ -48,9 +48,6 @@ public final class AnimatedTextureProvider implements TextureProvider {
 			mDecoder = new GIFDecoder(data, gRenderThreadDecoder, false);
 			final int width = mDecoder.getScreenWidth();
 			final int height = mDecoder.getScreenHeight();
-			if (width > MAX_TEXTURE_SIZE || height > MAX_TEXTURE_SIZE) {
-				throw new IOException("Image is too big: " + width + "x" + height);
-			}
 
 			buffer = MemoryUtil.memAlloc(width * height * 4);
 			mFrameDelayTime = mDecoder.decodeNextFrame(buffer);

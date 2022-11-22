@@ -6,15 +6,13 @@ import javax.annotation.Nonnull;
 
 public interface TextureProvider extends AutoCloseable {
 
-    int MAX_TEXTURE_SIZE = 4096;
+	@Nonnull
+	SlideRenderType updateAndGet(long tick, float partialTick);
 
-    @Nonnull
-    SlideRenderType updateAndGet(long tick, float partialTick);
+	int getWidth();
 
-    int getWidth();
+	int getHeight();
 
-    int getHeight();
-
-    @Override
-    void close();
+	@Override
+	void close();
 }
