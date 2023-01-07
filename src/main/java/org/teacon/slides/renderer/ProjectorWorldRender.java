@@ -19,8 +19,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.client.event.RenderGameOverlayEvent;
-import net.minecraftforge.client.model.data.EmptyModelData;
+import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.apache.logging.log4j.LogManager;
@@ -37,14 +36,14 @@ import java.util.Map;
 public class ProjectorWorldRender {
 
     @SubscribeEvent
-    public static void worldRender(final RenderGameOverlayEvent.Post event) {
-        if (SlideShow.sOptiFineLoaded || event.getType() != RenderGameOverlayEvent.ElementType.ALL) {
+    public static void worldRender(final RenderGuiOverlayEvent.Post event) {
+        if (SlideShow.sOptiFineLoaded ) {
             return;
         }
         LocalPlayer player = Minecraft.getInstance().player;
         if (player != null && player.isCreative()) {
             if (isProjector(player.getMainHandItem())) {
-                locateProjectorTileEntities(event.getMatrixStack(), event.getPartialTicks());
+                locateProjectorTileEntities(event.getPoseStack(), event.getPartialTick());
             }
         }
     }
@@ -103,7 +102,7 @@ public class ProjectorWorldRender {
     }
 
     private static boolean isProjector(ItemStack i) {
-        return Registries.PROJECTOR.asItem().equals(i.getItem());
+        return Registries.PROJECTOR.get().asItem().equals(i.getItem());
     }
 
     @SuppressWarnings("deprecation")
@@ -126,7 +125,7 @@ public class ProjectorWorldRender {
                 matrixStack.pushPose();
                 matrixStack.translate(pos.getX() - viewPos.x, pos.getY() - viewPos.y, pos.getZ() - viewPos.z);
                 dispatcher.getModelRenderer().renderModel(matrixStack.last(), builder, state, model, 1.0F, 1.0F, 1.0F
-                        , 0xF000F0, OverlayTexture.NO_OVERLAY, EmptyModelData.INSTANCE);
+                        , 0xF000F0, OverlayTexture.NO_OVERLAY);//
                 matrixStack.popPose();
             }
 //            builder.end();

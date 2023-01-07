@@ -14,8 +14,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 public final class ProjectorItem extends BlockItem {
 
     public ProjectorItem() {
-        super(Registries.PROJECTOR, new Item.Properties()
-                .tab(CreativeModeTab.TAB_MISC)
+        super(Registries.PROJECTOR.get(), new Item.Properties()
                 .rarity(Rarity.RARE));
     }
 

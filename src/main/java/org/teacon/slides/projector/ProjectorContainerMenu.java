@@ -6,7 +6,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.server.permission.PermissionAPI;
+import org.jetbrains.annotations.NotNull;
 import org.teacon.slides.Registries;
 import org.teacon.slides.SlideShow;
 
@@ -19,17 +21,22 @@ public final class ProjectorContainerMenu extends AbstractContainerMenu {
     ProjectorBlockEntity mEntity;
 
     public ProjectorContainerMenu(int containerId, ProjectorBlockEntity entity) {
-        super(Registries.MENU, containerId);
+        super(Registries.MENU.get(), containerId);
         mEntity = entity;
     }
 
     public ProjectorContainerMenu(int containerId, Inventory inventory, FriendlyByteBuf buf) {
-        super(Registries.MENU, containerId);
+        super(Registries.MENU.get(), containerId);
         if (inventory.player.level.getBlockEntity(buf.readBlockPos()) instanceof ProjectorBlockEntity t) {
             CompoundTag tag = Objects.requireNonNull(buf.readNbt());
             t.readCustomTag(tag);
             mEntity = t;
         }
+    }
+
+    @Override
+    public @NotNull ItemStack quickMoveStack(Player pPlayer, int pIndex) {
+        return ItemStack.EMPTY;
     }
 
     @Override

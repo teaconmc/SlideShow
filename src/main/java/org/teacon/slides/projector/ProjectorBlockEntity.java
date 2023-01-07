@@ -1,15 +1,10 @@
 package org.teacon.slides.projector;
 
-import com.mojang.math.Matrix3f;
-import com.mojang.math.Matrix4f;
-import com.mojang.math.Vector3f;
-import com.mojang.math.Vector4f;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
@@ -21,6 +16,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.AABB;
 import net.minecraftforge.network.NetworkHooks;
+import org.joml.Matrix3f;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
+import org.joml.Vector4f;
 import org.teacon.slides.Registries;
 import org.teacon.slides.renderer.ProjectorWorldRender;
 
@@ -31,7 +30,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @ParametersAreNonnullByDefault
 public final class ProjectorBlockEntity extends BlockEntity implements MenuProvider {
 
-    private static final Component TITLE = new TranslatableComponent("gui.slide_show.title");
+    private static final Component TITLE = Component.translatable("gui.slide_show.title");
 
     public String mLocation = "";
     public int mColor = ~0;
@@ -43,11 +42,11 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     public boolean mDoubleSided = true;
 
     public ProjectorBlockEntity(BlockPos blockPos, BlockState blockState) {
-        super(Registries.BLOCK_ENTITY, blockPos, blockState);
+        super(Registries.BLOCK_ENTITY.get(), blockPos, blockState);
     }
 
     public void openGui(BlockPos pos, Player player) {
-        NetworkHooks.openGui((ServerPlayer) player, this, buf -> {
+        NetworkHooks.openScreen((ServerPlayer) player, this, buf -> {
             buf.writeBlockPos(pos);
             CompoundTag tag = new CompoundTag();
             writeCustomTag(tag);
@@ -150,16 +149,16 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
 
     @Override
     public AABB getRenderBoundingBox() {
-        Matrix3f normal = Matrix3f.createScaleMatrix(1, 1, 1); // identity
-        Matrix4f pose = Matrix4f.createScaleMatrix(1, 1, 1); // identity
+        Matrix3f normal = new Matrix3f(); // identity
+        Matrix4f pose = new Matrix4f(); // identity
         this.transformToSlideSpace(pose, normal);
 
         Vector3f nHalf = new Vector3f(0, 0.5f, 0);
         Vector4f v00 = new Vector4f(0, 0, 0, 1);
         Vector4f v01 = new Vector4f(1, 0, 1, 1);
-        nHalf.transform(normal);
-        v00.transform(pose);
-        v01.transform(pose);
+        nHalf.mul(normal);
+        v00.mul(pose);
+        v01.mul(pose);
 
         AABB base = new AABB(v00.x(), v00.y(), v00.z(), v01.x(), v01.y(), v01.z());
         return base.move(this.getBlockPos()).inflate(nHalf.x(), nHalf.y(), nHalf.z());
@@ -172,20 +171,25 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         // get internal rotation
         ProjectorBlock.InternalRotation rotation = state.getValue(ProjectorBlock.ROTATION);
         // matrix 1: translation to block center
-        pose.multiplyWithTranslation(0.5f, 0.5f, 0.5f);
+        pose.translate(0.5f, 0.5f, 0.5f);
         // matrix 2: rotation
-        pose.multiply(direction.getRotation());
-        normal.mul(direction.getRotation());
+        pose.rotate(direction.getRotation());
+        direction.getRotation().setFromNormalized(normal);
         // matrix 3: translation to block surface
-        pose.multiplyWithTranslation(0.0f, 0.5f, 0.0f);
+        pose.translate(0.0f, 0.5f, 0.0f);
         // matrix 4: internal rotation
         rotation.transform(pose);
         rotation.transform(normal);
         // matrix 5: translation for slide
-        pose.multiplyWithTranslation(-0.5F, 0.0F, 0.5F - mHeight);
+        pose.translate(-0.5F, 0.0F, 0.5F - mHeight);
         // matrix 6: offset for slide
-        pose.multiplyWithTranslation(mOffsetX, -mOffsetZ, mOffsetY);
+        pose.translate( mOffsetX, -mOffsetZ, mOffsetY);
         // matrix 7: scaling
-        pose.multiply(Matrix4f.createScaleMatrix(mWidth, 1.0F, mHeight));
+        Matrix4f mat4 = new Matrix4f();
+        mat4.m00(mWidth);
+        mat4.m11(1.0F);
+        mat4.m22(mHeight);
+        mat4.m33(1.0F);
+        pose.mul(mat4);
     }
 }

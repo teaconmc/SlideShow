@@ -32,8 +32,8 @@ teacon {
     modAuthors = ['BloCamLimb', '3TUSK', 'ustc-zzzz']
     modDescription = 'Minecraft mod, adding a projector that can display online images.'
 
-    platform = 'forge-1.18.2-40.1.0'
-    parchment = '2022.03.13'
+    platform = 'forge-1.19.3-44.1.0'
+    parchment = '2022.12.18'
 
     // uncomment these lines if you need
     modName = 'Slide Show' // default to repo name

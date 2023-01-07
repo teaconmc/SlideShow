@@ -1,8 +1,5 @@
 package org.teacon.slides.projector;
 
-import com.mojang.math.Matrix3f;
-import com.mojang.math.Matrix4f;
-import com.mojang.math.Vector4f;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.StringRepresentable;
@@ -24,6 +21,9 @@ import net.minecraft.world.level.material.Material;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import org.joml.Matrix3f;
+import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -152,14 +152,14 @@ public final class ProjectorBlock extends Block implements EntityBlock {
     }
 
     public enum InternalRotation implements StringRepresentable {
-        NONE(new float[]{1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F}),
-        CLOCKWISE_90(new float[]{0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F}),
-        CLOCKWISE_180(new float[]{-1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F}),
-        COUNTERCLOCKWISE_90(new float[]{0F, 0F, 1F, 0F, 0F, 1F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F}),
-        HORIZONTAL_FLIPPED(new float[]{-1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F}),
-        DIAGONAL_FLIPPED(new float[]{0F, 0F, -1F, 0F, 0F, -1F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F}),
-        VERTICAL_FLIPPED(new float[]{1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F}),
-        ANTI_DIAGONAL_FLIPPED(new float[]{0F, 0F, 1F, 0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F});
+        NONE(new Matrix4f(1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F)),
+        CLOCKWISE_90(new Matrix4f(0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F)),
+        CLOCKWISE_180(new Matrix4f(-1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F)),
+        COUNTERCLOCKWISE_90(new Matrix4f(0F, 0F, 1F, 0F, 0F, 1F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F)),
+        HORIZONTAL_FLIPPED(new Matrix4f(-1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F)),
+        DIAGONAL_FLIPPED(new Matrix4f(0F, 0F, -1F, 0F, 0F, -1F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F)),
+        VERTICAL_FLIPPED(new Matrix4f(1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F)),
+        ANTI_DIAGONAL_FLIPPED(new Matrix4f(0F, 0F, 1F, 0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F));
 
         public static final InternalRotation[] VALUES = values();
 
@@ -177,9 +177,9 @@ public final class ProjectorBlock extends Block implements EntityBlock {
         private final Matrix4f mMatrix;
         private final Matrix3f mNormal;
 
-        InternalRotation(float[] matrix) {
+        InternalRotation(Matrix4f matrix) {
             mSerializedName = name().toLowerCase(Locale.ROOT);
-            mMatrix = new Matrix4f(matrix);
+            mMatrix = matrix;
             mNormal = new Matrix3f(mMatrix);
         }
 
@@ -200,11 +200,11 @@ public final class ProjectorBlock extends Block implements EntityBlock {
         }
 
         public void transform(Vector4f vector) {
-            vector.transform(mMatrix);
+            mMatrix.transform(vector);
         }
 
         public void transform(Matrix4f poseMatrix) {
-            poseMatrix.multiply(mMatrix);
+            poseMatrix.mul(mMatrix);
         }
 
         public void transform(Matrix3f normalMatrix) {

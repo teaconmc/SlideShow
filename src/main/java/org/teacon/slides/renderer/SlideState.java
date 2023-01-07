@@ -5,7 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.client.event.CustomizeGuiOverlayEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -62,7 +62,7 @@ public final class SlideState {
     }
 
     @SubscribeEvent
-    static void onPlayerLeft(@Nonnull ClientPlayerNetworkEvent.LoggedOutEvent event) {
+    static void onPlayerLeft(@Nonnull ClientPlayerNetworkEvent.LoggingOut event) {
         RenderSystem.recordRenderCall(() -> {
             ConcurrentHashMap<String, SlideState> map = sCache.getAndSet(new ConcurrentHashMap<>());
             map.values().forEach(s -> s.mSlide.close());
@@ -72,7 +72,7 @@ public final class SlideState {
     }
 
     @SubscribeEvent
-    static void onRenderOverlay(@Nonnull RenderGameOverlayEvent.Text text) {
+    static void onRenderOverlay(@Nonnull CustomizeGuiOverlayEvent.DebugText text) {
         if (Minecraft.getInstance().options.renderDebug) {
             ConcurrentHashMap<String, SlideState> map = sCache.getAcquire();
             long size = 0;
