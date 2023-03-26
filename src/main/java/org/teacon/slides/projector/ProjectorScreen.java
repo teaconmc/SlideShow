@@ -2,22 +2,21 @@ package org.teacon.slides.projector;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.math.Matrix4f;
-import com.mojang.math.Vector3f;
-import com.mojang.math.Vector4f;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.phys.Vec2;
 import net.objecthunter.exp4j.ExpressionBuilder;
 import org.apache.commons.lang3.StringUtils;
+import org.joml.Vector3f;
+import org.joml.Vector4f;
 import org.lwjgl.glfw.GLFW;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.renderer.SlideState;
@@ -31,20 +30,20 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     private static final ResourceLocation
             GUI_TEXTURE = new ResourceLocation(SlideShow.ID, "textures/gui/projector.png");
 
-    private static final TranslatableComponent
-            IMAGE_TEXT = new TranslatableComponent("gui.slide_show.section.image"),
-            OFFSET_TEXT = new TranslatableComponent("gui.slide_show.section.offset"),
-            OTHERS_TEXT = new TranslatableComponent("gui.slide_show.section.others"),
-            URL_TEXT = new TranslatableComponent("gui.slide_show.url"),
-            COLOR_TEXT = new TranslatableComponent("gui.slide_show.color"),
-            WIDTH_TEXT = new TranslatableComponent("gui.slide_show.width"),
-            HEIGHT_TEXT = new TranslatableComponent("gui.slide_show.height"),
-            OFFSET_X_TEXT = new TranslatableComponent("gui.slide_show.offset_x"),
-            OFFSET_Y_TEXT = new TranslatableComponent("gui.slide_show.offset_y"),
-            OFFSET_Z_TEXT = new TranslatableComponent("gui.slide_show.offset_z"),
-            FLIP_TEXT = new TranslatableComponent("gui.slide_show.flip"),
-            ROTATE_TEXT = new TranslatableComponent("gui.slide_show.rotate"),
-            SINGLE_DOUBLE_SIDED_TEXT = new TranslatableComponent("gui.slide_show.single_double_sided");
+    private static final Component
+            IMAGE_TEXT = Component.translatable("gui.slide_show.section.image"),
+            OFFSET_TEXT = Component.translatable("gui.slide_show.section.offset"),
+            OTHERS_TEXT = Component.translatable("gui.slide_show.section.others"),
+            URL_TEXT = Component.translatable("gui.slide_show.url"),
+            COLOR_TEXT = Component.translatable("gui.slide_show.color"),
+            WIDTH_TEXT = Component.translatable("gui.slide_show.width"),
+            HEIGHT_TEXT = Component.translatable("gui.slide_show.height"),
+            OFFSET_X_TEXT = Component.translatable("gui.slide_show.offset_x"),
+            OFFSET_Y_TEXT = Component.translatable("gui.slide_show.offset_y"),
+            OFFSET_Z_TEXT = Component.translatable("gui.slide_show.offset_z"),
+            FLIP_TEXT = Component.translatable("gui.slide_show.flip"),
+            ROTATE_TEXT = Component.translatable("gui.slide_show.rotate"),
+            SINGLE_DOUBLE_SIDED_TEXT = Component.translatable("gui.slide_show.single_double_sided");
 
     private EditBox mURLInput;
     private EditBox mColorInput;
@@ -84,11 +83,11 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         if (mEntity == null) {
             return;
         }
-        minecraft.keyboardHandler.setSendRepeatsToGui(true);
+        // minecraft.keyboardHandler.setSendRepeatsToGui(true);
 
         // url input
         mURLInput = new EditBox(font, leftPos + 30, topPos + 29, 137, 16,
-                new TranslatableComponent("gui.slide_show.url"));
+                Component.translatable("gui.slide_show.url"));
         mURLInput.setMaxLength(512);
         mURLInput.setResponder(text -> {
             if (StringUtils.isNotBlank(text)) {
@@ -104,7 +103,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
         // color input
         mColorInput = new EditBox(font, leftPos + 55, topPos + 155, 56, 16,
-                new TranslatableComponent("gui.slide_show.color"));
+                Component.translatable("gui.slide_show.color"));
         mColorInput.setMaxLength(8);
         mColorInput.setResponder(text -> {
             try {
@@ -120,7 +119,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
         // width input
         mWidthInput = new EditBox(font, leftPos + 30, topPos + 51, 56, 16,
-                new TranslatableComponent("gui.slide_show.width"));
+                Component.translatable("gui.slide_show.width"));
         mWidthInput.setResponder(text -> {
             try {
                 Vec2 newSize = new Vec2(parseFloat(text), mImageSize.y);
@@ -136,7 +135,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
         // height input
         mHeightInput = new EditBox(font, leftPos + 111, topPos + 51, 56, 16,
-                new TranslatableComponent("gui.slide_show.height"));
+                Component.translatable("gui.slide_show.height"));
         mHeightInput.setResponder(input -> {
             try {
                 Vec2 newSize = new Vec2(mImageSize.x, parseFloat(input));
@@ -152,7 +151,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
         // offset x input
         mOffsetXInput = new EditBox(font, leftPos + 30, topPos + 103, 29, 16,
-                new TranslatableComponent("gui.slide_show.offset_x"));
+                Component.translatable("gui.slide_show.offset_x"));
         mOffsetXInput.setResponder(input -> {
             try {
                 mImageOffset = new Vector3f(parseFloat(input), mImageOffset.y(), mImageOffset.z());
@@ -167,7 +166,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
         // offset y input
         mOffsetYInput = new EditBox(font, leftPos + 84, topPos + 103, 29, 16,
-                new TranslatableComponent("gui.slide_show.offset_y"));
+                Component.translatable("gui.slide_show.offset_y"));
         mOffsetYInput.setResponder(input -> {
             try {
                 mImageOffset = new Vector3f(mImageOffset.x(), parseFloat(input), mImageOffset.z());
@@ -182,7 +181,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
         // offset z input
         mOffsetZInput = new EditBox(font, leftPos + 138, topPos + 103, 29, 16,
-                new TranslatableComponent("gui.slide_show.offset_z"));
+                Component.translatable("gui.slide_show.offset_z"));
         mOffsetZInput.setResponder(input -> {
             try {
                 mImageOffset = new Vector3f(mImageOffset.x(), mImageOffset.y(), parseFloat(input));
@@ -196,12 +195,12 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         addRenderableWidget(mOffsetZInput);
 
         // internal rotation buttons
-        addRenderableWidget(new Button(leftPos + 117, topPos + 153, 179, 153, 18, 19, new TranslatableComponent(
+        addRenderableWidget(new Button(leftPos + 117, topPos + 153, 179, 153, 18, 19, Component.translatable(
                 "gui.slide_show.flip"), () -> {
             ProjectorBlock.InternalRotation newRotation = mRotation.flip();
             updateRotation(newRotation);
         }));
-        addRenderableWidget(new Button(leftPos + 142, topPos + 153, 179, 173, 18, 19, new TranslatableComponent(
+        addRenderableWidget(new Button(leftPos + 142, topPos + 153, 179, 173, 18, 19, Component.translatable(
                 "gui.slide_show.rotate"), () -> {
             ProjectorBlock.InternalRotation newRotation = mRotation.compose(Rotation.CLOCKWISE_90);
             updateRotation(newRotation);
@@ -210,13 +209,13 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
         // single sided / double sided
         mSwitchSingleSided = addRenderableWidget(new Button(leftPos + 9, topPos + 153, 179, 113, 18, 19,
-                new TranslatableComponent("gui.slide_show.single_double_sided"), () -> {
+                Component.translatable("gui.slide_show.single_double_sided"), () -> {
             mDoubleSided = false;
             mSwitchDoubleSided.visible = true;
             mSwitchSingleSided.visible = false;
         }));
         mSwitchDoubleSided = addRenderableWidget(new Button(leftPos + 9, topPos + 153, 179, 133, 18, 19,
-                new TranslatableComponent("gui.slide_show.single_double_sided"), () -> {
+                Component.translatable("gui.slide_show.single_double_sided"), () -> {
             mDoubleSided = true;
             mSwitchSingleSided.visible = true;
             mSwitchDoubleSided.visible = false;
@@ -266,7 +265,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     @Override
     public void removed() {
         super.removed();
-        minecraft.keyboardHandler.setSendRepeatsToGui(false);
+        // minecraft.keyboardHandler.setSendRepeatsToGui(false);
         if (mEntity == null) {
             return;
         }
@@ -390,61 +389,60 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                                                ProjectorBlock.InternalRotation rotation) {
         Vector4f center = new Vector4f(0.5F * size.x, 0.0F, 0.5F * size.y, 1.0F);
         // matrix 6: offset for slide (center[new] = center[old] + offset)
-        center.transform(Matrix4f.createTranslateMatrix(relatedOffset.x(), -relatedOffset.z(), relatedOffset.y()));
+        center.add(relatedOffset.x() * center.w(), -relatedOffset.z() * center.w(), relatedOffset.y() * center.w(), 0.0F);
         // matrix 5: translation for slide
-        center.transform(Matrix4f.createTranslateMatrix(-0.5F, 0.0F, 0.5F - size.y));
+        center.add(-0.5F * center.w(), 0.0F, 0.5F * center.w() - size.y * center.w(), 0.0F);
         // matrix 4: internal rotation
-        rotation.transform(center);
+        center = rotation.transform(center);
         // ok, that's enough
-        return new Vector3f(center.x(), center.y(), center.z());
+        return new Vector3f(center.x() / center.w(), center.y() / center.w(), center.z() / center.w());
     }
 
     private static Vector3f absoluteToRelative(Vector3f absoluteOffset, Vec2 size,
                                                ProjectorBlock.InternalRotation rotation) {
-        Vector4f center = new Vector4f(absoluteOffset);
+        Vector4f center = new Vector4f(absoluteOffset, 1.0F);
         // inverse matrix 4: internal rotation
         rotation.invert().transform(center);
         // inverse matrix 5: translation for slide
-        center.transform(Matrix4f.createTranslateMatrix(0.5F, 0.0F, -0.5F + size.y));
+        center.add(0.5F * center.w(), 0.0F, -0.5F * center.w() + size.y * center.w(), 0.0F);
         // subtract (offset = center[new] - center[old])
-        center.transform(Matrix4f.createTranslateMatrix(-0.5F * size.x, 0.0F, -0.5F * size.y));
+        center.add(-0.5F * size.x * center.w(), 0.0F, -0.5F * size.y * center.w(), 0.0F);
         // ok, that's enough (remember it is (a, -c, b) => (a, b, c))
         return new Vector3f(center.x(), center.z(), -center.y());
     }
 
     private static class Button extends AbstractButton {
 
-        private final Runnable mCallback;
+        private final Runnable callback;
+        private final Component msg;
         private final int u;
         private final int v;
 
         public Button(int x, int y, int u, int v, int width, int height, Component msg, Runnable callback) {
             super(x, y, width, height, msg);
-            mCallback = callback;
+            this.callback = callback;
+            this.msg = msg;
             this.u = u;
             this.v = v;
         }
 
         @Override
         public void onPress() {
-            mCallback.run();
+            callback.run();
         }
 
         @Override
-        public void renderButton(PoseStack stack, int mouseX, int mouseY, float partialTicks) {
+        public void renderWidget(PoseStack stack, int mouseX, int mouseY, float partialTicks) {
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
             RenderSystem.setShaderTexture(0, GUI_TEXTURE);
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, alpha);
-            blit(stack, x, y, u, v, width, height);
+            blit(stack, getX(), getY(), u, v, width, height);
         }
 
         @Override
-        public void updateNarration(NarrationElementOutput p_169152_) {
-//            defaultButtonNarrationText(p_168838_);
-//            onTooltip.narrateTooltip((p_168841_) -> {
-//                p_168838_.add(NarratedElementType.HINT, p_168841_);
-//            });
+        protected void updateWidgetNarration(NarrationElementOutput output) {
+            output.add(NarratedElementType.TITLE, msg);
         }
     }
 }

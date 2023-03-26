@@ -315,7 +315,7 @@ gradle.afterProject { Project current ->
             lines += "version=\"\${file.jarVersion}\""
             lines += "displayName=\"${escaped(modName)}\""
             lines += "authors=\"TeaConMC${modAuthors.collect { ', ' + escaped(it) }.join()}\""
-            lines += "displayName=\"${escaped(publishDescription)}\""
+            lines += "description=\"${escaped(publishDescription)}\""
             lines += ""
 
             // forge dependency

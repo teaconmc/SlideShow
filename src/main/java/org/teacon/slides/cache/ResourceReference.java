@@ -1,12 +1,18 @@
 package org.teacon.slides.cache;
 
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import org.apache.http.client.cache.HttpCacheEntry;
 import org.apache.http.client.cache.Resource;
 import org.apache.http.util.Args;
 
+import javax.annotation.ParametersAreNonnullByDefault;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
 
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 final class ResourceReference extends PhantomReference<HttpCacheEntry> {
 
     private final Resource resource;

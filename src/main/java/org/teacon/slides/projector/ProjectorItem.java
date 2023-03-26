@@ -1,21 +1,26 @@
 package org.teacon.slides.projector;
 
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.*;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import org.teacon.slides.Registries;
+import org.teacon.slides.ModRegistries;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ProjectorItem extends BlockItem {
 
     public ProjectorItem() {
-        super(Registries.PROJECTOR, new Item.Properties()
-                .tab(CreativeModeTab.TAB_MISC)
+        super(ModRegistries.PROJECTOR.get(), new Item.Properties()
+                // FIXME: creative tabs
+                // .tab(CreativeModeTab.TAB_MISC)
                 .rarity(Rarity.RARE));
     }
 

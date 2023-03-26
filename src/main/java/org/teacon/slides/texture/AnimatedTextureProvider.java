@@ -1,12 +1,15 @@
 package org.teacon.slides.texture;
 
 import com.mojang.blaze3d.platform.GlStateManager;
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import org.lwjgl.opengl.*;
 import org.lwjgl.system.MemoryUtil;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.renderer.SlideRenderType;
 
 import javax.annotation.Nonnull;
+import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletionException;
@@ -14,6 +17,9 @@ import java.util.concurrent.CompletionException;
 import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
 
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 public final class AnimatedTextureProvider implements TextureProvider {
 
     private static final LZWDecoder gRenderThreadDecoder = new LZWDecoder();

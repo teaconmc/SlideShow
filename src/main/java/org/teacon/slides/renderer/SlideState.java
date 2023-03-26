@@ -1,29 +1,38 @@
 package org.teacon.slides.renderer;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.client.event.CustomizeGuiOverlayEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.apache.commons.lang3.StringUtils;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.cache.ImageCache;
-import org.teacon.slides.texture.*;
+import org.teacon.slides.texture.AnimatedTextureProvider;
+import org.teacon.slides.texture.GIFDecoder;
+import org.teacon.slides.texture.StaticTextureProvider;
+import org.teacon.slides.texture.TextureProvider;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
 import java.net.URI;
-import java.util.concurrent.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author BloCamLimb
  */
-@OnlyIn(Dist.CLIENT)
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(value = Dist.CLIENT, modid = SlideShow.ID)
 public final class SlideState {
 
@@ -62,7 +71,7 @@ public final class SlideState {
     }
 
     @SubscribeEvent
-    static void onPlayerLeft(@Nonnull ClientPlayerNetworkEvent.LoggedOutEvent event) {
+    static void onPlayerLeft(@Nonnull ClientPlayerNetworkEvent.LoggingOut event) {
         RenderSystem.recordRenderCall(() -> {
             ConcurrentHashMap<String, SlideState> map = sCache.getAndSet(new ConcurrentHashMap<>());
             map.values().forEach(s -> s.mSlide.close());
@@ -72,7 +81,7 @@ public final class SlideState {
     }
 
     @SubscribeEvent
-    static void onRenderOverlay(@Nonnull RenderGameOverlayEvent.Text text) {
+    static void onRenderOverlay(@Nonnull CustomizeGuiOverlayEvent.DebugText text) {
         if (Minecraft.getInstance().options.renderDebug) {
             ConcurrentHashMap<String, SlideState> map = sCache.getAcquire();
             long size = 0;
@@ -155,6 +164,7 @@ public final class SlideState {
                     assert mSlide instanceof Slide.Image;
                     mSlide.close();
                 } else if (mState == State.LOADING) {
+                    // noinspection resource
                     assert mSlide == Slide.loading();
                     // timeout
                     mState = State.LOADED;

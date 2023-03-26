@@ -1,6 +1,7 @@
 {
 	"credit": "Made with Blockbench",
 	"parent": "block/block",
+	"render_type": "cutout",
 	"textures": {
 		"base": "slide_show:block/projector_base",
 		"main": "slide_show:block/projector_main",

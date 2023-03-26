@@ -1,5 +1,7 @@
 package org.teacon.slides.cache;
 
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
@@ -14,6 +16,8 @@ import org.apache.logging.log4j.*;
 import org.teacon.slides.SlideShow;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
 import javax.imageio.ImageIO;
 import java.io.IOException;
 import java.net.URI;
@@ -21,6 +25,9 @@ import java.nio.file.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 public final class ImageCache {
 
     private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
@@ -28,7 +35,7 @@ public final class ImageCache {
 
     private static final Path LOCAL_CACHE_PATH = Paths.get("slideshow");
 
-    private static volatile ImageCache sInstance;
+    private static volatile @Nullable ImageCache sInstance;
 
     private static final int MAX_CACHE_OBJECT_SIZE = 1 << 29; // 512 MiB
     private static final CacheConfig CONFIG =
@@ -43,15 +50,16 @@ public final class ImageCache {
     private final CacheStorage mCacheStorage;
 
     public static ImageCache getInstance() {
-        if (sInstance != null) {
-            return sInstance;
-        }
-        synchronized (ImageCache.class) {
-            if (sInstance == null) {
-                sInstance = new ImageCache(LOCAL_CACHE_PATH);
+        var result = sInstance;
+        if (result == null) {
+            synchronized (ImageCache.class) {
+                result = sInstance;
+                if (result == null) {
+                    sInstance = (result = new ImageCache(LOCAL_CACHE_PATH));
+                }
             }
         }
-        return sInstance;
+        return result;
     }
 
     private ImageCache(Path dir) {

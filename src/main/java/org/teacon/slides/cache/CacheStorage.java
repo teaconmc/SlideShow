@@ -8,6 +8,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.Util;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -34,6 +36,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 final class CacheStorage implements HttpCacheStorage {
 
@@ -61,7 +65,6 @@ final class CacheStorage implements HttpCacheStorage {
     }
 
     private static String allocateImageName(byte[] bytes) {
-        // noinspection UnstableApiUsage
         @SuppressWarnings("deprecation") var hashString = Hashing.sha1().hashBytes(bytes).toString();
         try (var stream = new ByteArrayInputStream(bytes)) {
             try (var imageStream = ImageIO.createImageInputStream(stream)) {

@@ -3,12 +3,10 @@ package org.teacon.slides.cache;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.http.Header;
-import org.apache.http.HttpHeaders;
-import org.apache.http.HttpStatus;
-import org.apache.http.HttpVersion;
-import org.apache.http.StatusLine;
+import org.apache.http.*;
 import org.apache.http.client.cache.HttpCacheEntry;
 import org.apache.http.client.cache.Resource;
 import org.apache.http.client.utils.DateUtils;
@@ -36,6 +34,8 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
 
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 final class LegacyStorage {
     private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
@@ -43,7 +43,7 @@ final class LegacyStorage {
 
     private static final Path LOCAL_CACHE_MAP_JSON_PATH = Paths.get("map.json");
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
-    private static final TypeToken<Map<String, String>> LOCAL_CACHE_MAP_TYPE = new TypeToken<Map<String, String>>() {};
+    private static final TypeToken<Map<String, String>> LOCAL_CACHE_MAP_TYPE = new TypeToken<>() {};
 
     static boolean loadLegacy(Path parentPath, Map<String, Pair<Path, HttpCacheEntry>> map) {
         Path path = parentPath.resolve(LOCAL_CACHE_MAP_JSON_PATH);

@@ -1,15 +1,24 @@
 package org.teacon.slides.texture;
 
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
+
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 /**
  * Buffered streaming GIF decoder with all compressed data loaded into heap memory.
  *
  * @author BloCamLimb
  */
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 public class GIFDecoder {
 
     public static final int DEFAULT_DELAY_MILLIS = 40;
@@ -22,10 +31,10 @@ public class GIFDecoder {
 
     private final int mScreenWidth;
     private final int mScreenHeight;
-    private final byte[][] mGlobalPalette;  // r,g,b,a
+    private final @Nullable byte[][] mGlobalPalette;  // r,g,b,a
     private final byte[] mImage;
 
-    private byte[][] mTmpPalette;
+    private @Nullable byte[][] mTmpPalette;
     private final byte[] mTmpImage;
 
     private final int[] mTmpInterlace;
@@ -104,7 +113,7 @@ public class GIFDecoder {
         if (mTmpPalette == null || mTmpPalette[0].length < paletteSize) {
             mTmpPalette = new byte[4][paletteSize];
         }
-        byte[][] palette = localPalette ? readPalette(paletteSize, transparentIndex, mTmpPalette) : mGlobalPalette;
+        byte[][] palette = localPalette ? readPalette(paletteSize, transparentIndex, mTmpPalette) : Objects.requireNonNull(mGlobalPalette);
 
         int delayTime = imageControlCode & 0xFFFF;
 
@@ -117,7 +126,7 @@ public class GIFDecoder {
     }
 
     @Nonnull
-    private byte[][] readPalette(int size, int transparentIndex, byte[][] palette) throws IOException {
+    private byte[][] readPalette(int size, int transparentIndex, @Nullable byte[][] palette) throws IOException {
         if (palette == null) {
             palette = new byte[4][size];
         }
@@ -157,32 +166,31 @@ public class GIFDecoder {
         for (; ; ) {
             int ch = read();
             switch (ch) {
-                case 0x2C: // Image Separator
+                case 0x2C -> { // Image Separator
                     return controlData;
-                case 0x21: // Extension Introducer
+                }
+                case 0x21 -> { // Extension Introducer
                     if (readByte() == 0xF9) { // Graphic Control Extension
                         controlData = readControlCode();
                     } else {
                         skipExtension();
                     }
-                    break;
-                case -1:    // EOF
-                case 0x3B:  // Trailer
+                }
+                case -1, 0x3B -> {  // EOF or Trailer
                     if (restarted) {
                         return -1;
                     }
                     mPos = mHeaderPos; // Return to beginning
                     controlData = 0;
                     restarted = true;
-                    continue;
-                default:
-                    throw new IOException();
+                }
+                default -> throw new IOException();
             }
         }
     }
 
     // Decode the one frame of GIF form the input stream using internal LZWDecoder class
-    private void decodeImage(byte[] image, int width, int height, int[] interlace) throws IOException {
+    private void decodeImage(byte[] image, int width, int height, @Nullable int[] interlace) throws IOException {
         final LZWDecoder dec = mDec;
         byte[] data = dec.setContext(this);
         int y = 0, iPos = 0, xr = width;

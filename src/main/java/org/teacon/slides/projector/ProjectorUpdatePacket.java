@@ -8,13 +8,12 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.server.permission.PermissionAPI;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
+import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -57,7 +56,7 @@ public final class ProjectorUpdatePacket {
 
         mPos = mEntity.getBlockPos();
         mEntity.writeCustomTag(mTag);
-        SlideShow.CHANNEL.sendToServer(this);
+        ModRegistries.CHANNEL.sendToServer(this);
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {
@@ -66,8 +65,8 @@ public final class ProjectorUpdatePacket {
             if (player != null) {
                 ServerLevel level = player.getLevel();
                 // prevent remote chunk loading
-                if (PermissionAPI.getPermission(player, SlideShow.INTERACT_PERM) && level.isLoaded(mPos) &&
-                        level.getBlockEntity(mPos) instanceof ProjectorBlockEntity tile) {
+                if (PermissionAPI.getPermission(player, ModRegistries.INTERACT_PERM) &&
+                        level.isLoaded(mPos) && level.getBlockEntity(mPos) instanceof ProjectorBlockEntity tile) {
                     BlockState state = tile.getBlockState().setValue(ProjectorBlock.ROTATION, mRotation);
                     tile.readCustomTag(mTag);
                     if (!level.setBlock(mPos, state, Block.UPDATE_ALL)) {

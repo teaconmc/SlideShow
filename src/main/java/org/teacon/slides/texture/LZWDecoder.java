@@ -1,9 +1,18 @@
 package org.teacon.slides.texture;
 
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
+
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.Objects;
 
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 public class LZWDecoder {
 
     private int mInitCodeSize, mClearCode, mEOFCode;
@@ -23,7 +32,7 @@ public class LZWDecoder {
     private final int[] mLength = new int[4096];
     private final byte[] mString = new byte[4096];
 
-    private GIFDecoder mContext;
+    private @Nullable GIFDecoder mContext;
 
     public LZWDecoder() {
     }
@@ -133,7 +142,7 @@ public class LZWDecoder {
 
     private void readBlock() throws IOException {
         mBlockPos = 0;
-        if ((mBlockLength = mContext.readByte()) > 0) {
+        if ((mBlockLength = Objects.requireNonNull(mContext).readByte()) > 0) {
             mContext.readBytes(mBlock, 0, mBlockLength);
         } else {
             throw new EOFException();

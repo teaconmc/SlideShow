@@ -1,26 +1,29 @@
 package org.teacon.slides.renderer;
 
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Matrix3f;
-import com.mojang.math.Matrix4f;
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 import org.jetbrains.annotations.NotNull;
+import org.joml.Matrix3f;
+import org.joml.Matrix4f;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.texture.TextureProvider;
 
 import javax.annotation.Nonnull;
+import javax.annotation.ParametersAreNonnullByDefault;
 
 /**
  * Represents a slide drawable, with immutable storage.
  *
  * @see SlideState
  */
-@OnlyIn(Dist.CLIENT)
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 public sealed abstract class Slide implements AutoCloseable permits Slide.Icon, Slide.Image {
 
     public abstract void render(@Nonnull MultiBufferSource source, @Nonnull Matrix4f matrix,

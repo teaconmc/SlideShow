@@ -4,16 +4,22 @@ import com.google.common.collect.ImmutableList;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import org.teacon.slides.SlideShow;
 
+import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Objects;
 
 /**
  * @author BloCamLimb
  */
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 public class SlideRenderType extends RenderType {
 
     //TODO highlight not working
@@ -51,7 +57,7 @@ public class SlideRenderType extends RenderType {
                 VertexFormat.Mode.QUADS, 256, false, true,
                 () -> {
                     GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
-                    RenderSystem.enableTexture();
+                    // RenderSystem.enableTexture();
                     RenderSystem.setShaderTexture(0, texture);
                 },
                 () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
@@ -63,7 +69,7 @@ public class SlideRenderType extends RenderType {
                 VertexFormat.Mode.QUADS, 256, false, true,
                 () -> {
                     GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
-                    RenderSystem.enableTexture();
+                    // RenderSystem.enableTexture();
                     RenderSystem.setShaderTexture(0, texture);
                 },
                 () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));

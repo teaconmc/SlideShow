@@ -1,8 +1,7 @@
 package org.teacon.slides.projector;
 
-import com.mojang.math.Matrix3f;
-import com.mojang.math.Matrix4f;
-import com.mojang.math.Vector4f;
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.StringRepresentable;
@@ -24,17 +23,24 @@ import net.minecraft.world.level.material.Material;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import org.joml.Matrix3f;
+import org.joml.Matrix4f;
+import org.joml.Vector4f;
+import org.teacon.slides.ModRegistries;
 
-import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.nio.FloatBuffer;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Objects;
 
 import static net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING;
 import static net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED;
 
-@SuppressWarnings("deprecation")
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
+@SuppressWarnings("deprecation")
 public final class ProjectorBlock extends Block implements EntityBlock {
 
     public static final EnumProperty<InternalRotation>
@@ -56,8 +62,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
                 .setValue(POWERED, Boolean.FALSE)
                 .setValue(ROTATION, InternalRotation.NONE));
     }
-
-    @Nonnull
+    
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return switch (state.getValue(BASE)) {
@@ -75,17 +80,16 @@ public final class ProjectorBlock extends Block implements EntityBlock {
         builder.add(BASE, FACING, POWERED, ROTATION);
     }
 
-    @Nonnull
     @Override
     public BlockState getStateForPlacement(BlockPlaceContext context) {
-        Direction facing = context.getNearestLookingDirection().getOpposite();
-        Direction horizontalFacing = context.getHorizontalDirection().getOpposite();
-        Direction base = Arrays.stream(context.getNearestLookingDirections())
+        var facing = context.getNearestLookingDirection().getOpposite();
+        var horizontalFacing = context.getHorizontalDirection().getOpposite();
+        var base = Arrays.stream(context.getNearestLookingDirections())
                 .filter(Direction.Plane.VERTICAL)
                 .findFirst()
                 .orElse(Direction.DOWN);
-        InternalRotation rotation =
-                InternalRotation.VALUES[4 + Math.floorMod(facing.getStepY() * horizontalFacing.get2DDataValue(), 4)];
+        var rotation = InternalRotation
+                .VALUES[4 + Math.floorMod(facing.getStepY() * horizontalFacing.get2DDataValue(), 4)];
         return defaultBlockState()
                 .setValue(BASE, base)
                 .setValue(FACING, facing)
@@ -94,54 +98,51 @@ public final class ProjectorBlock extends Block implements EntityBlock {
     }
 
     @Override
-    public void neighborChanged(BlockState state, Level worldIn, BlockPos pos, Block blockIn, BlockPos fromPos,
-                                boolean isMoving) {
-        boolean powered = worldIn.hasNeighborSignal(pos);
+    public void neighborChanged(BlockState state, Level worldIn,
+                                BlockPos pos, Block blockIn, BlockPos fromPos, boolean isMoving) {
+        var powered = worldIn.hasNeighborSignal(pos);
         if (powered != state.getValue(POWERED)) {
             worldIn.setBlock(pos, state.setValue(POWERED, powered), Block.UPDATE_ALL);
         }
     }
 
     @Override
-    public void onPlace(BlockState state, Level worldIn, BlockPos pos, BlockState oldState, boolean isMoving) {
+    public void onPlace(BlockState state, Level worldIn,
+                        BlockPos pos, BlockState oldState, boolean isMoving) {
         if (!oldState.is(state.getBlock())) {
-            boolean powered = worldIn.hasNeighborSignal(pos);
+            var powered = worldIn.hasNeighborSignal(pos);
             if (powered != state.getValue(POWERED)) {
                 worldIn.setBlock(pos, state.setValue(POWERED, powered), Block.UPDATE_ALL);
             }
         }
     }
 
-    @Nonnull
     @Override
     public BlockState mirror(BlockState state, Mirror mirror) {
-        Direction direction = state.getValue(FACING);
+        var direction = state.getValue(FACING);
         return switch (direction) {
             case DOWN, UP -> state.setValue(ROTATION, state.getValue(ROTATION).compose(Rotation.CLOCKWISE_180));
             default -> state.setValue(FACING, mirror.getRotation(direction).rotate(direction));
         };
     }
 
-    @Nonnull
     @Override
     public BlockState rotate(BlockState state, Rotation rotation) {
-        Direction direction = state.getValue(FACING);
+        var direction = state.getValue(FACING);
         return switch (direction) {
             case DOWN, UP -> state.setValue(ROTATION, state.getValue(ROTATION).compose(rotation));
             default -> state.setValue(FACING, rotation.rotate(direction));
         };
     }
 
-    @Nonnull
     @Override
     public BlockEntity newBlockEntity(BlockPos blockPos, BlockState blockState) {
-        return new ProjectorBlockEntity(blockPos, blockState);
+        return Objects.requireNonNull(ModRegistries.BLOCK_ENTITY.get().create(blockPos, blockState));
     }
 
-    @Nonnull
     @Override
-    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
-                                 BlockHitResult hit) {
+    public InteractionResult use(BlockState state, Level level,
+                                 BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
         if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }
@@ -152,14 +153,14 @@ public final class ProjectorBlock extends Block implements EntityBlock {
     }
 
     public enum InternalRotation implements StringRepresentable {
-        NONE(new float[]{1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F}),
-        CLOCKWISE_90(new float[]{0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F}),
-        CLOCKWISE_180(new float[]{-1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F}),
-        COUNTERCLOCKWISE_90(new float[]{0F, 0F, 1F, 0F, 0F, 1F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F}),
-        HORIZONTAL_FLIPPED(new float[]{-1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F}),
-        DIAGONAL_FLIPPED(new float[]{0F, 0F, -1F, 0F, 0F, -1F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F}),
-        VERTICAL_FLIPPED(new float[]{1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F}),
-        ANTI_DIAGONAL_FLIPPED(new float[]{0F, 0F, 1F, 0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 0F, 0F, 1F});
+        NONE(1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, 1F, 0F),
+        CLOCKWISE_90(0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 1F, 0F, 0F, 0F),
+        CLOCKWISE_180(-1F, 0F, 0F, 0F, 0F, 1F, 0F, 0F, 0F, 0F, -1F, 0F),
+        COUNTERCLOCKWISE_90(0F, 0F, 1F, 0F, 0F, 1F, 0F, 0F, -1F, 0F, 0F, 0F),
+        HORIZONTAL_FLIPPED(-1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, 1F, 0F),
+        DIAGONAL_FLIPPED(0F, 0F, -1F, 0F, 0F, -1F, 0F, 0F, -1F, 0F, 0F, 0F),
+        VERTICAL_FLIPPED(1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, -1F, 0F),
+        ANTI_DIAGONAL_FLIPPED(0F, 0F, 1F, 0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 0F);
 
         public static final InternalRotation[] VALUES = values();
 
@@ -177,10 +178,12 @@ public final class ProjectorBlock extends Block implements EntityBlock {
         private final Matrix4f mMatrix;
         private final Matrix3f mNormal;
 
-        InternalRotation(float[] matrix) {
+        InternalRotation(float m00, float m01, float m02, float m03,
+                         float m10, float m11, float m12, float m13,
+                         float m20, float m21, float m22, float m23) {
+            mMatrix = new Matrix4f(m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23, 0F, 0F, 0F, 1F);
+            mNormal = new Matrix3f(m00, m01, m02, m10, m11, m12, m20, m21, m22);
             mSerializedName = name().toLowerCase(Locale.ROOT);
-            mMatrix = new Matrix4f(matrix);
-            mNormal = new Matrix3f(mMatrix);
         }
 
         public InternalRotation compose(Rotation rotation) {
@@ -199,19 +202,19 @@ public final class ProjectorBlock extends Block implements EntityBlock {
             return ordinal() >= 4;
         }
 
-        public void transform(Vector4f vector) {
-            vector.transform(mMatrix);
+        public Vector4f transform(Vector4f vector) {
+            return vector.mul(mMatrix);
         }
 
-        public void transform(Matrix4f poseMatrix) {
-            poseMatrix.multiply(mMatrix);
+        public Matrix4f transform(Matrix4f poseMatrix) {
+            return poseMatrix.mul(mMatrix);
         }
 
-        public void transform(Matrix3f normalMatrix) {
-            normalMatrix.mul(mNormal);
+        public Matrix3f transform(Matrix3f normalMatrix) {
+            return normalMatrix.mul(mNormal);
         }
 
-        @Nonnull
+        
         @Override
         public final String getSerializedName() {
             return mSerializedName;
