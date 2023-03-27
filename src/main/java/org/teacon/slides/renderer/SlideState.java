@@ -1,5 +1,6 @@
 package org.teacon.slides.renderer;
 
+import com.google.common.base.Preconditions;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
@@ -13,15 +14,18 @@ import net.minecraftforge.fml.common.Mod;
 import org.apache.commons.lang3.StringUtils;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.cache.ImageCache;
+import org.teacon.slides.slide.IconSlide;
+import org.teacon.slides.slide.ImgSlide;
+import org.teacon.slides.slide.Slide;
 import org.teacon.slides.texture.AnimatedTextureProvider;
 import org.teacon.slides.texture.GIFDecoder;
 import org.teacon.slides.texture.StaticTextureProvider;
 import org.teacon.slides.texture.TextureProvider;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.net.URI;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -33,9 +37,8 @@ import java.util.concurrent.atomic.AtomicReference;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(value = Dist.CLIENT, modid = SlideShow.ID)
+@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public final class SlideState {
-
     private static final Executor RENDER_EXECUTOR = r -> RenderSystem.recordRenderCall(r::run);
 
     private static final int RECYCLE_SECONDS = 120; // 2min
@@ -52,56 +55,62 @@ public final class SlideState {
     }
 
     @SubscribeEvent
-    static void tick(@Nonnull TickEvent.ClientTickEvent event) {
-        if (event.phase == TickEvent.Phase.START && !Minecraft.getInstance().isPaused()) {
-            if (++sAnimationTick % 20 == 0) {
-                ConcurrentHashMap<String, SlideState> map = sCache.getAcquire();
-                if (!map.isEmpty()) {
-                    map.entrySet().removeIf(entry -> entry.getValue().update());
-                }
-                if (++sCleanerTimer > CLEANER_INTERVAL_SECONDS) {
-                    int n = ImageCache.getInstance().cleanResources();
-                    if (n != 0) {
-                        SlideShow.LOGGER.debug("Cleanup {} http cache image resources", n);
-                    }
-                    sCleanerTimer = 0;
-                }
-            }
+    public static void onTick(TickEvent.ClientTickEvent event) {
+        if (event.phase == TickEvent.Phase.START) {
+            SlideState.tick(Minecraft.getInstance().isPaused());
         }
     }
 
     @SubscribeEvent
-    static void onPlayerLeft(@Nonnull ClientPlayerNetworkEvent.LoggingOut event) {
-        RenderSystem.recordRenderCall(() -> {
-            ConcurrentHashMap<String, SlideState> map = sCache.getAndSet(new ConcurrentHashMap<>());
-            map.values().forEach(s -> s.mSlide.close());
-            SlideShow.LOGGER.debug("Release {} slide images", map.size());
-            map.clear();
-        });
+    public static void onPlayerLeft(ClientPlayerNetworkEvent.LoggingOut event) {
+        RenderSystem.recordRenderCall(SlideState::clear);
     }
 
     @SubscribeEvent
-    static void onRenderOverlay(@Nonnull CustomizeGuiOverlayEvent.DebugText text) {
+    public static void onDebugTextCollection(CustomizeGuiOverlayEvent.DebugText event) {
         if (Minecraft.getInstance().options.renderDebug) {
-            ConcurrentHashMap<String, SlideState> map = sCache.getAcquire();
-            long size = 0;
-            for (var s : map.values()) {
-                size += s.mSlide.getGPUMemorySize();
-            }
-            text.getLeft().add("SlideShow Cache: " + map.size() + " (" + (size >> 20) + "MB)");
+            event.getLeft().add(SlideState.getDebugText());
         }
+    }
+
+    private static void tick(boolean paused) {
+        if (!paused && ++sAnimationTick % 20 == 0) {
+            ConcurrentHashMap<String, SlideState> map = sCache.getAcquire();
+            if (!map.isEmpty()) {
+                map.entrySet().removeIf(entry -> entry.getValue().update());
+            }
+            if (++sCleanerTimer > CLEANER_INTERVAL_SECONDS) {
+                int n = ImageCache.getInstance().cleanResources();
+                if (n != 0) {
+                    SlideShow.LOGGER.debug("Cleanup {} http cache image resources", n);
+                }
+                sCleanerTimer = 0;
+            }
+        }
+    }
+
+    private static void clear() {
+        ConcurrentHashMap<String, SlideState> map = sCache.getAndSet(new ConcurrentHashMap<>());
+        map.values().forEach(s -> s.mSlide.close());
+        SlideShow.LOGGER.debug("Release {} slide images", map.size());
+        map.clear();
+    }
+
+    private static String getDebugText() {
+        var size = 0L;
+        var map = sCache.getAcquire();
+        for (var state : map.values()) {
+            size += state.mSlide.getGPUMemorySize();
+        }
+        return "SlideShow Cache: " + map.size() + " (" + (size >> 20) + "MB)";
     }
 
     public static long getAnimationTick() {
         return sAnimationTick;
     }
 
-    @Nullable
-    public static Slide getSlide(@Nonnull String location) {
-        if (location.isEmpty()) {
-            return null;
-        }
-        return sCache.getAcquire().computeIfAbsent(location, SlideState::new).getWithUpdate();
+    public static @Nullable Slide getSlide(String url) {
+        return StringUtils.isBlank(url) ? null : sCache.getAcquire().computeIfAbsent(url, SlideState::new).getWithUpdate();
     }
 
     /**
@@ -144,7 +153,6 @@ public final class SlideState {
         }
     }
 
-    @Nonnull
     private Slide getWithUpdate() {
         if (mState != State.FAILED_OR_EMPTY) {
             mCounter = RECYCLE_SECONDS;
@@ -161,7 +169,7 @@ public final class SlideState {
         if (--mCounter < 0) {
             RenderSystem.recordRenderCall(() -> {
                 if (mState == State.LOADED) {
-                    assert mSlide instanceof Slide.Image;
+                    assert mSlide instanceof ImgSlide;
                     mSlide.close();
                 } else if (mState == State.LOADING) {
                     // noinspection resource
@@ -169,7 +177,7 @@ public final class SlideState {
                     // timeout
                     mState = State.LOADED;
                 } else {
-                    assert mSlide instanceof Slide.Icon;
+                    assert mSlide instanceof IconSlide;
                     assert mState == State.FAILED_OR_EMPTY;
                 }
             });
@@ -180,11 +188,7 @@ public final class SlideState {
 
     @Override
     public String toString() {
-        return "SlideState{" +
-                "slide=" + mSlide +
-                ", state=" + mState +
-                ", counter=" + mCounter +
-                '}';
+        return "SlideState{slide=" + mSlide + ", state=" + mState + ", counter=" + mCounter + "}";
     }
 
     /**
@@ -193,7 +197,6 @@ public final class SlideState {
      * @param data compressed image data
      * @return texture
      */
-    @Nonnull
     private static CompletableFuture<TextureProvider> createTexture(byte[] data) {
         return CompletableFuture.supplyAsync(
                 GIFDecoder.checkMagic(data) ? () -> new AnimatedTextureProvider(data) :
@@ -204,7 +207,9 @@ public final class SlideState {
     public static URI createURI(String location) {
         if (StringUtils.isNotBlank(location)) {
             try {
-                return URI.create(location);
+                var result = URI.create(location);
+                Preconditions.checkArgument(List.of("http", "https").contains(result.getScheme()));
+                return result;
             } catch (Exception e) {
                 return null;
             }

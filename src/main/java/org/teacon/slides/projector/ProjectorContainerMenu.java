@@ -4,16 +4,14 @@ import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.extensions.IForgeMenuType;
-import net.minecraftforge.server.permission.PermissionAPI;
 import org.teacon.slides.ModRegistries;
+import org.teacon.slides.permission.SlidePermission;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -51,7 +49,6 @@ public final class ProjectorContainerMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        return mEntity != null && mEntity.getLevel() == player.getLevel() &&
-                PermissionAPI.getPermission((ServerPlayer) player, ModRegistries.INTERACT_PERM);
+        return mEntity != null && mEntity.getLevel() == player.getLevel() && SlidePermission.canInteract(player);
     }
 }

@@ -20,23 +20,12 @@ import java.util.Objects;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public class SlideRenderType extends RenderType {
-
-    //TODO highlight not working
-    public static final RenderType HIGHLIGHT = RenderType.create("slide_show_block_highlight",
-            DefaultVertexFormat.POSITION, VertexFormat.Mode.QUADS, /*buffer size*/256, /*no delegate*/false, /*need
-            sorting data*/false,
-            RenderType.CompositeState.builder()./*setShaderState(SLIDE_SHOW_SHADER).*/
-                    setCullState(NO_CULL).setDepthTestState(NO_DEPTH_TEST).setWriteMaskState(COLOR_WRITE).createCompositeState(/*outline*/false));
-
+public final class SlideRenderType extends RenderType {
     private static final ImmutableList<RenderStateShard> GENERAL_STATES;
 
     static {
         GENERAL_STATES = ImmutableList.of(
-                //RENDERTYPE_ENTITY_TRANSLUCENT_CULL_SHADER,
-                //RENDERTYPE_TRANSLUCENT_NO_CRUMBLING_SHADER,
                 RENDERTYPE_TEXT_SEE_THROUGH_SHADER,
-                //RENDERTYPE_TRANSLUCENT_SHADER,
                 TRANSLUCENT_TRANSPARENCY,
                 LEQUAL_DEPTH_TEST,
                 CULL,
@@ -64,7 +53,7 @@ public class SlideRenderType extends RenderType {
         mHashCode = Objects.hash(super.hashCode(), GENERAL_STATES, texture);
     }
 
-    SlideRenderType(ResourceLocation texture) {
+    public SlideRenderType(ResourceLocation texture) {
         super(SlideShow.ID, DefaultVertexFormat.BLOCK,
                 VertexFormat.Mode.QUADS, 256, false, true,
                 () -> {

@@ -26,8 +26,8 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.teacon.slides.ModRegistries;
 
-import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -64,13 +64,11 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         });
     }
 
-    @Nonnull
     @Override
     public AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player player) {
         return new ProjectorContainerMenu(containerId, this);
     }
 
-    @Nonnull
     @Override
     public Component getDisplayName() {
         return TITLE;
@@ -109,7 +107,6 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         readCustomTag(tag);
     }
 
-    @Nonnull
     @Override
     public ClientboundBlockEntityDataPacket getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
@@ -120,7 +117,6 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         Optional.ofNullable(packet.getTag()).ifPresent(this::readCustomTag);
     }
 
-    @Nonnull
     @Override
     public CompoundTag getUpdateTag() {
         var tag = super.getUpdateTag();
@@ -131,6 +127,12 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     @Override
     public void handleUpdateTag(CompoundTag tag) {
         load(tag);
+    }
+
+    @Override
+    public boolean hasCustomOutlineRendering(Player player) {
+        var handItems = List.of(player.getMainHandItem().getItem(), player.getOffhandItem().getItem());
+        return handItems.contains(ModRegistries.PROJECTOR.get().asItem());
     }
 
     @Override

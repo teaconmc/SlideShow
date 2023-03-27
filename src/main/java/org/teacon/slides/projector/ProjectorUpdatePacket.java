@@ -1,26 +1,26 @@
 package org.teacon.slides.projector;
 
-import com.mojang.authlib.GameProfile;
+import net.minecraft.FieldsAreNonnullByDefault;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.server.permission.PermissionAPI;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
+import org.teacon.slides.permission.SlidePermission;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ProjectorUpdatePacket {
 
@@ -61,13 +61,12 @@ public final class ProjectorUpdatePacket {
 
     public void handle(Supplier<NetworkEvent.Context> context) {
         context.get().enqueueWork(() -> {
-            ServerPlayer player = context.get().getSender();
-            if (player != null) {
-                ServerLevel level = player.getLevel();
+            var player = context.get().getSender();
+            if (player != null && SlidePermission.canInteract(player)) {
+                var level = player.getLevel();
                 // prevent remote chunk loading
-                if (PermissionAPI.getPermission(player, ModRegistries.INTERACT_PERM) &&
-                        level.isLoaded(mPos) && level.getBlockEntity(mPos) instanceof ProjectorBlockEntity tile) {
-                    BlockState state = tile.getBlockState().setValue(ProjectorBlock.ROTATION, mRotation);
+                if (level.isLoaded(mPos) && level.getBlockEntity(mPos) instanceof ProjectorBlockEntity tile) {
+                    var state = tile.getBlockState().setValue(ProjectorBlock.ROTATION, mRotation);
                     tile.readCustomTag(mTag);
                     if (!level.setBlock(mPos, state, Block.UPDATE_ALL)) {
                         // state is unchanged, but re-render it
@@ -77,7 +76,7 @@ public final class ProjectorUpdatePacket {
                     tile.setChanged();
                     return;
                 }
-                GameProfile profile = player.getGameProfile();
+                var profile = player.getGameProfile();
                 SlideShow.LOGGER.debug(MARKER, "Received illegal packet: player = {}, pos = {}", profile, mPos);
             }
         });
