@@ -102,7 +102,7 @@ public final class SlideState {
         for (var state : map.values()) {
             size += state.mSlide.getGPUMemorySize();
         }
-        return "SlideShow Cache: " + map.size() + " (" + (size >> 20) + "MB)";
+        return "SlideShow Cache: " + map.size() + " (" + (size >> 20) + " MiB)";
     }
 
     public static long getAnimationTick() {
