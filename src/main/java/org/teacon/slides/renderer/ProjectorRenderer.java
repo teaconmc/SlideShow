@@ -9,9 +9,6 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.common.Mod;
-import org.teacon.slides.SlideShow;
 import org.teacon.slides.projector.ProjectorBlock;
 import org.teacon.slides.projector.ProjectorBlockEntity;
 
@@ -21,7 +18,7 @@ import java.util.Objects;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlockEntity> {
+public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlockEntity> {
 
     public ProjectorRenderer(BlockEntityRendererProvider.Context context) {
         Objects.requireNonNull(context);

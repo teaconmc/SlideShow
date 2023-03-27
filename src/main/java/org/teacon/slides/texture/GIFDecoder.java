@@ -19,7 +19,7 @@ import java.util.Objects;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public class GIFDecoder {
+public final class GIFDecoder {
 
     public static final int DEFAULT_DELAY_MILLIS = 40;
 

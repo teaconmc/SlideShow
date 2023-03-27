@@ -13,7 +13,7 @@ import java.util.Objects;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public class LZWDecoder {
+public final class LZWDecoder {
 
     private int mInitCodeSize, mClearCode, mEOFCode;
     private int mCodeSize, mCodeMask, mTableIndex, mPrevCode;
