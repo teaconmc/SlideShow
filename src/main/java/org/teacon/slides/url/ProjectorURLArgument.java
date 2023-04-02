@@ -37,7 +37,11 @@ public final class ProjectorURLArgument implements ArgumentType<Either<UUID, Pro
 
     @Override
     public Either<UUID, ProjectorURL> parse(StringReader reader) throws CommandSyntaxException {
-        var string = reader.readString();
+        var stringBuilder = new StringBuilder(reader.getRemainingLength());
+        while (reader.canRead() && reader.peek() != ' ') {
+            stringBuilder.append(reader.read());
+        }
+        var string = stringBuilder.toString();
         try {
             return Either.left(UUID.fromString(string));
         } catch (IllegalArgumentException e1) {
