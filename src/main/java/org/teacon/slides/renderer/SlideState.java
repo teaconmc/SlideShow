@@ -154,6 +154,8 @@ public final class SlideState {
         // unblocked
         sIdWithoutImageWithBlockStatus.keySet().removeAll(unblocked.keySet());
         sIdWithImage.putAll(unblocked);
+        // prefetch
+        unblocked.values().forEach(v -> sCache.getAcquire().computeIfAbsent(v, SlideState::new));
     }
 
     public static Consumer<BlockPos> getPrefetch() {
