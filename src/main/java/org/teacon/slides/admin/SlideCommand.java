@@ -5,21 +5,26 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
+import com.mojang.datafixers.util.Either;
 import net.minecraft.ChatFormatting;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.apache.commons.lang3.StringUtils;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.network.ProjectorURLPrefetchPacket;
+import org.teacon.slides.url.ProjectorURL;
 import org.teacon.slides.url.ProjectorURLArgument;
 import org.teacon.slides.url.ProjectorURLSavedData;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -54,57 +59,76 @@ public class SlideCommand {
     }
 
     private static int prefetchProjectorUrl(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        // noinspection DuplicatedCode
-        var level = ctx.getSource().getLevel();
-        var data = ProjectorURLSavedData.get(level);
         var arg = ProjectorURLArgument.getUrl(ctx, "url");
+        var data = ProjectorURLSavedData.get(ctx.getSource().getLevel());
         var urlOptional = arg.map(data::getUrlById, Optional::of);
         if (urlOptional.isPresent()) {
             var url = urlOptional.get();
             var uuid = data.getOrCreateIdByCommand(url, ctx.getSource());
             new ProjectorURLPrefetchPacket(Set.of(uuid), data).sendToAll();
-            var msg = Component.translatable("command.slide_show.prefetch_projector_url.success", url, uuid);
+            var msg = Component.translatable("command.slide_show.prefetch_projector_url.success", toText(uuid, url));
             ctx.getSource().sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
             return Command.SINGLE_SUCCESS;
         }
-        throw URL_NOT_EXIST.create(arg.map(UUID::toString, u -> u.toUrl().toString()));
+        throw URL_NOT_EXIST.create(arg.map(SlideCommand::toText, SlideCommand::toText));
     }
 
     private static int blockByProjectorUrl(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        // noinspection DuplicatedCode
-        var level = ctx.getSource().getLevel();
-        var data = ProjectorURLSavedData.get(level);
+        var data = ProjectorURLSavedData.get(ctx.getSource().getLevel());
         var arg = ProjectorURLArgument.getUrl(ctx, "url");
-        var urlOptional = arg.map(data::getUrlById, Optional::of);
-        var uuidOptional = arg.map(Optional::of, data::getIdByUrl);
-        if (urlOptional.isPresent() && uuidOptional.isPresent()) {
-            var url = urlOptional.get();
-            var uuid = uuidOptional.get();
-            if (data.setBlockedStatusByCommand(uuid, url, ctx.getSource(), true)) {
-                var msg = Component.translatable("command.slide_show.block_projector_url.success", url, uuid);
+        var pairOptional = toPairOpt(data, arg);
+        if (pairOptional.isPresent()) {
+            var pair = pairOptional.get();
+            var text = toText(pair.getKey(), pair.getValue());
+            if (data.setBlockedStatusByCommand(pair.getKey(), pair.getValue(), ctx.getSource(), true)) {
+                var msg = Component.translatable("command.slide_show.block_projector_url.success", text);
                 ctx.getSource().sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
                 return Command.SINGLE_SUCCESS;
             }
         }
-        throw URL_NOT_EXIST.create(arg.map(UUID::toString, u -> u.toUrl().toString()));
+        throw URL_NOT_EXIST.create(arg.map(SlideCommand::toText, SlideCommand::toText));
     }
 
     private static int unblockByProjectorUrl(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        // noinspection DuplicatedCode
-        var level = ctx.getSource().getLevel();
-        var data = ProjectorURLSavedData.get(level);
+        var data = ProjectorURLSavedData.get(ctx.getSource().getLevel());
         var arg = ProjectorURLArgument.getUrl(ctx, "url");
-        var urlOptional = arg.map(data::getUrlById, Optional::of);
-        var uuidOptional = arg.map(Optional::of, data::getIdByUrl);
-        if (urlOptional.isPresent() && uuidOptional.isPresent()) {
-            var url = urlOptional.get();
-            var uuid = uuidOptional.get();
-            if (data.setBlockedStatusByCommand(uuid, url, ctx.getSource(), false)) {
-                var msg = Component.translatable("command.slide_show.unblock_projector_url.success", url, uuid);
+        var pairOptional = toPairOpt(data, arg);
+        if (pairOptional.isPresent()) {
+            var pair = pairOptional.get();
+            var text = toText(pair.getKey(), pair.getValue());
+            if (data.setBlockedStatusByCommand(pair.getKey(), pair.getValue(), ctx.getSource(), false)) {
+                var msg = Component.translatable("command.slide_show.unblock_projector_url.success", text);
                 ctx.getSource().sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
                 return Command.SINGLE_SUCCESS;
             }
         }
-        throw URL_NOT_EXIST.create(arg.map(UUID::toString, u -> u.toUrl().toString()));
+        throw URL_NOT_EXIST.create(arg.map(SlideCommand::toText, SlideCommand::toText));
+    }
+
+    private static Optional<Map.Entry<UUID, ProjectorURL>> toPairOpt(ProjectorURLSavedData data,
+                                                                     Either<UUID, ProjectorURL> arg) {
+        return arg.map(
+                id -> data.getUrlById(id).map(url -> Map.entry(id, url)),
+                url -> data.getIdByUrl(url).map(id -> Map.entry(id, url)));
+    }
+
+    private static Component toText(UUID id, ProjectorURL url) {
+        var click = new ClickEvent(ClickEvent.Action.OPEN_URL, url.toUrl().toString());
+        var text = StringUtils.abbreviate(StringUtils.substringAfter(url.toString(), "://"), 15);
+        var hover = new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("UUID:\n" + id + "\n\nURL:\n" + url.toUrl()));
+        return Component.literal(text).withStyle(s -> s.withColor(ChatFormatting.AQUA).withHoverEvent(hover).withClickEvent(click));
+    }
+
+    private static Component toText(ProjectorURL url) {
+        var click = new ClickEvent(ClickEvent.Action.OPEN_URL, url.toUrl().toString());
+        var text = StringUtils.abbreviate(StringUtils.substringAfter(url.toString(), "://"), 15);
+        var hover = new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("URL:\n" + url.toUrl()));
+        return Component.literal(text).withStyle(s -> s.withColor(ChatFormatting.AQUA).withHoverEvent(hover).withClickEvent(click));
+    }
+
+    private static Component toText(UUID id) {
+        var text = StringUtils.abbreviate(id.toString(), 15);
+        var hover = new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("UUID:\n" + id));
+        return Component.literal(text).withStyle(s -> s.withColor(ChatFormatting.AQUA).withHoverEvent(hover));
     }
 }

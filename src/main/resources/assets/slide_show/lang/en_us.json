@@ -3,9 +3,9 @@
 
     "block.slide_show.projector": "Slide Show Projector",
 
-    "command.slide_show.prefetch_projector_url.success": "Successfully prefetched url %s (%s)",
-    "command.slide_show.block_projector_url.success": "The projector url %s (%s) is successfully blocked",
-    "command.slide_show.unblock_projector_url.success": "The projector url %s (%s) is successfully unblocked",
+    "command.slide_show.prefetch_projector_url.success": "Successfully prefetched the requested url (%s)",
+    "command.slide_show.block_projector_url.success": "The projector url (%s) is successfully blocked",
+    "command.slide_show.unblock_projector_url.success": "The projector url (%s) is successfully unblocked",
 
     "command.slide_show.failed.url_not_exist": "The input url or uuid (%s) cannot be used for further operations",
 
