@@ -20,10 +20,13 @@ import org.teacon.slides.projector.ProjectorBlock;
 import org.teacon.slides.projector.ProjectorBlockEntity;
 import org.teacon.slides.url.ProjectorURL;
 import org.teacon.slides.url.ProjectorURLSavedData;
+import org.teacon.slides.url.ProjectorURLSavedData.Log;
+import org.teacon.slides.url.ProjectorURLSavedData.LogType;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -45,21 +48,26 @@ public final class ProjectorUpdatePacket {
     public final float slideOffsetY;
     public final float slideOffsetZ;
     public final boolean doubleSided;
+    public final boolean imgUrlBlockedNow;
     public final @Nullable ProjectorURL imgUrl;
-    public final @Nullable ProjectorURLSavedData.Log lastOp;
+    public final @Nullable Log lastOperationLog;
 
     public ProjectorUpdatePacket(ProjectorBlockEntity entity,
                                  @Nullable ProjectorURL imgUrlFallback,
-                                 @Nullable ProjectorURLSavedData.Log lastOpFallback) {
+                                 @Nullable Log lastOpFallback) {
         this.pos = entity.getBlockPos();
         this.imgId = entity.getImageLocation();
+        var isImgUrlBlockedUrl = false;
         var imgUrl = Optional.<ProjectorURL>empty();
-        var lastOp = Optional.<ProjectorURLSavedData.Log>empty();
+        var lastOp = Optional.<Log>empty();
         if (entity.getLevel() instanceof ServerLevel serverLevel) {
             var data = ProjectorURLSavedData.get(serverLevel);
             var globalPos = GlobalPos.of(serverLevel.dimension(), this.pos);
+            isImgUrlBlockedUrl = data.isUrlBlocked(this.imgId);
             imgUrl = data.getUrlById(this.imgId);
-            lastOp = imgUrl.flatMap(u -> data.getLatestLog(u, globalPos));
+            lastOp = imgUrl.flatMap(u -> data
+                    .getLatestLog(u, globalPos, Set.of(LogType.BLOCK, LogType.UNBLOCK))
+                    .or(() -> data.getLatestLog(u, globalPos, Set.of(LogType.values()))));
         }
         var dimension = entity.getDimension();
         var slideOffset = entity.getSlideOffset();
@@ -71,8 +79,9 @@ public final class ProjectorUpdatePacket {
         this.slideOffsetY = slideOffset.y();
         this.slideOffsetZ = slideOffset.z();
         this.doubleSided = entity.getDoubleSided();
+        this.imgUrlBlockedNow = isImgUrlBlockedUrl;
         this.imgUrl = imgUrl.orElse(imgUrlFallback);
-        this.lastOp = lastOp.orElse(lastOpFallback);
+        this.lastOperationLog = lastOp.orElse(lastOpFallback);
     }
 
     public ProjectorUpdatePacket(FriendlyByteBuf buf) {
@@ -86,16 +95,18 @@ public final class ProjectorUpdatePacket {
         this.slideOffsetY = buf.readFloat();
         this.slideOffsetZ = buf.readFloat();
         this.doubleSided = buf.readBoolean();
+        this.imgUrlBlockedNow = buf.readBoolean();
         this.imgUrl = Optional.of(buf.readUtf()).filter(s -> !s.isEmpty()).map(ProjectorURL::new).orElse(null);
-        this.lastOp = Optional.ofNullable(buf.readNbt()).map(c -> ProjectorURLSavedData.Log.readTag(c).getValue()).orElse(null);
+        this.lastOperationLog = Optional.ofNullable(buf.readNbt()).map(c -> Log.readTag(c).getValue()).orElse(null);
     }
 
     public void write(FriendlyByteBuf buf) {
         buf.writeBlockPos(this.pos).writeUUID(this.imgId);
         buf.writeEnum(this.rotation).writeInt(this.color).writeFloat(this.dimensionX).writeFloat(this.dimensionY);
-        buf.writeFloat(this.slideOffsetX).writeFloat(this.slideOffsetY).writeFloat(this.slideOffsetZ).writeBoolean(this.doubleSided);
+        buf.writeFloat(this.slideOffsetX).writeFloat(this.slideOffsetY).writeFloat(this.slideOffsetZ);
+        buf.writeBoolean(this.doubleSided).writeBoolean(this.imgUrlBlockedNow);
         buf.writeUtf(this.imgUrl == null ? "" : this.imgUrl.toUrl().toString());
-        buf.writeNbt(this.lastOp == null ? null : this.lastOp.writeTag());
+        buf.writeNbt(this.lastOperationLog == null ? null : this.lastOperationLog.writeTag());
     }
 
     public void sendToServer() {

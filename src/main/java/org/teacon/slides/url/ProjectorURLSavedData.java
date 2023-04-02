@@ -57,12 +57,17 @@ public final class ProjectorURLSavedData extends SavedData {
         return this.blockedIdCollection.contains(id);
     }
 
-    public Optional<Log> getLatestLog(ProjectorURL url, GlobalPos filterProjectorPos) {
+    public Optional<Log> getLatestLog(ProjectorURL url, GlobalPos filterProjectorPos, Collection<LogType> filterTypes) {
         var iterator = this.urlStrToLogs.get(url).descendingIterator();
         while (iterator.hasNext()) {
             var log = iterator.next();
-            if (log.projector().orElse(filterProjectorPos).equals(filterProjectorPos)) {
-                return Optional.of(log);
+            if (filterTypes.contains(log.type())) {
+                if (log.projector().isEmpty()) {
+                    return Optional.of(log);
+                }
+                if (log.projector().get().equals(filterProjectorPos)) {
+                    return Optional.of(log);
+                }
             }
         }
         return Optional.empty();

@@ -2,6 +2,7 @@ package org.teacon.slides.projector;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.ChatFormatting;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.gui.Font;
@@ -10,7 +11,10 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentUtils;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.Block;
@@ -29,6 +33,10 @@ import org.teacon.slides.url.ProjectorURL;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -78,6 +86,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     private Vector2f mImageSize = new Vector2f(1, 1);
     private Vector3f mImageOffset = new Vector3f(0, 0, 0);
 
+    private boolean mImgBlocked;
     private boolean mDoubleSided;
     private ProjectorBlock.InternalRotation mRotation;
 
@@ -94,6 +103,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         mUpdatePacket = menu.updatePacket;
         mRotation = menu.updatePacket.rotation;
         mDoubleSided = menu.updatePacket.doubleSided;
+        mImgBlocked = menu.updatePacket.imgUrlBlockedNow;
         // url input
         mURLInput = Lazy.of(() -> {
             var input = new EditBox(font, leftPos + 30, topPos + 29, 137, 16, URL_TEXT);
@@ -102,11 +112,13 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 try {
                     mURL = new ProjectorURL(text);
                     mInvalidURL = false;
+                    mImgBlocked = menu.updatePacket.imgUrlBlockedNow && mURL.equals(mUpdatePacket.imgUrl);
                 } catch (IllegalArgumentException e) {
                     mURL = null;
                     mInvalidURL = StringUtils.isNotBlank(text);
+                    mImgBlocked = false;
                 }
-                input.setTextColor(mInvalidURL ? 0xE04B4B : 0xE0E0E0);
+                input.setTextColor(mInvalidURL ? 0xE04B4B : mImgBlocked ? 0xE0E04B : 0xE0E0E0);
             });
             input.setValue(mUpdatePacket.imgUrl == null ? "" : mUpdatePacket.imgUrl.toUrl().toString());
             return input;
@@ -357,6 +369,9 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         RenderSystem.setShaderTexture(0, GUI_TEXTURE);
         blit(stack, leftPos, topPos, 0, 0, imageWidth, imageHeight);
+        if (mImgBlocked) {
+            blit(stack, leftPos + 9, topPos + 27, 179, 73, 18, 19);
+        }
     }
 
     @Override
@@ -382,7 +397,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
         int offsetX = mouseX - leftPos, offsetY = mouseY - topPos;
         if (offsetX >= 9 && offsetY >= 27 && offsetX < 27 && offsetY < 46) {
-            renderTooltip(stack, URL_TEXT, offsetX, offsetY);
+            renderComponentTooltip(stack, this.getUrlTexts(), offsetX, offsetY);
         } else if (offsetX >= 34 && offsetY >= 153 && offsetX < 52 && offsetY < 172) {
             renderTooltip(stack, COLOR_TEXT, offsetX, offsetY);
         } else if (offsetX >= 9 && offsetY >= 49 && offsetX < 27 && offsetY < 68) {
@@ -402,6 +417,40 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         } else if (offsetX >= 9 && offsetY >= 153 && offsetX < 27 && offsetY < 172) {
             renderTooltip(stack, SINGLE_DOUBLE_SIDED_TEXT, offsetX, offsetY);
         }
+    }
+
+    private List<Component> getUrlTexts() {
+        var lastLog = mUpdatePacket.lastOperationLog;
+        var components = new ArrayList<Component>();
+        components.add(URL_TEXT);
+        if (lastLog != null) {
+            var lastLogType = lastLog.type();
+            var lastLogProjector = lastLog.projector();
+            var mc = Objects.requireNonNull(this.minecraft);
+            var time = lastLog.time().atZone(ZoneId.systemDefault());
+            var pos = lastLogProjector.map(GlobalPos::pos).orElse(BlockPos.ZERO);
+            if (lastLogProjector.isEmpty()) {
+                var path = lastLogType.id().getPath();
+                var namespace = lastLogType.id().getNamespace();
+                var key = String.format("gui.slide_show.log_message.%s.%s", namespace, path);
+                components.add(Component.translatable(key).withStyle(ChatFormatting.GRAY));
+            } else if (mc.level == null || !mc.level.dimension().equals(lastLogProjector.get().dimension())) {
+                var path = lastLogType.id().getPath();
+                var namespace = lastLogType.id().getNamespace();
+                var key = String.format("gui.slide_show.log_message.%s.%s.in_another_level", namespace, path);
+                components.add(Component.translatable(key).withStyle(ChatFormatting.GRAY));
+            } else {
+                var path = lastLogType.id().getPath();
+                var namespace = lastLogType.id().getNamespace();
+                var posText = Component.translatable("chat.coordinates", pos.getX(), pos.getY(), pos.getZ());
+                var key = String.format("gui.slide_show.log_message.%s.%s.in_current_level", namespace, path);
+                components.add(Component.translatable(key, posText).withStyle(ChatFormatting.GRAY));
+            }
+            var operatorText = ComponentUtils.getDisplayName(lastLog.operator());
+            var timeText = Component.literal(DateTimeFormatter.RFC_1123_DATE_TIME.format(time.toOffsetDateTime()));
+            components.add(Component.translatable("gui.slide_show.log_comment", timeText, operatorText).withStyle(ChatFormatting.GRAY));
+        }
+        return components;
     }
 
     private static void drawCenteredStringWithoutShadow(PoseStack stack, Font renderer, Component string, int y) {
