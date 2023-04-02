@@ -50,6 +50,10 @@ public sealed interface Slide extends AutoCloseable permits IconSlide, ImgSlide 
         return IconSlide.DEFAULT_FAILED;
     }
 
+    static Slide blocked() {
+        return IconSlide.DEFAULT_BLOCKED;
+    }
+
     static Slide loading() {
         return IconSlide.DEFAULT_LOADING;
     }

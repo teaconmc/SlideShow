@@ -23,6 +23,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 public enum IconSlide implements Slide {
     DEFAULT_EMPTY(new ResourceLocation(SlideShow.ID, "textures/gui/slide_icon_empty.png")),
     DEFAULT_FAILED(new ResourceLocation(SlideShow.ID, "textures/gui/slide_icon_failed.png")),
+    DEFAULT_BLOCKED(new ResourceLocation(SlideShow.ID, "textures/gui/slide_icon_blocked.png")),
     DEFAULT_LOADING(new ResourceLocation(SlideShow.ID, "textures/gui/slide_icon_loading.png"));
 
     private static final RenderType BACKGROUND_RENDER_TYPE;

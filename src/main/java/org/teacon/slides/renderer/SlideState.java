@@ -165,7 +165,7 @@ public final class SlideState {
             return sCache.getAcquire().computeIfAbsent(sIdWithImage.get(id), SlideState::new).getWithUpdate();
         }
         if (sIdWithoutImageWithBlockStatus.containsKey(id)) {
-            return sIdWithoutImageWithBlockStatus.getBoolean(id) ? Slide.failed() : Slide.empty();
+            return sIdWithoutImageWithBlockStatus.getBoolean(id) ? Slide.blocked() : Slide.empty();
         }
         return Slide.loading();
     }
