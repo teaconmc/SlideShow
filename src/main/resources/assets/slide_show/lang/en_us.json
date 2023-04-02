@@ -1,5 +1,12 @@
 {
+    "argument.slide_show.projector_url.error": "Input %s is not a valid url",
+
     "block.slide_show.projector": "Slide Show Projector",
+
+    "command.slide_show.block_projector_url.success": "The projector url %s (%s) is successfully blocked",
+    "command.slide_show.unblock_projector_url.success": "The projector url %s (%s) is successfully unblocked",
+
+    "command.slide_show.failed.url_not_exist": "The input url or uuid (%s) cannot be used for further operations",
 
     "gui.slide_show.url": "Image Link",
     "gui.slide_show.color": "Slide Color",

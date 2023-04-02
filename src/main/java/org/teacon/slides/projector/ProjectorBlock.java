@@ -29,7 +29,6 @@ import org.joml.Vector4f;
 import org.teacon.slides.ModRegistries;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.nio.FloatBuffer;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
@@ -147,7 +146,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
             return InteractionResult.SUCCESS;
         }
         if (level.getBlockEntity(pos) instanceof ProjectorBlockEntity tile) {
-            tile.openGui(pos, player);
+            ProjectorContainerMenu.openGui(player, tile);
         }
         return InteractionResult.CONSUME;
     }
@@ -178,10 +177,10 @@ public final class ProjectorBlock extends Block implements EntityBlock {
         private final Matrix4f mMatrix;
         private final Matrix3f mNormal;
 
-        InternalRotation(float m00, float m01, float m02, float m03,
-                         float m10, float m11, float m12, float m13,
-                         float m20, float m21, float m22, float m23) {
-            mMatrix = new Matrix4f(m00, m01, m02, m03, m10, m11, m12, m13, m20, m21, m22, m23, 0F, 0F, 0F, 1F);
+        InternalRotation(float m00, float m10, float m20, float m30,
+                         float m01, float m11, float m21, float m31,
+                         float m02, float m12, float m22, float m32) {
+            mMatrix = new Matrix4f(m00, m01, m02, 0F, m10, m11, m12, 0F, m20, m21, m22, 0F, m30, m31, m32, 1F);
             mNormal = new Matrix3f(m00, m01, m02, m10, m11, m12, m20, m21, m22);
             mSerializedName = name().toLowerCase(Locale.ROOT);
         }
@@ -202,19 +201,18 @@ public final class ProjectorBlock extends Block implements EntityBlock {
             return ordinal() >= 4;
         }
 
-        public Vector4f transform(Vector4f vector) {
-            return vector.mul(mMatrix);
+        public void transform(Vector4f vector) {
+            vector.mul(mMatrix);
         }
 
-        public Matrix4f transform(Matrix4f poseMatrix) {
-            return poseMatrix.mul(mMatrix);
+        public void transform(Matrix4f poseMatrix) {
+            poseMatrix.mul(mMatrix);
         }
 
-        public Matrix3f transform(Matrix3f normalMatrix) {
-            return normalMatrix.mul(mNormal);
+        public void transform(Matrix3f normalMatrix) {
+            normalMatrix.mul(mNormal);
         }
 
-        
         @Override
         public final String getSerializedName() {
             return mSerializedName;

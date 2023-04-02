@@ -8,6 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Vector2f;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.renderer.SlideRenderType;
 
@@ -42,10 +43,11 @@ public enum IconSlide implements Slide {
     }
 
     @Override
-    public void render(MultiBufferSource source, Matrix4f matrix,
-                       Matrix3f normal, float width, float height, int color,
-                       int light, int overlay, boolean front, boolean back, long tick, float partialTick) {
+    public void render(MultiBufferSource source, Matrix4f matrix, Matrix3f normal, Vector2f dimension,
+                       int color, int light, int overlay, boolean front, boolean back, long tick, float partialTick) {
         var alpha = color >>> 24;
+        var width = dimension.x();
+        var height = dimension.y();
         var factor = getFactor(width, height);
         var xSize = Math.round(width / factor);
         var ySize = Math.round(height / factor);

@@ -4,7 +4,10 @@ import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.*;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Rarity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import org.teacon.slides.ModRegistries;
@@ -30,7 +33,7 @@ public final class ProjectorItem extends BlockItem {
         final boolean superResult = super.updateCustomBlockEntityTag(pos, level, player, stack, state);
         if (!superResult && !level.isClientSide && player != null) {
             if (level.getBlockEntity(pos) instanceof ProjectorBlockEntity tile) {
-                tile.openGui(pos, player);
+                ProjectorContainerMenu.openGui(player, tile);
             }
         }
         return superResult;

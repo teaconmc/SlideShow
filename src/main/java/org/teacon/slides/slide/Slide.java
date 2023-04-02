@@ -5,6 +5,7 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.MultiBufferSource;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Vector2f;
 import org.teacon.slides.renderer.SlideState;
 import org.teacon.slides.texture.TextureProvider;
 
@@ -19,9 +20,8 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public sealed interface Slide extends AutoCloseable permits IconSlide, ImgSlide {
-    void render(MultiBufferSource source, Matrix4f matrix,
-                                Matrix3f normal, float width, float height, int color,
-                                int light, int overlay, boolean front, boolean back, long tick, float partialTick);
+    void render(MultiBufferSource source, Matrix4f matrix, Matrix3f normal, Vector2f dimension,
+                int color, int light, int overlay, boolean front, boolean back, long tick, float partialTick);
 
     @Override
     void close();

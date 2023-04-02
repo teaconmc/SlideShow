@@ -2,6 +2,7 @@ package org.teacon.slides.projector;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.EditBox;
@@ -11,22 +12,28 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Rotation;
-import net.minecraft.world.phys.Vec2;
+import net.minecraftforge.common.util.Lazy;
 import net.objecthunter.exp4j.ExpressionBuilder;
 import org.apache.commons.lang3.StringUtils;
+import org.joml.Matrix4f;
+import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.glfw.GLFW;
 import org.teacon.slides.SlideShow;
-import org.teacon.slides.renderer.SlideState;
+import org.teacon.slides.network.ProjectorUpdatePacket;
+import org.teacon.slides.url.ProjectorURL;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Objects;
+import java.util.UUID;
 
-@SuppressWarnings("ConstantConditions")
+@MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ProjectorScreen extends AbstractContainerScreen<ProjectorContainerMenu> {
-
     private static final ResourceLocation
             GUI_TEXTURE = new ResourceLocation(SlideShow.ID, "textures/gui/projector.png");
 
@@ -45,274 +52,301 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             ROTATE_TEXT = Component.translatable("gui.slide_show.rotate"),
             SINGLE_DOUBLE_SIDED_TEXT = Component.translatable("gui.slide_show.single_double_sided");
 
-    private EditBox mURLInput;
-    private EditBox mColorInput;
-    private EditBox mWidthInput;
-    private EditBox mHeightInput;
-    private EditBox mOffsetXInput;
-    private EditBox mOffsetYInput;
-    private EditBox mOffsetZInput;
+    private static final int
+            URL_MAX_LENGTH = 1 << 9,
+            COLOR_MAX_LENGTH = 1 << 3;
 
-    private Button mSwitchSingleSided;
-    private Button mSwitchDoubleSided;
+    private final Lazy<EditBox> mURLInput;
+    private final Lazy<EditBox> mColorInput;
+    private final Lazy<EditBox> mWidthInput;
+    private final Lazy<EditBox> mHeightInput;
+    private final Lazy<EditBox> mOffsetXInput;
+    private final Lazy<EditBox> mOffsetYInput;
+    private final Lazy<EditBox> mOffsetZInput;
+
+    private final Lazy<Button> mFlipRotation;
+    private final Lazy<Button> mCycleRotation;
+    private final Lazy<Button> mSwitchSingleSided;
+    private final Lazy<Button> mSwitchDoubleSided;
+
+    private final ProjectorUpdatePacket mUpdatePacket;
+
+    private @Nullable ProjectorURL mURL;
+    private int mImageColor = 0xFFFFFFFF;
+    private Vector2f mImageSize = new Vector2f(1, 1);
+    private Vector3f mImageOffset = new Vector3f(0, 0, 0);
 
     private boolean mDoubleSided;
-    private int mImageColor = ~0;
-    private Vec2 mImageSize = Vec2.ONE;
-    private Vector3f mImageOffset = new Vector3f();
-
-    private ProjectorBlock.InternalRotation mRotation = ProjectorBlock.InternalRotation.NONE;
+    private ProjectorBlock.InternalRotation mRotation;
 
     private boolean mInvalidURL = true;
     private boolean mInvalidColor = true;
     private boolean mInvalidWidth = true, mInvalidHeight = true;
     private boolean mInvalidOffsetX = true, mInvalidOffsetY = true, mInvalidOffsetZ = true;
 
-    private final ProjectorBlockEntity mEntity;
-
     public ProjectorScreen(ProjectorContainerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        mEntity = menu.mEntity;
         imageWidth = 176;
         imageHeight = 217;
+        // initialize variables
+        mUpdatePacket = menu.updatePacket;
+        mRotation = menu.updatePacket.rotation;
+        mDoubleSided = menu.updatePacket.doubleSided;
+        // url input
+        mURLInput = Lazy.of(() -> {
+            var input = new EditBox(font, leftPos + 30, topPos + 29, 137, 16, URL_TEXT);
+            input.setMaxLength(URL_MAX_LENGTH);
+            input.setResponder(text -> {
+                try {
+                    mURL = new ProjectorURL(text);
+                    mInvalidURL = false;
+                } catch (IllegalArgumentException e) {
+                    mURL = null;
+                    mInvalidURL = StringUtils.isNotBlank(text);
+                }
+                input.setTextColor(mInvalidURL ? 0xE04B4B : 0xE0E0E0);
+            });
+            input.setValue(mUpdatePacket.imgUrl == null ? "" : mUpdatePacket.imgUrl.toUrl().toString());
+            return input;
+        });
+        // color input
+        mColorInput = Lazy.of(() -> {
+            var input = new EditBox(font, leftPos + 55, topPos + 155, 56, 16, COLOR_TEXT);
+            input.setMaxLength(COLOR_MAX_LENGTH);
+            input.setResponder(text -> {
+                try {
+                    mImageColor = Integer.parseUnsignedInt(text, 16);
+                    mInvalidColor = false;
+                } catch (Exception e) {
+                    mInvalidColor = true;
+                }
+                input.setTextColor(mInvalidColor ? 0xE04B4B : 0xE0E0E0);
+            });
+            input.setValue(String.format("%08X", mUpdatePacket.color));
+            return input;
+        });
+        // width input
+        mWidthInput = Lazy.of(() -> {
+            var input = new EditBox(font, leftPos + 30, topPos + 51, 56, 16, WIDTH_TEXT);
+            input.setResponder(text -> {
+                try {
+                    var newSize = new Vector2f(parseFloat(text), mImageSize.y);
+                    updateDimension(newSize);
+                    mInvalidWidth = false;
+                } catch (Exception e) {
+                    mInvalidWidth = true;
+                }
+                input.setTextColor(mInvalidWidth ? 0xE04B4B : 0xE0E0E0);
+            });
+            input.setValue(toOptionalSignedString(mUpdatePacket.dimensionX));
+            return input;
+        });
+        // height input
+        mHeightInput = Lazy.of(() -> {
+            var input = new EditBox(font, leftPos + 111, topPos + 51, 56, 16, HEIGHT_TEXT);
+            input.setResponder(text -> {
+                try {
+                    var newSize = new Vector2f(mImageSize.x, parseFloat(text));
+                    updateDimension(newSize);
+                    mInvalidHeight = false;
+                } catch (Exception e) {
+                    mInvalidHeight = true;
+                }
+                input.setTextColor(mInvalidHeight ? 0xE04B4B : 0xE0E0E0);
+            });
+            input.setValue(toOptionalSignedString(mUpdatePacket.dimensionY));
+            return input;
+        });
+        // offset x input
+        mOffsetXInput = Lazy.of(() -> {
+            var input = new EditBox(font, leftPos + 30, topPos + 103, 29, 16, OFFSET_X_TEXT);
+            input.setResponder(text -> {
+                try {
+                    mImageOffset = new Vector3f(parseFloat(text), mImageOffset.y(), mImageOffset.z());
+                    mInvalidOffsetX = false;
+                } catch (Exception e) {
+                    mInvalidOffsetX = true;
+                }
+                input.setTextColor(mInvalidOffsetX ? 0xE04B4B : 0xE0E0E0);
+            });
+            input.setValue(toSignedString(mUpdatePacket.slideOffsetX));
+            return input;
+        });
+        // offset y input
+        mOffsetYInput = Lazy.of(() -> {
+            var input = new EditBox(font, leftPos + 84, topPos + 103, 29, 16, OFFSET_Y_TEXT);
+            input.setResponder(text -> {
+                try {
+                    mImageOffset = new Vector3f(mImageOffset.x(), parseFloat(text), mImageOffset.z());
+                    mInvalidOffsetY = false;
+                } catch (Exception e) {
+                    mInvalidOffsetY = true;
+                }
+                input.setTextColor(mInvalidOffsetY ? 0xE04B4B : 0xE0E0E0);
+            });
+            input.setValue(toSignedString(mUpdatePacket.slideOffsetY));
+            return input;
+        });
+        // offset z input
+        mOffsetZInput = Lazy.of(() -> {
+            var input = new EditBox(font, leftPos + 138, topPos + 103, 29, 16, OFFSET_Z_TEXT);
+            input.setResponder(text -> {
+                try {
+                    mImageOffset = new Vector3f(mImageOffset.x(), mImageOffset.y(), parseFloat(text));
+                    mInvalidOffsetZ = false;
+                } catch (Exception e) {
+                    mInvalidOffsetZ = true;
+                }
+                input.setTextColor(mInvalidOffsetZ ? 0xE04B4B : 0xE0E0E0);
+            });
+            input.setValue(toSignedString(mUpdatePacket.slideOffsetZ));
+            return input;
+        });
+        // internal rotation buttons
+        mFlipRotation = Lazy.of(() -> {
+            var button = new Button(leftPos + 117, topPos + 153, 179, 153, 18, 19, FLIP_TEXT, () -> {
+                var newRotation = mRotation.flip();
+                updateRotation(newRotation);
+            });
+            button.visible = true;
+            return button;
+        });
+        mCycleRotation = Lazy.of(() -> {
+            var button = new Button(leftPos + 142, topPos + 153, 179, 173, 18, 19, ROTATE_TEXT, () -> {
+                var newRotation = mRotation.compose(Rotation.CLOCKWISE_90);
+                updateRotation(newRotation);
+            });
+            button.visible = true;
+            return button;
+        });
+        // single sided / double sided
+        mSwitchSingleSided = Lazy.of(() -> {
+            var button = new Button(leftPos + 9, topPos + 153, 179, 113, 18, 19, SINGLE_DOUBLE_SIDED_TEXT, () -> {
+                if (mDoubleSided) {
+                    updateDoubleSided(false);
+                }
+            });
+            button.visible = mDoubleSided;
+            return button;
+        });
+        mSwitchDoubleSided = Lazy.of(() -> {
+            var button = new Button(leftPos + 9, topPos + 153, 179, 133, 18, 19, SINGLE_DOUBLE_SIDED_TEXT, () -> {
+                if (!mDoubleSided) {
+                    updateDoubleSided(true);
+                }
+            });
+            button.visible = !mDoubleSided;
+            return button;
+        });
     }
 
     @Override
     protected void init() {
         super.init();
-        if (mEntity == null) {
-            return;
-        }
-        // minecraft.keyboardHandler.setSendRepeatsToGui(true);
 
-        // url input
-        mURLInput = new EditBox(font, leftPos + 30, topPos + 29, 137, 16,
-                Component.translatable("gui.slide_show.url"));
-        mURLInput.setMaxLength(512);
-        mURLInput.setResponder(text -> {
-            if (StringUtils.isNotBlank(text)) {
-                mInvalidURL = SlideState.createURI(text) == null;
-            } else {
-                mInvalidURL = false;
-            }
-            mURLInput.setTextColor(mInvalidURL ? 0xE04B4B : 0xE0E0E0);
-        });
-        mURLInput.setValue(mEntity.mLocation);
-        addRenderableWidget(mURLInput);
-        setInitialFocus(mURLInput);
+        addRenderableWidget(mURLInput.get());
+        addRenderableWidget(mColorInput.get());
+        addRenderableWidget(mWidthInput.get());
+        addRenderableWidget(mHeightInput.get());
+        addRenderableWidget(mOffsetXInput.get());
+        addRenderableWidget(mOffsetYInput.get());
+        addRenderableWidget(mOffsetZInput.get());
 
-        // color input
-        mColorInput = new EditBox(font, leftPos + 55, topPos + 155, 56, 16,
-                Component.translatable("gui.slide_show.color"));
-        mColorInput.setMaxLength(8);
-        mColorInput.setResponder(text -> {
-            try {
-                mImageColor = Integer.parseUnsignedInt(text, 16);
-                mInvalidColor = false;
-            } catch (Exception e) {
-                mInvalidColor = true;
-            }
-            mColorInput.setTextColor(mInvalidColor ? 0xE04B4B : 0xE0E0E0);
-        });
-        mColorInput.setValue(String.format("%08X", mEntity.mColor));
-        addRenderableWidget(mColorInput);
+        addRenderableWidget(mFlipRotation.get());
+        addRenderableWidget(mCycleRotation.get());
+        addRenderableWidget(mSwitchSingleSided.get());
+        addRenderableWidget(mSwitchDoubleSided.get());
 
-        // width input
-        mWidthInput = new EditBox(font, leftPos + 30, topPos + 51, 56, 16,
-                Component.translatable("gui.slide_show.width"));
-        mWidthInput.setResponder(text -> {
-            try {
-                Vec2 newSize = new Vec2(parseFloat(text), mImageSize.y);
-                updateSize(newSize);
-                mInvalidWidth = false;
-            } catch (Exception e) {
-                mInvalidWidth = true;
-            }
-            mWidthInput.setTextColor(mInvalidWidth ? 0xE04B4B : 0xE0E0E0);
-        });
-        mWidthInput.setValue(toOptionalSignedString(mEntity.mWidth));
-        addRenderableWidget(mWidthInput);
-
-        // height input
-        mHeightInput = new EditBox(font, leftPos + 111, topPos + 51, 56, 16,
-                Component.translatable("gui.slide_show.height"));
-        mHeightInput.setResponder(input -> {
-            try {
-                Vec2 newSize = new Vec2(mImageSize.x, parseFloat(input));
-                updateSize(newSize);
-                mInvalidHeight = false;
-            } catch (Exception e) {
-                mInvalidHeight = true;
-            }
-            mHeightInput.setTextColor(mInvalidHeight ? 0xE04B4B : 0xE0E0E0);
-        });
-        mHeightInput.setValue(toOptionalSignedString(mEntity.mHeight));
-        addRenderableWidget(mHeightInput);
-
-        // offset x input
-        mOffsetXInput = new EditBox(font, leftPos + 30, topPos + 103, 29, 16,
-                Component.translatable("gui.slide_show.offset_x"));
-        mOffsetXInput.setResponder(input -> {
-            try {
-                mImageOffset = new Vector3f(parseFloat(input), mImageOffset.y(), mImageOffset.z());
-                mInvalidOffsetX = false;
-            } catch (Exception e) {
-                mInvalidOffsetX = true;
-            }
-            mOffsetXInput.setTextColor(mInvalidOffsetX ? 0xE04B4B : 0xE0E0E0);
-        });
-        mOffsetXInput.setValue(toSignedString(mEntity.mOffsetX));
-        addRenderableWidget(mOffsetXInput);
-
-        // offset y input
-        mOffsetYInput = new EditBox(font, leftPos + 84, topPos + 103, 29, 16,
-                Component.translatable("gui.slide_show.offset_y"));
-        mOffsetYInput.setResponder(input -> {
-            try {
-                mImageOffset = new Vector3f(mImageOffset.x(), parseFloat(input), mImageOffset.z());
-                mInvalidOffsetY = false;
-            } catch (Exception e) {
-                mInvalidOffsetY = true;
-            }
-            mOffsetYInput.setTextColor(mInvalidOffsetY ? 0xE04B4B : 0xE0E0E0);
-        });
-        mOffsetYInput.setValue(toSignedString(mEntity.mOffsetY));
-        addRenderableWidget(mOffsetYInput);
-
-        // offset z input
-        mOffsetZInput = new EditBox(font, leftPos + 138, topPos + 103, 29, 16,
-                Component.translatable("gui.slide_show.offset_z"));
-        mOffsetZInput.setResponder(input -> {
-            try {
-                mImageOffset = new Vector3f(mImageOffset.x(), mImageOffset.y(), parseFloat(input));
-                mInvalidOffsetZ = false;
-            } catch (Exception e) {
-                mInvalidOffsetZ = true;
-            }
-            mOffsetZInput.setTextColor(mInvalidOffsetZ ? 0xE04B4B : 0xE0E0E0);
-        });
-        mOffsetZInput.setValue(toSignedString(mEntity.mOffsetZ));
-        addRenderableWidget(mOffsetZInput);
-
-        // internal rotation buttons
-        addRenderableWidget(new Button(leftPos + 117, topPos + 153, 179, 153, 18, 19, Component.translatable(
-                "gui.slide_show.flip"), () -> {
-            ProjectorBlock.InternalRotation newRotation = mRotation.flip();
-            updateRotation(newRotation);
-        }));
-        addRenderableWidget(new Button(leftPos + 142, topPos + 153, 179, 173, 18, 19, Component.translatable(
-                "gui.slide_show.rotate"), () -> {
-            ProjectorBlock.InternalRotation newRotation = mRotation.compose(Rotation.CLOCKWISE_90);
-            updateRotation(newRotation);
-        }));
-        mRotation = mEntity.getBlockState().getValue(ProjectorBlock.ROTATION);
-
-        // single sided / double sided
-        mSwitchSingleSided = addRenderableWidget(new Button(leftPos + 9, topPos + 153, 179, 113, 18, 19,
-                Component.translatable("gui.slide_show.single_double_sided"), () -> {
-            mDoubleSided = false;
-            mSwitchDoubleSided.visible = true;
-            mSwitchSingleSided.visible = false;
-        }));
-        mSwitchDoubleSided = addRenderableWidget(new Button(leftPos + 9, topPos + 153, 179, 133, 18, 19,
-                Component.translatable("gui.slide_show.single_double_sided"), () -> {
-            mDoubleSided = true;
-            mSwitchSingleSided.visible = true;
-            mSwitchDoubleSided.visible = false;
-        }));
-        mDoubleSided = mEntity.mDoubleSided;
-        mSwitchDoubleSided.visible = !mDoubleSided;
-        mSwitchSingleSided.visible = mDoubleSided;
+        setInitialFocus(mURLInput.get());
     }
 
     private void updateRotation(ProjectorBlock.InternalRotation newRotation) {
+        // noinspection DuplicatedCode
         if (!mInvalidOffsetX && !mInvalidOffsetY && !mInvalidOffsetZ) {
-            Vector3f absolute = relativeToAbsolute(mImageOffset, mImageSize, mRotation);
-            Vector3f newRelative = absoluteToRelative(absolute, mImageSize, newRotation);
-            mOffsetXInput.setValue(toSignedString(newRelative.x()));
-            mOffsetYInput.setValue(toSignedString(newRelative.y()));
-            mOffsetZInput.setValue(toSignedString(newRelative.z()));
+            var absolute = relativeToAbsolute(mImageOffset, mImageSize, mRotation);
+            var newRelative = absoluteToRelative(absolute, mImageSize, newRotation);
+            mOffsetXInput.get().setValue(toSignedString(newRelative.x()));
+            mOffsetYInput.get().setValue(toSignedString(newRelative.y()));
+            mOffsetZInput.get().setValue(toSignedString(newRelative.z()));
         }
         mRotation = newRotation;
     }
 
-    private void updateSize(Vec2 newSize) {
+    private void updateDimension(Vector2f newDimension) {
+        // noinspection DuplicatedCode
         if (!mInvalidOffsetX && !mInvalidOffsetY && !mInvalidOffsetZ) {
-            Vector3f absolute = relativeToAbsolute(mImageOffset, mImageSize, mRotation);
-            Vector3f newRelative = absoluteToRelative(absolute, newSize, mRotation);
-            mOffsetXInput.setValue(toSignedString(newRelative.x()));
-            mOffsetYInput.setValue(toSignedString(newRelative.y()));
-            mOffsetZInput.setValue(toSignedString(newRelative.z()));
+            var absolute = relativeToAbsolute(mImageOffset, mImageSize, mRotation);
+            var newRelative = absoluteToRelative(absolute, newDimension, mRotation);
+            mOffsetXInput.get().setValue(toSignedString(newRelative.x()));
+            mOffsetYInput.get().setValue(toSignedString(newRelative.y()));
+            mOffsetZInput.get().setValue(toSignedString(newRelative.z()));
         }
-        mImageSize = newSize;
+        mImageSize = newDimension;
+    }
+
+    private void updateDoubleSided(boolean doubleSided) {
+        mDoubleSided = doubleSided;
+        mSwitchSingleSided.get().visible = doubleSided;
+        mSwitchDoubleSided.get().visible = !doubleSided;
     }
 
     @Override
     public void containerTick() {
-        if (mEntity == null) {
-            minecraft.player.closeContainer();
-            return;
-        }
-        mURLInput.tick();
-        mColorInput.tick();
-        mWidthInput.tick();
-        mHeightInput.tick();
-        mOffsetXInput.tick();
-        mOffsetYInput.tick();
-        mOffsetZInput.tick();
+        mURLInput.get().tick();
+        mColorInput.get().tick();
+        mWidthInput.get().tick();
+        mHeightInput.get().tick();
+        mOffsetXInput.get().tick();
+        mOffsetYInput.get().tick();
+        mOffsetZInput.get().tick();
     }
 
     @Override
     public void removed() {
         super.removed();
-        // minecraft.keyboardHandler.setSendRepeatsToGui(false);
-        if (mEntity == null) {
-            return;
+        var tilePos = mUpdatePacket.pos;
+        var level = Objects.requireNonNull(minecraft).level;
+        if (level != null && level.getBlockEntity(tilePos) instanceof ProjectorBlockEntity tile) {
+            var invalidSize = mInvalidWidth || mInvalidHeight;
+            var invalidOffset = mInvalidOffsetX || mInvalidOffsetY || mInvalidOffsetZ;
+            if (!mInvalidURL && !Objects.equals(mURL, mUpdatePacket.imgUrl)) {
+                // apply random uuid and wait for server updates
+                tile.setImageLocation(UUID.randomUUID());
+            }
+            if (!mInvalidColor) {
+                tile.setColorARGB(mImageColor);
+            }
+            if (!invalidSize) {
+                tile.setDimension(mImageSize);
+            }
+            if (!invalidOffset) {
+                tile.setSlideOffset(mImageOffset);
+            }
+            var state = tile.getBlockState().setValue(ProjectorBlock.ROTATION, mRotation);
+            level.setBlock(tilePos, state, Block.UPDATE_NONE);
+            tile.setDoubleSided(mDoubleSided);
+            new ProjectorUpdatePacket(tile, mURL, null).sendToServer();
         }
-        final ProjectorUpdatePacket packet = new ProjectorUpdatePacket(mEntity, mRotation);
-        final boolean invalidSize = mInvalidWidth || mInvalidHeight;
-        final boolean invalidOffset = mInvalidOffsetX || mInvalidOffsetY || mInvalidOffsetZ;
-        if (!mInvalidURL) {
-            mEntity.mLocation = mURLInput.getValue();
-        }
-        if (!mInvalidColor) {
-            mEntity.mColor = mImageColor;
-        }
-        if (!invalidSize) {
-            mEntity.mWidth = mImageSize.x;
-            mEntity.mHeight = mImageSize.y;
-        }
-        if (!invalidOffset) {
-            mEntity.mOffsetX = mImageOffset.x();
-            mEntity.mOffsetY = mImageOffset.y();
-            mEntity.mOffsetZ = mImageOffset.z();
-        }
-        mEntity.mDoubleSided = mDoubleSided;
-        packet.sendToServer();
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifier) {
+        var isEscape = false;
+
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-            minecraft.player.closeContainer();
-            return true;
+            Objects.requireNonNull(Objects.requireNonNull(minecraft).player).closeContainer();
+            isEscape = true;
         }
 
-        return mURLInput.keyPressed(keyCode, scanCode, modifier) || mURLInput.canConsumeInput()
-                || mColorInput.keyPressed(keyCode, scanCode, modifier) || mColorInput.canConsumeInput()
-                || mWidthInput.keyPressed(keyCode, scanCode, modifier) || mWidthInput.canConsumeInput()
-                || mHeightInput.keyPressed(keyCode, scanCode, modifier) || mHeightInput.canConsumeInput()
-                || mOffsetXInput.keyPressed(keyCode, scanCode, modifier) || mOffsetXInput.canConsumeInput()
-                || mOffsetYInput.keyPressed(keyCode, scanCode, modifier) || mOffsetYInput.canConsumeInput()
-                || mOffsetZInput.keyPressed(keyCode, scanCode, modifier) || mOffsetZInput.canConsumeInput()
+        return isEscape
+                || mURLInput.get().keyPressed(keyCode, scanCode, modifier) || mURLInput.get().canConsumeInput()
+                || mColorInput.get().keyPressed(keyCode, scanCode, modifier) || mColorInput.get().canConsumeInput()
+                || mWidthInput.get().keyPressed(keyCode, scanCode, modifier) || mWidthInput.get().canConsumeInput()
+                || mHeightInput.get().keyPressed(keyCode, scanCode, modifier) || mHeightInput.get().canConsumeInput()
+                || mOffsetXInput.get().keyPressed(keyCode, scanCode, modifier) || mOffsetXInput.get().canConsumeInput()
+                || mOffsetYInput.get().keyPressed(keyCode, scanCode, modifier) || mOffsetYInput.get().canConsumeInput()
+                || mOffsetZInput.get().keyPressed(keyCode, scanCode, modifier) || mOffsetZInput.get().canConsumeInput()
                 || super.keyPressed(keyCode, scanCode, modifier);
-    }
-
-    @Override
-    public void render(PoseStack pPoseStack, int pMouseX, int pMouseY, float pPartialTick) {
-        if (mEntity != null) {
-            super.render(pPoseStack, pMouseX, pMouseY, pPartialTick);
-        }
     }
 
     @Override
@@ -331,7 +365,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
         int alpha = mImageColor >>> 24;
         if (alpha > 0) {
-            int red = (mImageColor >> 16) & 255, green = (mImageColor >> 8) & 255, blue = mImageColor & 255;
+            int red = (mImageColor >> 16) & 255, green = (mImageColor >> COLOR_MAX_LENGTH) & 255, blue = mImageColor & 255;
             RenderSystem.setShaderColor(red / 255.0F, green / 255.0F, blue / 255.0F, alpha / 255.0F);
             blit(stack, 38, 157, 180, 194, 10, 10);
             blit(stack, 82, 185, 180, 194, 17, 17);
@@ -385,30 +419,30 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 "+" + Math.round(f * 1.0E5F) / 1.0E5F;
     }
 
-    private static Vector3f relativeToAbsolute(Vector3f relatedOffset, Vec2 size,
+    private static Vector3f relativeToAbsolute(Vector3f relatedOffset, Vector2f size,
                                                ProjectorBlock.InternalRotation rotation) {
-        Vector4f center = new Vector4f(0.5F * size.x, 0.0F, 0.5F * size.y, 1.0F);
+        var center = new Vector4f(0.5F * size.x, 0.0F, 0.5F * size.y, 1.0F);
         // matrix 6: offset for slide (center[new] = center[old] + offset)
-        center.add(relatedOffset.x() * center.w(), -relatedOffset.z() * center.w(), relatedOffset.y() * center.w(), 0.0F);
+        center.mul(new Matrix4f().translate(relatedOffset.x(), -relatedOffset.z(), relatedOffset.y()));
         // matrix 5: translation for slide
-        center.add(-0.5F * center.w(), 0.0F, 0.5F * center.w() - size.y * center.w(), 0.0F);
+        center.mul(new Matrix4f().translate(-0.5F, 0.0F, 0.5F - size.y()));
         // matrix 4: internal rotation
-        center = rotation.transform(center);
+        rotation.transform(center);
         // ok, that's enough
         return new Vector3f(center.x() / center.w(), center.y() / center.w(), center.z() / center.w());
     }
 
-    private static Vector3f absoluteToRelative(Vector3f absoluteOffset, Vec2 size,
+    private static Vector3f absoluteToRelative(Vector3f absoluteOffset, Vector2f size,
                                                ProjectorBlock.InternalRotation rotation) {
-        Vector4f center = new Vector4f(absoluteOffset, 1.0F);
+        var center = new Vector4f(absoluteOffset, 1.0F);
         // inverse matrix 4: internal rotation
         rotation.invert().transform(center);
         // inverse matrix 5: translation for slide
-        center.add(0.5F * center.w(), 0.0F, -0.5F * center.w() + size.y * center.w(), 0.0F);
+        center.mul(new Matrix4f().translate(0.5F, 0.0F, -0.5F + size.y()));
         // subtract (offset = center[new] - center[old])
-        center.add(-0.5F * size.x * center.w(), 0.0F, -0.5F * size.y * center.w(), 0.0F);
+        center.mul(new Matrix4f().translate(-0.5F * size.x, 0.0F, -0.5F * size.y));
         // ok, that's enough (remember it is (a, -c, b) => (a, b, c))
-        return new Vector3f(center.x(), center.z(), -center.y());
+        return new Vector3f(center.x() / center.w(), center.z() / center.w(), -center.y() / center.w());
     }
 
     private static class Button extends AbstractButton {

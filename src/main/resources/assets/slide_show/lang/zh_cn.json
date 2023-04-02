@@ -1,5 +1,12 @@
 {
+    "argument.slide_show.projector_url.error": "输入 %s 不是一个合法的 URL",
+
     "block.slide_show.projector": "幻灯片投影仪",
+
+    "command.slide_show.block_projector_url.success": "已成功屏蔽幻灯片 URL %s（%s）",
+    "command.slide_show.unblock_projector_url.success": "已成功为幻灯片 URL %s（%s）解除屏蔽",
+
+    "command.slide_show.failed.url_not_exist": "输入 URL 或 UUID（%s）无法用于进一步操作",
 
     "gui.slide_show.url": "图片链接",
     "gui.slide_show.color": "幻灯片颜色",
