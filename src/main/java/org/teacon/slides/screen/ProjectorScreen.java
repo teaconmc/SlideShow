@@ -1,4 +1,4 @@
-package org.teacon.slides.projector;
+package org.teacon.slides.screen;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -19,7 +19,6 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Rotation;
-import net.minecraftforge.common.util.Lazy;
 import net.objecthunter.exp4j.ExpressionBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.joml.Matrix4f;
@@ -29,6 +28,9 @@ import org.joml.Vector4f;
 import org.lwjgl.glfw.GLFW;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.network.ProjectorUpdatePacket;
+import org.teacon.slides.projector.ProjectorBlock;
+import org.teacon.slides.projector.ProjectorBlockEntity;
+import org.teacon.slides.projector.ProjectorContainerMenu;
 import org.teacon.slides.url.ProjectorURL;
 
 import javax.annotation.Nullable;
@@ -66,18 +68,18 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             URL_MAX_LENGTH = 1 << 9,
             COLOR_MAX_LENGTH = 1 << 3;
 
-    private final Lazy<EditBox> mURLInput;
-    private final Lazy<EditBox> mColorInput;
-    private final Lazy<EditBox> mWidthInput;
-    private final Lazy<EditBox> mHeightInput;
-    private final Lazy<EditBox> mOffsetXInput;
-    private final Lazy<EditBox> mOffsetYInput;
-    private final Lazy<EditBox> mOffsetZInput;
+    private final LazyWidget<EditBox> mURLInput;
+    private final LazyWidget<EditBox> mColorInput;
+    private final LazyWidget<EditBox> mWidthInput;
+    private final LazyWidget<EditBox> mHeightInput;
+    private final LazyWidget<EditBox> mOffsetXInput;
+    private final LazyWidget<EditBox> mOffsetYInput;
+    private final LazyWidget<EditBox> mOffsetZInput;
 
-    private final Lazy<Button> mFlipRotation;
-    private final Lazy<Button> mCycleRotation;
-    private final Lazy<Button> mSwitchSingleSided;
-    private final Lazy<Button> mSwitchDoubleSided;
+    private final LazyWidget<Button> mFlipRotation;
+    private final LazyWidget<Button> mCycleRotation;
+    private final LazyWidget<Button> mSwitchSingleSided;
+    private final LazyWidget<Button> mSwitchDoubleSided;
 
     private final ProjectorUpdatePacket mUpdatePacket;
 
@@ -105,14 +107,14 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         mDoubleSided = menu.updatePacket.doubleSided;
         mImgBlocked = menu.updatePacket.imgUrlBlockedNow;
         // url input
-        mURLInput = Lazy.of(() -> {
+        mURLInput = LazyWidget.of(toImageUrl(mUpdatePacket.imgUrl), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 30, topPos + 29, 137, 16, URL_TEXT);
             input.setMaxLength(URL_MAX_LENGTH);
             input.setResponder(text -> {
                 try {
                     mURL = new ProjectorURL(text);
                     mInvalidURL = false;
-                    mImgBlocked = menu.updatePacket.imgUrlBlockedNow && mURL.equals(mUpdatePacket.imgUrl);
+                    mImgBlocked = mUpdatePacket.imgUrlBlockedNow && mURL.equals(mUpdatePacket.imgUrl);
                 } catch (IllegalArgumentException e) {
                     mURL = null;
                     mInvalidURL = StringUtils.isNotBlank(text);
@@ -120,11 +122,11 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 }
                 input.setTextColor(mInvalidURL ? 0xE04B4B : mImgBlocked ? 0xE0E04B : 0xE0E0E0);
             });
-            input.setValue(mUpdatePacket.imgUrl == null ? "" : mUpdatePacket.imgUrl.toUrl().toString());
+            input.setValue(value);
             return input;
         });
         // color input
-        mColorInput = Lazy.of(() -> {
+        mColorInput = LazyWidget.of(String.format("%08X", mUpdatePacket.color), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 55, topPos + 155, 56, 16, COLOR_TEXT);
             input.setMaxLength(COLOR_MAX_LENGTH);
             input.setResponder(text -> {
@@ -136,11 +138,11 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 }
                 input.setTextColor(mInvalidColor ? 0xE04B4B : 0xE0E0E0);
             });
-            input.setValue(String.format("%08X", mUpdatePacket.color));
+            input.setValue(value);
             return input;
         });
         // width input
-        mWidthInput = Lazy.of(() -> {
+        mWidthInput = LazyWidget.of(toOptionalSignedString(mUpdatePacket.dimensionX), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 30, topPos + 51, 56, 16, WIDTH_TEXT);
             input.setResponder(text -> {
                 try {
@@ -152,11 +154,11 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 }
                 input.setTextColor(mInvalidWidth ? 0xE04B4B : 0xE0E0E0);
             });
-            input.setValue(toOptionalSignedString(mUpdatePacket.dimensionX));
+            input.setValue(value);
             return input;
         });
         // height input
-        mHeightInput = Lazy.of(() -> {
+        mHeightInput = LazyWidget.of(toOptionalSignedString(mUpdatePacket.dimensionY), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 111, topPos + 51, 56, 16, HEIGHT_TEXT);
             input.setResponder(text -> {
                 try {
@@ -168,11 +170,11 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 }
                 input.setTextColor(mInvalidHeight ? 0xE04B4B : 0xE0E0E0);
             });
-            input.setValue(toOptionalSignedString(mUpdatePacket.dimensionY));
+            input.setValue(value);
             return input;
         });
         // offset x input
-        mOffsetXInput = Lazy.of(() -> {
+        mOffsetXInput = LazyWidget.of(toSignedString(mUpdatePacket.slideOffsetX), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 30, topPos + 103, 29, 16, OFFSET_X_TEXT);
             input.setResponder(text -> {
                 try {
@@ -183,11 +185,11 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 }
                 input.setTextColor(mInvalidOffsetX ? 0xE04B4B : 0xE0E0E0);
             });
-            input.setValue(toSignedString(mUpdatePacket.slideOffsetX));
+            input.setValue(value);
             return input;
         });
         // offset y input
-        mOffsetYInput = Lazy.of(() -> {
+        mOffsetYInput = LazyWidget.of(toSignedString(mUpdatePacket.slideOffsetY), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 84, topPos + 103, 29, 16, OFFSET_Y_TEXT);
             input.setResponder(text -> {
                 try {
@@ -198,11 +200,11 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 }
                 input.setTextColor(mInvalidOffsetY ? 0xE04B4B : 0xE0E0E0);
             });
-            input.setValue(toSignedString(mUpdatePacket.slideOffsetY));
+            input.setValue(value);
             return input;
         });
         // offset z input
-        mOffsetZInput = Lazy.of(() -> {
+        mOffsetZInput = LazyWidget.of(toSignedString(mUpdatePacket.slideOffsetZ), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 138, topPos + 103, 29, 16, OFFSET_Z_TEXT);
             input.setResponder(text -> {
                 try {
@@ -213,43 +215,43 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 }
                 input.setTextColor(mInvalidOffsetZ ? 0xE04B4B : 0xE0E0E0);
             });
-            input.setValue(toSignedString(mUpdatePacket.slideOffsetZ));
+            input.setValue(value);
             return input;
         });
         // internal rotation buttons
-        mFlipRotation = Lazy.of(() -> {
+        mFlipRotation = LazyWidget.of(true, b -> b.visible, value -> {
             var button = new Button(leftPos + 117, topPos + 153, 179, 153, 18, 19, FLIP_TEXT, () -> {
                 var newRotation = mRotation.flip();
                 updateRotation(newRotation);
             });
-            button.visible = true;
+            button.visible = value;
             return button;
         });
-        mCycleRotation = Lazy.of(() -> {
+        mCycleRotation = LazyWidget.of(true, b -> b.visible, value -> {
             var button = new Button(leftPos + 142, topPos + 153, 179, 173, 18, 19, ROTATE_TEXT, () -> {
                 var newRotation = mRotation.compose(Rotation.CLOCKWISE_90);
                 updateRotation(newRotation);
             });
-            button.visible = true;
+            button.visible = value;
             return button;
         });
         // single sided / double sided
-        mSwitchSingleSided = Lazy.of(() -> {
+        mSwitchSingleSided = LazyWidget.of(mDoubleSided, b -> b.visible, value -> {
             var button = new Button(leftPos + 9, topPos + 153, 179, 113, 18, 19, SINGLE_DOUBLE_SIDED_TEXT, () -> {
                 if (mDoubleSided) {
                     updateDoubleSided(false);
                 }
             });
-            button.visible = mDoubleSided;
+            button.visible = value;
             return button;
         });
-        mSwitchDoubleSided = Lazy.of(() -> {
+        mSwitchDoubleSided = LazyWidget.of(!mDoubleSided, b -> b.visible, value -> {
             var button = new Button(leftPos + 9, topPos + 153, 179, 133, 18, 19, SINGLE_DOUBLE_SIDED_TEXT, () -> {
                 if (!mDoubleSided) {
                     updateDoubleSided(true);
                 }
             });
-            button.visible = !mDoubleSided;
+            button.visible = value;
             return button;
         });
     }
@@ -258,18 +260,18 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     protected void init() {
         super.init();
 
-        addRenderableWidget(mURLInput.get());
-        addRenderableWidget(mColorInput.get());
-        addRenderableWidget(mWidthInput.get());
-        addRenderableWidget(mHeightInput.get());
-        addRenderableWidget(mOffsetXInput.get());
-        addRenderableWidget(mOffsetYInput.get());
-        addRenderableWidget(mOffsetZInput.get());
+        addRenderableWidget(mURLInput.refresh());
+        addRenderableWidget(mColorInput.refresh());
+        addRenderableWidget(mWidthInput.refresh());
+        addRenderableWidget(mHeightInput.refresh());
+        addRenderableWidget(mOffsetXInput.refresh());
+        addRenderableWidget(mOffsetYInput.refresh());
+        addRenderableWidget(mOffsetZInput.refresh());
 
-        addRenderableWidget(mFlipRotation.get());
-        addRenderableWidget(mCycleRotation.get());
-        addRenderableWidget(mSwitchSingleSided.get());
-        addRenderableWidget(mSwitchDoubleSided.get());
+        addRenderableWidget(mFlipRotation.refresh());
+        addRenderableWidget(mCycleRotation.refresh());
+        addRenderableWidget(mSwitchSingleSided.refresh());
+        addRenderableWidget(mSwitchDoubleSided.refresh());
 
         setInitialFocus(mURLInput.get());
     }
@@ -459,6 +461,10 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
     private static float parseFloat(String text) {
         return (float) new ExpressionBuilder(text).implicitMultiplication(false).build().evaluate();
+    }
+
+    private static String toImageUrl(@Nullable ProjectorURL imgUrl) {
+        return imgUrl == null ? "" : imgUrl.toUrl().toString();
     }
 
     private static String toOptionalSignedString(float f) {

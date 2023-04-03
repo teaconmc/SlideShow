@@ -8,7 +8,7 @@ import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import org.teacon.slides.projector.ProjectorScreen;
+import org.teacon.slides.screen.ProjectorScreen;
 import org.teacon.slides.renderer.ProjectorRenderer;
 
 import javax.annotation.ParametersAreNonnullByDefault;

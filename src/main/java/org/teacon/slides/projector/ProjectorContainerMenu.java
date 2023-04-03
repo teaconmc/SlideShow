@@ -21,7 +21,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ProjectorContainerMenu extends AbstractContainerMenu {
-    final ProjectorUpdatePacket updatePacket;
+    public final ProjectorUpdatePacket updatePacket;
 
     public ProjectorContainerMenu(int containerId, ProjectorBlockEntity entity) {
         super(ModRegistries.MENU.get(), containerId);
