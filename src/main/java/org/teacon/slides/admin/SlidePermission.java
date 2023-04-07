@@ -6,7 +6,6 @@ import net.minecraft.commands.CommandSource;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.rcon.RconConsoleSource;
-import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.server.permission.PermissionAPI;
@@ -41,26 +40,29 @@ public final class SlidePermission {
                 "interact_url.unblock", PermissionTypes.BOOLEAN, SlidePermission::operator));
     }
 
-    public static boolean canInteract(Player p) {
-        return p instanceof ServerPlayer sp && PermissionAPI.getPermission(sp, Objects.requireNonNull(INTERACT_PERM));
-    }
-
-    public static boolean canBlockUrl(CommandSource p) {
-        if (p instanceof ServerPlayer sp) {
-            return PermissionAPI.getPermission(sp, Objects.requireNonNull(BLOCK_PERM));
-        }
-        if (p instanceof MinecraftServer || p instanceof RconConsoleSource) {
-            return true;
+    public static boolean canInteract(@Nullable CommandSource source) {
+        if (source instanceof ServerPlayer sp) {
+            return PermissionAPI.getPermission(sp, Objects.requireNonNull(INTERACT_PERM));
         }
         return false;
     }
 
-    public static boolean canUnblockUrl(CommandSource p) {
-        if (p instanceof ServerPlayer sp) {
-            return PermissionAPI.getPermission(sp, Objects.requireNonNull(UNBLOCK_PERM));
-        }
-        if (p instanceof MinecraftServer || p instanceof RconConsoleSource) {
+    public static boolean canBlockUrl(@Nullable CommandSource source) {
+        if (source instanceof MinecraftServer || source instanceof RconConsoleSource) {
             return true;
+        }
+        if (source instanceof ServerPlayer serverPlayer) {
+            return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(BLOCK_PERM));
+        }
+        return false;
+    }
+
+    public static boolean canUnblockUrl(@Nullable CommandSource source) {
+        if (source instanceof MinecraftServer || source instanceof RconConsoleSource) {
+            return true;
+        }
+        if (source instanceof ServerPlayer serverPlayer) {
+            return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(UNBLOCK_PERM));
         }
         return false;
     }
@@ -69,7 +71,7 @@ public final class SlidePermission {
         return true;
     }
 
-    private static Boolean operator(@Nullable ServerPlayer player, UUID uuid, PermissionDynamicContext<?>... context) {
+    private static boolean operator(@Nullable ServerPlayer player, UUID uuid, PermissionDynamicContext<?>... context) {
         return player != null && player.hasPermissions(2);
     }
 }

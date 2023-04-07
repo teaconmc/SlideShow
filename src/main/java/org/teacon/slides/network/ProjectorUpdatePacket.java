@@ -120,7 +120,7 @@ public final class ProjectorUpdatePacket {
     public void handle(Supplier<NetworkEvent.Context> context) {
         context.get().enqueueWork(() -> {
             var player = context.get().getSender();
-            if (player != null && SlidePermission.canInteract(player)) {
+            if (SlidePermission.canInteract(player)) {
                 var level = player.getLevel();
                 var globalPos = GlobalPos.of(level.dimension(), this.pos);
                 // prevent remote chunk loading
