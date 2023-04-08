@@ -49,7 +49,6 @@ public final class ProjectorUpdatePacket {
     public final float slideOffsetZ;
     public final boolean doubleSided;
     public final boolean keepAspectRatio;
-    public final boolean imgUrlBlockedNow;
     public final @Nullable ProjectorURL imgUrl;
     public final @Nullable Log lastOperationLog;
 
@@ -58,15 +57,13 @@ public final class ProjectorUpdatePacket {
                                  @Nullable Log lastOpFallback) {
         this.pos = entity.getBlockPos();
         this.imgId = entity.getImageLocation();
-        var isImgUrlBlockedUrl = false;
-        var imgUrl = Optional.<ProjectorURL>empty();
-        var lastOp = Optional.<Log>empty();
+        var imgUrlOptional = Optional.<ProjectorURL>empty();
+        var lastOpOptional = Optional.<Log>empty();
         if (entity.getLevel() instanceof ServerLevel serverLevel) {
             var data = ProjectorURLSavedData.get(serverLevel);
             var globalPos = GlobalPos.of(serverLevel.dimension(), this.pos);
-            isImgUrlBlockedUrl = data.isUrlBlocked(this.imgId);
-            imgUrl = data.getUrlById(this.imgId);
-            lastOp = imgUrl.flatMap(u -> data
+            imgUrlOptional = data.getUrlById(this.imgId);
+            lastOpOptional = imgUrlOptional.flatMap(u -> data
                     .getLatestLog(u, globalPos, Set.of(LogType.BLOCK, LogType.UNBLOCK))
                     .or(() -> data.getLatestLog(u, globalPos, Set.of(LogType.values()))));
         }
@@ -81,9 +78,8 @@ public final class ProjectorUpdatePacket {
         this.slideOffsetZ = slideOffset.z();
         this.doubleSided = entity.getDoubleSided();
         this.keepAspectRatio = entity.getKeepAspectRatio();
-        this.imgUrlBlockedNow = isImgUrlBlockedUrl;
-        this.imgUrl = imgUrl.orElse(imgUrlFallback);
-        this.lastOperationLog = lastOp.orElse(lastOpFallback);
+        this.imgUrl = imgUrlOptional.orElse(imgUrlFallback);
+        this.lastOperationLog = lastOpOptional.orElse(lastOpFallback);
     }
 
     public ProjectorUpdatePacket(FriendlyByteBuf buf) {
@@ -98,7 +94,6 @@ public final class ProjectorUpdatePacket {
         this.slideOffsetZ = buf.readFloat();
         this.doubleSided = buf.readBoolean();
         this.keepAspectRatio = buf.readBoolean();
-        this.imgUrlBlockedNow = buf.readBoolean();
         this.imgUrl = Optional.of(buf.readUtf()).filter(s -> !s.isEmpty()).map(ProjectorURL::new).orElse(null);
         this.lastOperationLog = Optional.ofNullable(buf.readNbt()).map(c -> Log.readTag(c).getValue()).orElse(null);
     }
@@ -107,7 +102,7 @@ public final class ProjectorUpdatePacket {
         buf.writeBlockPos(this.pos).writeUUID(this.imgId);
         buf.writeEnum(this.rotation).writeInt(this.color).writeFloat(this.dimensionX).writeFloat(this.dimensionY);
         buf.writeFloat(this.slideOffsetX).writeFloat(this.slideOffsetY).writeFloat(this.slideOffsetZ);
-        buf.writeBoolean(this.doubleSided).writeBoolean(this.keepAspectRatio).writeBoolean(this.imgUrlBlockedNow);
+        buf.writeBoolean(this.doubleSided).writeBoolean(this.keepAspectRatio);
         buf.writeUtf(this.imgUrl == null ? "" : this.imgUrl.toUrl().toString());
         buf.writeNbt(this.lastOperationLog == null ? null : this.lastOperationLog.writeTag());
     }

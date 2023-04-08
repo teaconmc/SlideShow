@@ -38,10 +38,7 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -113,9 +110,9 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         mUpdatePacket = packet;
         mRotation = packet.rotation;
         mDoubleSided = packet.doubleSided;
-        mImgBlocked = packet.imgUrlBlockedNow;
         mKeepAspectRatio = packet.keepAspectRatio;
         mSyncAspectRatio = packet.keepAspectRatio ? SyncAspectRatio.SYNC_WIDTH_WITH_HEIGHT : SyncAspectRatio.SYNCED;
+        mImgBlocked = Optional.ofNullable(packet.imgUrl).filter(u -> SlideState.getImgBlocked(u, false)).isPresent();
         // url input
         mURLInput = LazyWidget.of(toImageUrl(mUpdatePacket.imgUrl), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 30, topPos + 29, 136, 16, URL_TEXT);
@@ -124,7 +121,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 try {
                     mURL = new ProjectorURL(text);
                     mInvalidURL = false;
-                    mImgBlocked = mUpdatePacket.imgUrlBlockedNow && mURL.equals(mUpdatePacket.imgUrl);
+                    mImgBlocked = SlideState.getImgBlocked(mURL, false);
                 } catch (IllegalArgumentException e) {
                     mURL = null;
                     mInvalidURL = StringUtils.isNotBlank(text);

@@ -16,6 +16,7 @@ import net.minecraftforge.registries.RegisterEvent;
 import net.minecraftforge.registries.RegistryObject;
 import org.teacon.slides.network.ProjectorURLPrefetchPacket;
 import org.teacon.slides.network.ProjectorURLRequestPacket;
+import org.teacon.slides.network.ProjectorURLSummaryPacket;
 import org.teacon.slides.network.ProjectorUpdatePacket;
 import org.teacon.slides.url.ProjectorURLArgument;
 import org.teacon.slides.projector.*;
@@ -90,6 +91,12 @@ public final class ModRegistries {
                 ProjectorURLRequestPacket::new,
                 ProjectorURLRequestPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_SERVER));
+        CHANNEL.registerMessage(index++,
+                ProjectorURLSummaryPacket.class,
+                ProjectorURLSummaryPacket::write,
+                ProjectorURLSummaryPacket::new,
+                ProjectorURLSummaryPacket::handle,
+                Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         SlideShow.LOGGER.info("Registered {} network packages (version {})", index, NETWORK_VERSION);
     }
 }
