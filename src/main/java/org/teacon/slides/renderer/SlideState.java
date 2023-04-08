@@ -1,35 +1,39 @@
 package org.teacon.slides.renderer;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.mojang.blaze3d.systems.RenderSystem;
+import it.unimi.dsi.fastutil.objects.*;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.CustomizeGuiOverlayEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import org.apache.commons.lang3.StringUtils;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.cache.ImageCache;
+import org.teacon.slides.slide.*;
+import org.teacon.slides.network.ProjectorURLRequestPacket;
 import org.teacon.slides.slide.IconSlide;
-import org.teacon.slides.slide.ImgSlide;
 import org.teacon.slides.slide.Slide;
 import org.teacon.slides.texture.AnimatedTextureProvider;
 import org.teacon.slides.texture.GIFDecoder;
 import org.teacon.slides.texture.StaticTextureProvider;
 import org.teacon.slides.texture.TextureProvider;
+import org.teacon.slides.url.ProjectorURL;
 
-import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.net.URI;
-import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /**
  * @author BloCamLimb
@@ -41,14 +45,19 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class SlideState {
     private static final Executor RENDER_EXECUTOR = r -> RenderSystem.recordRenderCall(r::run);
 
+    private static final int PENDING_TIMEOUT_SECONDS = 360; // 6min
+    private static final Object2IntMap<BlockPos> sBlockPending = new Object2IntLinkedOpenHashMap<>();
+    private static final Object2ObjectMap<UUID, ProjectorURL> sIdWithImage = new Object2ObjectOpenHashMap<>();
+    private static final Object2BooleanMap<UUID> sIdWithoutImageWithBlockStatus = new Object2BooleanOpenHashMap<>();
+
     private static final int RECYCLE_SECONDS = 120; // 2min
     private static final int RETRY_INTERVAL_SECONDS = 30; // 30s
-    private static long sAnimationTick;
+    private static long sAnimationTick = 0L;
 
     private static final int CLEANER_INTERVAL_SECONDS = 720; // 12min
-    private static int sCleanerTimer;
+    private static int sCleanerTimer = 0;
 
-    private static final AtomicReference<ConcurrentHashMap<String, SlideState>> sCache;
+    private static final AtomicReference<ConcurrentHashMap<ProjectorURL, SlideState>> sCache;
 
     static {
         sCache = new AtomicReference<>(new ConcurrentHashMap<>());
@@ -57,7 +66,10 @@ public final class SlideState {
     @SubscribeEvent
     public static void onTick(TickEvent.ClientTickEvent event) {
         if (event.phase == TickEvent.Phase.START) {
-            SlideState.tick(Minecraft.getInstance().isPaused());
+            var minecraft = Minecraft.getInstance();
+            if (minecraft.player != null) {
+                SlideState.tick(minecraft.isPaused());
+            }
         }
     }
 
@@ -74,13 +86,33 @@ public final class SlideState {
     }
 
     private static void tick(boolean paused) {
+        // noinspection UnstableApiUsage
+        var blockPosBuilder = ImmutableSet.<BlockPos>builderWithExpectedSize(sBlockPending.size());
+        // pending request and timeout (which should not have been occurred)
+        sBlockPending.object2IntEntrySet().removeIf(e -> {
+            var timeout = e.setValue(e.getIntValue() - 1);
+            if (timeout <= 0) {
+                SlideShow.LOGGER.warn("Pending block position timeout: {}", e.getKey());
+                return true;
+            }
+            if (timeout == PENDING_TIMEOUT_SECONDS * 20) {
+                blockPosBuilder.add(e.getKey());
+            }
+            return false;
+        });
+        var blockPosSet = blockPosBuilder.build();
+        if (!blockPosSet.isEmpty()) {
+            SlideShow.LOGGER.debug("Requesting project urls for {} block position(s)", blockPosSet.size());
+            new ProjectorURLRequestPacket(blockPosSet).sendToServer();
+        }
+        // update cache
         if (!paused && ++sAnimationTick % 20 == 0) {
-            ConcurrentHashMap<String, SlideState> map = sCache.getAcquire();
+            var map = sCache.getAcquire();
             if (!map.isEmpty()) {
                 map.entrySet().removeIf(entry -> entry.getValue().update());
             }
             if (++sCleanerTimer > CLEANER_INTERVAL_SECONDS) {
-                int n = ImageCache.getInstance().cleanResources();
+                var n = ImageCache.getInstance().cleanResources();
                 if (n != 0) {
                     SlideShow.LOGGER.debug("Cleanup {} http cache image resources", n);
                 }
@@ -90,27 +122,55 @@ public final class SlideState {
     }
 
     private static void clear() {
-        ConcurrentHashMap<String, SlideState> map = sCache.getAndSet(new ConcurrentHashMap<>());
+        sBlockPending.clear();
+        var map = sCache.getAndSet(new ConcurrentHashMap<>());
         map.values().forEach(s -> s.mSlide.close());
         SlideShow.LOGGER.debug("Release {} slide images", map.size());
         map.clear();
     }
 
     private static String getDebugText() {
-        var size = 0L;
+        long cpuSize = 0L, gpuSize = 0L;
         var map = sCache.getAcquire();
         for (var state : map.values()) {
-            size += state.mSlide.getGPUMemorySize();
+            cpuSize += state.mSlide.getCPUMemorySize();
+            gpuSize += state.mSlide.getGPUMemorySize();
         }
-        return "SlideShow Cache: " + map.size() + " (" + (size >> 20) + " MiB)";
+        return "SlideShow Cache: " + map.size() + " (CPU=" + (cpuSize >> 20) + "MiB, GPU=" + (gpuSize >> 20) + "MiB)";
     }
 
     public static long getAnimationTick() {
         return sAnimationTick;
     }
 
-    public static @Nullable Slide getSlide(String url) {
-        return StringUtils.isBlank(url) ? null : sCache.getAcquire().computeIfAbsent(url, SlideState::new).getWithUpdate();
+    public static void applyPrefetch(Set<UUID> blocked, Set<UUID> nonExistent, Map<UUID, ProjectorURL> unblocked) {
+        // pending
+        sBlockPending.clear();
+        // blocked
+        sIdWithImage.keySet().removeAll(blocked);
+        blocked.forEach(u -> sIdWithoutImageWithBlockStatus.put(u, true));
+        // non existent
+        sIdWithImage.keySet().removeAll(nonExistent);
+        nonExistent.forEach(u -> sIdWithoutImageWithBlockStatus.put(u, false));
+        // unblocked
+        sIdWithoutImageWithBlockStatus.keySet().removeAll(unblocked.keySet());
+        sIdWithImage.putAll(unblocked);
+        // prefetch
+        unblocked.values().forEach(v -> sCache.getAcquire().computeIfAbsent(v, SlideState::new));
+    }
+
+    public static Consumer<BlockPos> getPrefetch() {
+        return pos -> sBlockPending.putIfAbsent(pos, PENDING_TIMEOUT_SECONDS * 20);
+    }
+
+    public static Slide getSlide(UUID id) {
+        if (sIdWithImage.containsKey(id)) {
+            return sCache.getAcquire().computeIfAbsent(sIdWithImage.get(id), SlideState::new).getWithUpdate();
+        }
+        if (sIdWithoutImageWithBlockStatus.containsKey(id)) {
+            return sIdWithoutImageWithBlockStatus.getBoolean(id) ? Slide.blocked() : Slide.empty();
+        }
+        return Slide.loading();
     }
 
     /**
@@ -121,36 +181,31 @@ public final class SlideState {
 
     private int mCounter;
 
-    private SlideState(String location) {
-        URI uri = createURI(location);
-        if (uri == null) {
-            mSlide = Slide.empty();
-            mState = State.FAILED_OR_EMPTY;
-            mCounter = RETRY_INTERVAL_SECONDS;
-        } else {
-            mSlide = Slide.loading();
-            mState = State.LOADING;
-            mCounter = RECYCLE_SECONDS;
-            ImageCache.getInstance().getResource(uri, true).thenCompose(SlideState::createTexture)
-                    .thenAccept(textureProvider -> {
-                        if (mState == State.LOADING) {
-                            mSlide = Slide.make(textureProvider);
-                            mState = State.LOADED;
-                        } else {
-                            // timeout
-                            assert mState == State.LOADED;
-                            textureProvider.close();
-                        }
-                    }).exceptionally(e -> {
-                        RenderSystem.recordRenderCall(() -> {
-                            assert mState == State.LOADING;
-                            mSlide = Slide.failed();
-                            mState = State.FAILED_OR_EMPTY;
-                            mCounter = RETRY_INTERVAL_SECONDS;
-                        });
-                        return null;
+    private SlideState(ProjectorURL location) {
+        mSlide = Slide.loading();
+        mState = State.LOADING;
+        mCounter = RECYCLE_SECONDS;
+        ImageCache.getInstance()
+                .getResource(location.toUrl(), true)
+                .thenCompose(SlideState::createTexture)
+                .thenAccept(textureProvider -> {
+                    if (mState == State.LOADING) {
+                        mSlide = Slide.make(textureProvider);
+                        mState = State.LOADED;
+                    } else {
+                        // timeout
+                        assert mState == State.LOADED;
+                        textureProvider.close();
+                    }
+                }).exceptionally(e -> {
+                    RenderSystem.recordRenderCall(() -> {
+                        assert mState == State.LOADING;
+                        mSlide = Slide.failed();
+                        mState = State.FAILED_OR_EMPTY;
+                        mCounter = RETRY_INTERVAL_SECONDS;
                     });
-        }
+                    return null;
+                });
     }
 
     private Slide getWithUpdate() {
@@ -169,7 +224,7 @@ public final class SlideState {
         if (--mCounter < 0) {
             RenderSystem.recordRenderCall(() -> {
                 if (mState == State.LOADED) {
-                    assert mSlide instanceof ImgSlide;
+                    assert mSlide instanceof ImageSlide;
                     mSlide.close();
                 } else if (mState == State.LOADING) {
                     // noinspection resource
@@ -201,20 +256,6 @@ public final class SlideState {
         return CompletableFuture.supplyAsync(
                 GIFDecoder.checkMagic(data) ? () -> new AnimatedTextureProvider(data) :
                         () -> new StaticTextureProvider(data), RENDER_EXECUTOR);
-    }
-
-    @Nullable
-    public static URI createURI(String location) {
-        if (StringUtils.isNotBlank(location)) {
-            try {
-                var result = URI.create(location);
-                Preconditions.checkArgument(List.of("http", "https").contains(result.getScheme()));
-                return result;
-            } catch (Exception e) {
-                return null;
-            }
-        }
-        return null;
     }
 
     public enum State {

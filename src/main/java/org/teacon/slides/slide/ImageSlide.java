@@ -5,6 +5,7 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.MultiBufferSource;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
+import org.joml.Vector2f;
 import org.teacon.slides.texture.TextureProvider;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -12,18 +13,19 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class ImgSlide implements Slide {
+public final class ImageSlide implements Slide {
 
     private final TextureProvider mTexture;
 
-    ImgSlide(TextureProvider texture) {
+    ImageSlide(TextureProvider texture) {
         mTexture = texture;
     }
 
     @Override
-    public void render(MultiBufferSource source, Matrix4f matrix,
-                       Matrix3f normal, float width, float height, int color,
-                       int light, int overlay, boolean front, boolean back, long tick, float partialTick) {
+    public void render(MultiBufferSource source, Matrix4f matrix, Matrix3f normal, Vector2f dimension,
+                       int color, int light, int overlay, boolean front, boolean back, long tick, float partialTick) {
+        var width = dimension.x();
+        var height = dimension.y();
         var red = (color >> 16) & 255;
         var green = (color >> 8) & 255;
         var blue = color & 255;
@@ -80,6 +82,21 @@ public final class ImgSlide implements Slide {
     @Override
     public int getHeight() {
         return mTexture.getHeight();
+    }
+
+    @Override
+    public float getImageAspectRatio() {
+        return (float) getWidth() / getHeight();
+    }
+
+    @Override
+    public int getCPUMemorySize() {
+        return mTexture.getCPUMemorySize();
+    }
+
+    @Override
+    public int getGPUMemorySize() {
+        return mTexture.getGPUMemorySize();
     }
 
     @Override

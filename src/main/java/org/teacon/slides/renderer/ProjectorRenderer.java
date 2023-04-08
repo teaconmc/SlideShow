@@ -9,6 +9,8 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import org.joml.Matrix3f;
+import org.joml.Matrix4f;
 import org.teacon.slides.projector.ProjectorBlock;
 import org.teacon.slides.projector.ProjectorBlockEntity;
 
@@ -28,20 +30,19 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
     public void render(ProjectorBlockEntity tile, float partialTick, PoseStack pStack,
                        MultiBufferSource source, int packedLight, int packedOverlay) {
         // always update slide state whether the projector is powered or not
-        var slide = SlideState.getSlide(tile.mLocation);
-        if (slide != null && !tile.getBlockState().getValue(BlockStateProperties.POWERED)) {
+        var slide = SlideState.getSlide(tile.getImageLocation());
+        if (!tile.getBlockState().getValue(BlockStateProperties.POWERED)) {
             pStack.pushPose();
-            var tileColor = tile.mColor;
-            if ((tileColor & 0xFF000000) != 0) {
+            var tileColorARGB = tile.getColorARGB();
+            if ((tileColorARGB & 0xFF000000) != 0) {
                 var last = pStack.last();
-                var tilePoseNormal = tile.transformToSlideSpace(last.pose(), last.normal());
+                var tilePose = new Matrix4f(last.pose());
+                var tileNormal = new Matrix3f(last.normal());
+                tile.transformToSlideSpace(tilePose, tileNormal);
                 var flipped = tile.getBlockState().getValue(ProjectorBlock.ROTATION).isFlipped();
-                var tilePose = tilePoseNormal.getFirst();
-                var tileNormal = tilePoseNormal.getSecond();
-                slide.render(source,
-                        tilePose, tileNormal, tile.mWidth, tile.mHeight,
-                        tileColor, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
-                        flipped || tile.mDoubleSided, !flipped || tile.mDoubleSided,
+                slide.render(source, tilePose, tileNormal, tile.getDimension(),
+                        tileColorARGB, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
+                        flipped || tile.getDoubleSided(), !flipped || tile.getDoubleSided(),
                         SlideState.getAnimationTick(), partialTick);
             }
             pStack.popPose();

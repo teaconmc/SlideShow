@@ -1,4 +1,4 @@
-package org.teacon.slides.permission;
+package org.teacon.slides.admin;
 
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;

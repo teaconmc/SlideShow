@@ -50,7 +50,7 @@ public final class StaticTextureProvider implements TextureProvider {
             }
             final int maxLevel = Math.min(31 - Integer.numberOfLeadingZeros(Math.max(mWidth, mHeight)), 4);
 
-            mTexture = glGenTextures();
+            mTexture = GlStateManager._genTexture();
             GlStateManager._bindTexture(mTexture);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, maxLevel);
@@ -69,13 +69,10 @@ public final class StaticTextureProvider implements TextureProvider {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-            // specify 0 to use width * bbp
+            // row pixels 0 means width
             glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-
             glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
             glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-
-            // specify pixel row alignment to 1
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
             try (image) {
@@ -108,6 +105,16 @@ public final class StaticTextureProvider implements TextureProvider {
     @Override
     public int getHeight() {
         return mHeight;
+    }
+
+    @Override
+    public int getCPUMemorySize() {
+        return 0;
+    }
+
+    @Override
+    public int getGPUMemorySize() {
+        return mWidth * mHeight * 4 * 4 / 3;
     }
 
     @Override
