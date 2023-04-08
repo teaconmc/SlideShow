@@ -36,21 +36,21 @@ import static com.google.common.base.Preconditions.checkArgument;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ProjectorURLSummaryPacket implements OptionalPredicate<ProjectorURL> {
-    private final BytesLE256Bits hmacNonce;
+    private final Bits256 hmacNonce;
     private final HashFunction hmacNonceFunction;
-    private final Object2BooleanMap<BytesLE256Bits> hmacUrlToBlockStatus;
+    private final Object2BooleanMap<Bits256> hmacUrlToBlockStatus;
 
     private enum Status {
         END, BLOCKED, UNBLOCKED
     }
 
     public ProjectorURLSummaryPacket(BiMap<UUID, ProjectorURL> idToUrl, Set<UUID> blockedIdSet) {
-        var hmacNonce = BytesLE256Bits.random();
+        var hmacNonce = Bits256.random();
         var hmacNonceFunction = Hashing.hmacSha256(hmacNonce.toBytes());
-        var hmacUrlToBlockStatus = new Object2BooleanArrayMap<BytesLE256Bits>(idToUrl.size());
+        var hmacUrlToBlockStatus = new Object2BooleanArrayMap<Bits256>(idToUrl.size());
         for (var entry : idToUrl.entrySet()) {
             var hmac = hmacNonceFunction.hashString(entry.getValue().toString(), StandardCharsets.US_ASCII);
-            hmacUrlToBlockStatus.put(BytesLE256Bits.fromBytes(hmac.asBytes()), blockedIdSet.contains(entry.getKey()));
+            hmacUrlToBlockStatus.put(Bits256.fromBytes(hmac.asBytes()), blockedIdSet.contains(entry.getKey()));
         }
         this.hmacNonce = hmacNonce;
         this.hmacNonceFunction = hmacNonceFunction;
@@ -59,8 +59,8 @@ public final class ProjectorURLSummaryPacket implements OptionalPredicate<Projec
 
     public ProjectorURLSummaryPacket(FriendlyByteBuf buf) {
         var defaultCapacity = 16;
-        var nonce = BytesLE256Bits.read(buf);
-        var hmacUrlToBlockStatus = new Object2BooleanArrayMap<BytesLE256Bits>(defaultCapacity);
+        var nonce = Bits256.read(buf);
+        var hmacUrlToBlockStatus = new Object2BooleanArrayMap<Bits256>(defaultCapacity);
         while (true) {
             switch (buf.readEnum(Status.class)) {
                 case END -> {
@@ -69,8 +69,8 @@ public final class ProjectorURLSummaryPacket implements OptionalPredicate<Projec
                     this.hmacUrlToBlockStatus = Object2BooleanMaps.unmodifiable(hmacUrlToBlockStatus);
                     return;
                 }
-                case BLOCKED -> hmacUrlToBlockStatus.put(BytesLE256Bits.read(buf), true);
-                case UNBLOCKED -> hmacUrlToBlockStatus.put(BytesLE256Bits.read(buf), false);
+                case BLOCKED -> hmacUrlToBlockStatus.put(Bits256.read(buf), true);
+                case UNBLOCKED -> hmacUrlToBlockStatus.put(Bits256.read(buf), false);
             }
         }
     }
@@ -95,7 +95,7 @@ public final class ProjectorURLSummaryPacket implements OptionalPredicate<Projec
     @Override
     public OptionalBoolean test(ProjectorURL url) {
         var hmacBytes = this.hmacNonceFunction.hashString(url.toString(), StandardCharsets.US_ASCII);
-        var hmac = BytesLE256Bits.fromBytes(hmacBytes.asBytes());
+        var hmac = Bits256.fromBytes(hmacBytes.asBytes());
         if (this.hmacUrlToBlockStatus.containsKey(hmac)) {
             return OptionalBoolean.of(this.hmacUrlToBlockStatus.getBoolean(hmac));
         }
@@ -110,15 +110,15 @@ public final class ProjectorURLSummaryPacket implements OptionalPredicate<Projec
         context.get().setPacketHandled(true);
     }
 
-    public record BytesLE256Bits(long bytesLE1, long bytesLE2,
-                                 long bytesLE3, long bytesLE4) implements Comparable<BytesLE256Bits> {
+    public record Bits256(long bytesLE1, long bytesLE2,
+                          long bytesLE3, long bytesLE4) implements Comparable<Bits256> {
         public void write(FriendlyByteBuf buf) {
             buf.writeLongLE(this.bytesLE1).writeLongLE(this.bytesLE2);
             buf.writeLongLE(this.bytesLE3).writeLongLE(this.bytesLE4);
         }
 
-        public static BytesLE256Bits read(FriendlyByteBuf buf) {
-            return new BytesLE256Bits(buf.readLongLE(), buf.readLongLE(), buf.readLongLE(), buf.readLongLE());
+        public static Bits256 read(FriendlyByteBuf buf) {
+            return new Bits256(buf.readLongLE(), buf.readLongLE(), buf.readLongLE(), buf.readLongLE());
         }
 
         public byte[] toBytes() {
@@ -128,20 +128,20 @@ public final class ProjectorURLSummaryPacket implements OptionalPredicate<Projec
             return bytes;
         }
 
-        public static BytesLE256Bits fromBytes(byte[] bytes) {
+        public static Bits256 fromBytes(byte[] bytes) {
             checkArgument(bytes.length == 256 / Byte.SIZE);
             var buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asLongBuffer();
-            return new BytesLE256Bits(buffer.get(), buffer.get(), buffer.get(), buffer.get());
+            return new Bits256(buffer.get(), buffer.get(), buffer.get(), buffer.get());
         }
 
-        public static BytesLE256Bits random() {
-            return new BytesLE256Bits(
+        public static Bits256 random() {
+            return new Bits256(
                     Crypt.SaltSupplier.getLong(), Crypt.SaltSupplier.getLong(),
                     Crypt.SaltSupplier.getLong(), Crypt.SaltSupplier.getLong());
         }
 
         @Override
-        public int compareTo(BytesLE256Bits that) {
+        public int compareTo(Bits256 that) {
             var cmp1 = Long.compareUnsigned(this.bytesLE1, that.bytesLE1);
             var cmp2 = Long.compareUnsigned(this.bytesLE2, that.bytesLE2);
             var cmp3 = Long.compareUnsigned(this.bytesLE3, that.bytesLE3);
