@@ -85,6 +85,11 @@ public final class ImageSlide implements Slide {
     }
 
     @Override
+    public float getImageAspectRatio() {
+        return (float) getWidth() / getHeight();
+    }
+
+    @Override
     public int getCPUMemorySize() {
         return mTexture.getCPUMemorySize();
     }

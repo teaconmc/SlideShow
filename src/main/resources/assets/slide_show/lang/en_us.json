@@ -13,6 +13,7 @@
     "gui.slide_show.color": "Slide Color",
     "gui.slide_show.width": "Slide Width",
     "gui.slide_show.height": "Slide Height",
+    "gui.slide_show.keep_aspect_ratio": "Maintain Aspect Ratio",
     "gui.slide_show.offset_x": "Move Left/Right",
     "gui.slide_show.offset_y": "Move Up/Down",
     "gui.slide_show.offset_z": "Move Backward/Forward",
