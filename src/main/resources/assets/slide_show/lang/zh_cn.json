@@ -5,6 +5,7 @@
     "gui.slide_show.color": "幻灯片颜色",
     "gui.slide_show.width": "幻灯片宽度",
     "gui.slide_show.height": "幻灯片高度",
+    "gui.slide_show.keep_aspect_ratio": "保持纵横比",
     "gui.slide_show.offset_x": "左右平移",
     "gui.slide_show.offset_y": "上下平移",
     "gui.slide_show.offset_z": "前后平移",

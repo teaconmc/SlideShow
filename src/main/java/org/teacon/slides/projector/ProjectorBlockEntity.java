@@ -46,6 +46,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     public float mOffsetY = 0;
     public float mOffsetZ = 0;
     public boolean mDoubleSided = true;
+    public boolean mKeepAspectRatio = true;
 
     private ProjectorBlockEntity(BlockPos blockPos, BlockState blockState) {
         super(ModRegistries.BLOCK_ENTITY.get(), blockPos, blockState);
@@ -83,6 +84,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         tag.putFloat("OffsetY", mOffsetY);
         tag.putFloat("OffsetZ", mOffsetZ);
         tag.putBoolean("DoubleSided", mDoubleSided);
+        tag.putBoolean("KeepAspectRatio", mKeepAspectRatio);
     }
 
     public void readCustomTag(CompoundTag tag) {
@@ -94,6 +96,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         mOffsetY = tag.getFloat("OffsetY");
         mOffsetZ = tag.getFloat("OffsetZ");
         mDoubleSided = tag.getBoolean("DoubleSided");
+        mKeepAspectRatio = tag.getBoolean("KeepAspectRatio");
     }
 
     @Override

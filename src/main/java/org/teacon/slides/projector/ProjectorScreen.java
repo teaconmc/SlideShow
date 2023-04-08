@@ -20,6 +20,7 @@ import org.joml.Vector4f;
 import org.lwjgl.glfw.GLFW;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.renderer.SlideState;
+import org.teacon.slides.slide.Slide;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -38,6 +39,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             COLOR_TEXT = Component.translatable("gui.slide_show.color"),
             WIDTH_TEXT = Component.translatable("gui.slide_show.width"),
             HEIGHT_TEXT = Component.translatable("gui.slide_show.height"),
+            KEEP_ASPECT_RATIO_TEXT = Component.translatable("gui.slide_show.keep_aspect_ratio"),
             OFFSET_X_TEXT = Component.translatable("gui.slide_show.offset_x"),
             OFFSET_Y_TEXT = Component.translatable("gui.slide_show.offset_y"),
             OFFSET_Z_TEXT = Component.translatable("gui.slide_show.offset_z"),
@@ -56,7 +58,19 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     private Button mSwitchSingleSided;
     private Button mSwitchDoubleSided;
 
+    private Button mKeepAspectChecked;
+    private Button mKeepAspectUnchecked;
+
     private boolean mDoubleSided;
+    private boolean mKeepAspectRatio;
+
+    private static final int SYNCED = 0;
+    private static final int SYNC_WIDTH_WITH_HEIGHT = 1;
+    private static final int SYNC_HEIGHT_WITH_WIDTH = 2;
+    private int mSyncAspectRatio;
+
+    private boolean mBroadcastSizeChanges = false;
+
     private int mImageColor = ~0;
     private Vec2 mImageSize = Vec2.ONE;
     private Vector3f mImageOffset = new Vector3f();
@@ -86,8 +100,8 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         // minecraft.keyboardHandler.setSendRepeatsToGui(true);
 
         // url input
-        mURLInput = new EditBox(font, leftPos + 30, topPos + 29, 137, 16,
-                Component.translatable("gui.slide_show.url"));
+        mURLInput = new EditBox(font, leftPos + 30, topPos + 29, 136, 16,
+                URL_TEXT);
         mURLInput.setMaxLength(512);
         mURLInput.setResponder(text -> {
             if (StringUtils.isNotBlank(text)) {
@@ -99,11 +113,11 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         });
         mURLInput.setValue(mEntity.mLocation);
         addRenderableWidget(mURLInput);
-        setInitialFocus(mURLInput);
+        //setInitialFocus(mURLInput);
 
         // color input
         mColorInput = new EditBox(font, leftPos + 55, topPos + 155, 56, 16,
-                Component.translatable("gui.slide_show.color"));
+                COLOR_TEXT);
         mColorInput.setMaxLength(8);
         mColorInput.setResponder(text -> {
             try {
@@ -118,9 +132,10 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         addRenderableWidget(mColorInput);
 
         // width input
-        mWidthInput = new EditBox(font, leftPos + 30, topPos + 51, 56, 16,
-                Component.translatable("gui.slide_show.width"));
+        mWidthInput = new EditBox(font, leftPos + 30, topPos + 51, 46, 16,
+                WIDTH_TEXT);
         mWidthInput.setResponder(text -> {
+            if (mBroadcastSizeChanges) return;
             try {
                 Vec2 newSize = new Vec2(parseFloat(text), mImageSize.y);
                 updateSize(newSize);
@@ -129,14 +144,18 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 mInvalidWidth = true;
             }
             mWidthInput.setTextColor(mInvalidWidth ? 0xE04B4B : 0xE0E0E0);
+            if (!mInvalidWidth && mKeepAspectRatio) {
+                mSyncAspectRatio = SYNC_HEIGHT_WITH_WIDTH;
+            }
         });
         mWidthInput.setValue(toOptionalSignedString(mEntity.mWidth));
         addRenderableWidget(mWidthInput);
 
         // height input
-        mHeightInput = new EditBox(font, leftPos + 111, topPos + 51, 56, 16,
-                Component.translatable("gui.slide_show.height"));
+        mHeightInput = new EditBox(font, leftPos + 100, topPos + 51, 46, 16,
+                HEIGHT_TEXT);
         mHeightInput.setResponder(input -> {
+            if (mBroadcastSizeChanges) return;
             try {
                 Vec2 newSize = new Vec2(mImageSize.x, parseFloat(input));
                 updateSize(newSize);
@@ -145,13 +164,16 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 mInvalidHeight = true;
             }
             mHeightInput.setTextColor(mInvalidHeight ? 0xE04B4B : 0xE0E0E0);
+            if (!mInvalidHeight && mKeepAspectRatio) {
+                mSyncAspectRatio = SYNC_WIDTH_WITH_HEIGHT;
+            }
         });
         mHeightInput.setValue(toOptionalSignedString(mEntity.mHeight));
         addRenderableWidget(mHeightInput);
 
         // offset x input
         mOffsetXInput = new EditBox(font, leftPos + 30, topPos + 103, 29, 16,
-                Component.translatable("gui.slide_show.offset_x"));
+                OFFSET_X_TEXT);
         mOffsetXInput.setResponder(input -> {
             try {
                 mImageOffset = new Vector3f(parseFloat(input), mImageOffset.y(), mImageOffset.z());
@@ -166,7 +188,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
         // offset y input
         mOffsetYInput = new EditBox(font, leftPos + 84, topPos + 103, 29, 16,
-                Component.translatable("gui.slide_show.offset_y"));
+                OFFSET_Y_TEXT);
         mOffsetYInput.setResponder(input -> {
             try {
                 mImageOffset = new Vector3f(mImageOffset.x(), parseFloat(input), mImageOffset.z());
@@ -181,7 +203,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
         // offset z input
         mOffsetZInput = new EditBox(font, leftPos + 138, topPos + 103, 29, 16,
-                Component.translatable("gui.slide_show.offset_z"));
+                OFFSET_Z_TEXT);
         mOffsetZInput.setResponder(input -> {
             try {
                 mImageOffset = new Vector3f(mImageOffset.x(), mImageOffset.y(), parseFloat(input));
@@ -195,13 +217,13 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         addRenderableWidget(mOffsetZInput);
 
         // internal rotation buttons
-        addRenderableWidget(new Button(leftPos + 117, topPos + 153, 179, 153, 18, 19, Component.translatable(
-                "gui.slide_show.flip"), () -> {
+        addRenderableWidget(new Button(leftPos + 117, topPos + 153, 179, 153, 18, 19,
+                FLIP_TEXT, () -> {
             ProjectorBlock.InternalRotation newRotation = mRotation.flip();
             updateRotation(newRotation);
         }));
-        addRenderableWidget(new Button(leftPos + 142, topPos + 153, 179, 173, 18, 19, Component.translatable(
-                "gui.slide_show.rotate"), () -> {
+        addRenderableWidget(new Button(leftPos + 142, topPos + 153, 179, 173, 18, 19,
+                ROTATE_TEXT, () -> {
             ProjectorBlock.InternalRotation newRotation = mRotation.compose(Rotation.CLOCKWISE_90);
             updateRotation(newRotation);
         }));
@@ -209,13 +231,13 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
         // single sided / double sided
         mSwitchSingleSided = addRenderableWidget(new Button(leftPos + 9, topPos + 153, 179, 113, 18, 19,
-                Component.translatable("gui.slide_show.single_double_sided"), () -> {
+                SINGLE_DOUBLE_SIDED_TEXT, () -> {
             mDoubleSided = false;
             mSwitchDoubleSided.visible = true;
             mSwitchSingleSided.visible = false;
         }));
         mSwitchDoubleSided = addRenderableWidget(new Button(leftPos + 9, topPos + 153, 179, 133, 18, 19,
-                Component.translatable("gui.slide_show.single_double_sided"), () -> {
+                SINGLE_DOUBLE_SIDED_TEXT, () -> {
             mDoubleSided = true;
             mSwitchSingleSided.visible = true;
             mSwitchDoubleSided.visible = false;
@@ -223,6 +245,30 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         mDoubleSided = mEntity.mDoubleSided;
         mSwitchDoubleSided.visible = !mDoubleSided;
         mSwitchSingleSided.visible = mDoubleSided;
+
+        mKeepAspectUnchecked = addRenderableWidget(new Button(leftPos + 149, topPos + 49, 179, 73, 18, 19,
+                KEEP_ASPECT_RATIO_TEXT, () -> {
+            mKeepAspectRatio = true;
+            mKeepAspectUnchecked.visible = false;
+            mKeepAspectChecked.visible = true;
+            mSyncAspectRatio = SYNC_WIDTH_WITH_HEIGHT;
+        }));
+        mKeepAspectChecked = addRenderableWidget(new Button(leftPos + 149, topPos + 49, 179, 93, 18, 19,
+                KEEP_ASPECT_RATIO_TEXT, () -> {
+            mKeepAspectRatio = false;
+            mKeepAspectChecked.visible = false;
+            mKeepAspectUnchecked.visible = true;
+            mSyncAspectRatio = SYNCED;
+        }));
+        mKeepAspectRatio = mEntity.mKeepAspectRatio;
+        mKeepAspectUnchecked.visible = !mKeepAspectRatio;
+        mKeepAspectChecked.visible = mKeepAspectRatio;
+
+        if (mKeepAspectRatio) {
+            mSyncAspectRatio = SYNC_WIDTH_WITH_HEIGHT;
+        } else {
+            mSyncAspectRatio = SYNCED;
+        }
     }
 
     private void updateRotation(ProjectorBlock.InternalRotation newRotation) {
@@ -245,6 +291,16 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             mOffsetZInput.setValue(toSignedString(newRelative.z()));
         }
         mImageSize = newSize;
+        mBroadcastSizeChanges = true;
+        if (mWidthInput != null && mHeightInput != null) {
+            if (!mWidthInput.isFocused()) {
+                mWidthInput.setValue(toOptionalSignedString(mImageSize.x));
+            }
+            if (!mHeightInput.isFocused()) {
+                mHeightInput.setValue(toOptionalSignedString(mImageSize.y));
+            }
+        }
+        mBroadcastSizeChanges = false;
     }
 
     @Override
@@ -260,6 +316,28 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         mOffsetXInput.tick();
         mOffsetYInput.tick();
         mOffsetZInput.tick();
+        if (!mURLInput.isFocused()) {
+            if (!mInvalidURL) {
+                mEntity.mLocation = mURLInput.getValue();
+            }
+            if (mSyncAspectRatio != SYNCED &&
+                    !mInvalidWidth && !mInvalidHeight) {
+                Slide slide = SlideState.getSlide(mEntity.mLocation);
+                if (slide != null) {
+                    float aspect = slide.getImageAspectRatio();
+                    if (!Float.isNaN(aspect)) {
+                        Vec2 newSize = mImageSize;
+                        if (mSyncAspectRatio == SYNC_WIDTH_WITH_HEIGHT) {
+                            newSize = new Vec2(mImageSize.y * aspect, mImageSize.y);
+                        } else if (mSyncAspectRatio == SYNC_HEIGHT_WITH_WIDTH) {
+                            newSize = new Vec2(mImageSize.x, mImageSize.x / aspect);
+                        }
+                        mSyncAspectRatio = SYNCED;
+                        updateSize(newSize);
+                    }
+                }
+            }
+        }
     }
 
     @Override
@@ -272,9 +350,6 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         final ProjectorUpdatePacket packet = new ProjectorUpdatePacket(mEntity, mRotation);
         final boolean invalidSize = mInvalidWidth || mInvalidHeight;
         final boolean invalidOffset = mInvalidOffsetX || mInvalidOffsetY || mInvalidOffsetZ;
-        if (!mInvalidURL) {
-            mEntity.mLocation = mURLInput.getValue();
-        }
         if (!mInvalidColor) {
             mEntity.mColor = mImageColor;
         }
@@ -288,7 +363,30 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             mEntity.mOffsetZ = mImageOffset.z();
         }
         mEntity.mDoubleSided = mDoubleSided;
+        mEntity.mKeepAspectRatio = mKeepAspectRatio;
         packet.sendToServer();
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
+        if (mWidthInput.isMouseOver(mouseX, mouseY)) {
+            if (!mInvalidWidth) {
+                updateSize(new Vec2(Math.round(mImageSize.x * 2.0 + scrollY) * 0.5f, mImageSize.y));
+                if (mKeepAspectRatio) {
+                    mSyncAspectRatio = SYNC_HEIGHT_WITH_WIDTH;
+                }
+                return true;
+            }
+        } else if (mHeightInput.isMouseOver(mouseX, mouseY)) {
+            if (!mInvalidHeight) {
+                updateSize(new Vec2(mImageSize.x, Math.round(mImageSize.y * 2.0 + scrollY) * 0.5f));
+                if (mKeepAspectRatio) {
+                    mSyncAspectRatio = SYNC_WIDTH_WITH_HEIGHT;
+                }
+                return true;
+            }
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollY);
     }
 
     @Override
@@ -351,8 +449,10 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             renderTooltip(stack, COLOR_TEXT, offsetX, offsetY);
         } else if (offsetX >= 9 && offsetY >= 49 && offsetX < 27 && offsetY < 68) {
             renderTooltip(stack, WIDTH_TEXT, offsetX, offsetY);
-        } else if (offsetX >= 90 && offsetY >= 49 && offsetX < 108 && offsetY < 68) {
+        } else if (offsetX >= 79 && offsetY >= 49 && offsetX < 97 && offsetY < 68) {
             renderTooltip(stack, HEIGHT_TEXT, offsetX, offsetY);
+        } else if (offsetX >= 149 && offsetY >= 49 && offsetX < 167 && offsetY < 68) {
+            renderTooltip(stack, KEEP_ASPECT_RATIO_TEXT, offsetX, offsetY);
         } else if (offsetX >= 9 && offsetY >= 101 && offsetX < 27 && offsetY < 120) {
             renderTooltip(stack, OFFSET_X_TEXT, offsetX, offsetY);
         } else if (offsetX >= 63 && offsetY >= 101 && offsetX < 81 && offsetY < 120) {
@@ -377,19 +477,20 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     }
 
     private static String toOptionalSignedString(float f) {
-        return Float.toString(Math.round(f * 1.0E5F) / 1.0E5F);
+        return Float.toString(Math.round(f * 1.0E3F) / 1.0E3F);
     }
 
     private static String toSignedString(float f) {
-        return Float.isNaN(f) ? "" + f : Math.copySign(1.0F, f) <= 0 ? "-" + Math.round(0.0F - f * 1.0E5F) / 1.0E5F :
-                "+" + Math.round(f * 1.0E5F) / 1.0E5F;
+        return Float.isNaN(f) ? "" + f : Math.copySign(1.0F, f) <= 0 ? "-" + Math.round(0.0F - f * 1.0E3F) / 1.0E3F :
+                "+" + Math.round(f * 1.0E3F) / 1.0E3F;
     }
 
     private static Vector3f relativeToAbsolute(Vector3f relatedOffset, Vec2 size,
                                                ProjectorBlock.InternalRotation rotation) {
         Vector4f center = new Vector4f(0.5F * size.x, 0.0F, 0.5F * size.y, 1.0F);
         // matrix 6: offset for slide (center[new] = center[old] + offset)
-        center.add(relatedOffset.x() * center.w(), -relatedOffset.z() * center.w(), relatedOffset.y() * center.w(), 0.0F);
+        center.add(relatedOffset.x() * center.w(), -relatedOffset.z() * center.w(), relatedOffset.y() * center.w(),
+                0.0F);
         // matrix 5: translation for slide
         center.add(-0.5F * center.w(), 0.0F, 0.5F * center.w() - size.y * center.w(), 0.0F);
         // matrix 4: internal rotation

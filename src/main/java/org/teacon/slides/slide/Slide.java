@@ -27,11 +27,15 @@ public sealed interface Slide extends AutoCloseable permits IconSlide, ImageSlid
     void close();
 
     default int getWidth() {
-        return 0;
+        return 1;
     }
 
     default int getHeight() {
-        return 0;
+        return 1;
+    }
+
+    default float getImageAspectRatio() {
+        return Float.NaN;
     }
 
     default int getCPUMemorySize() {
