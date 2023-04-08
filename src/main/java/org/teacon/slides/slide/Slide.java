@@ -19,7 +19,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public sealed interface Slide extends AutoCloseable permits IconSlide, ImgSlide {
+public sealed interface Slide extends AutoCloseable permits IconSlide, ImageSlide {
     void render(MultiBufferSource source, Matrix4f matrix, Matrix3f normal, Vector2f dimension,
                 int color, int light, int overlay, boolean front, boolean back, long tick, float partialTick);
 
@@ -34,12 +34,16 @@ public sealed interface Slide extends AutoCloseable permits IconSlide, ImgSlide 
         return 0;
     }
 
+    default int getCPUMemorySize() {
+        return 0;
+    }
+
     default int getGPUMemorySize() {
-        return (getWidth() * getHeight()) << 2;
+        return 0;
     }
 
     static Slide make(TextureProvider texture) {
-        return new ImgSlide(texture);
+        return new ImageSlide(texture);
     }
 
     static Slide empty() {

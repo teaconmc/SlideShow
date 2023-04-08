@@ -13,11 +13,11 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class ImgSlide implements Slide {
+public final class ImageSlide implements Slide {
 
     private final TextureProvider mTexture;
 
-    ImgSlide(TextureProvider texture) {
+    ImageSlide(TextureProvider texture) {
         mTexture = texture;
     }
 
@@ -82,6 +82,16 @@ public final class ImgSlide implements Slide {
     @Override
     public int getHeight() {
         return mTexture.getHeight();
+    }
+
+    @Override
+    public int getCPUMemorySize() {
+        return mTexture.getCPUMemorySize();
+    }
+
+    @Override
+    public int getGPUMemorySize() {
+        return mTexture.getGPUMemorySize();
     }
 
     @Override

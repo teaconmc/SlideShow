@@ -4,24 +4,21 @@ import com.google.common.collect.ImmutableList;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.client.renderer.RenderStateShard;
-import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.*;
 import net.minecraft.resources.ResourceLocation;
 import org.teacon.slides.SlideShow;
-
-import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Objects;
 
 /**
  * @author BloCamLimb
  */
-@FieldsAreNonnullByDefault
-@MethodsReturnNonnullByDefault
-@ParametersAreNonnullByDefault
 public final class SlideRenderType extends RenderType {
+
+    private static ShaderInstance sPaletteSlideShader;
+    private static final ShaderStateShard
+            RENDERTYPE_PALETTE_SLIDE = new ShaderStateShard(SlideRenderType::getPaletteSlideShader);
+
     private static final ImmutableList<RenderStateShard> GENERAL_STATES;
+    private static final ImmutableList<RenderStateShard> PALETTE_STATES;
 
     static {
         GENERAL_STATES = ImmutableList.of(
@@ -37,41 +34,62 @@ public final class SlideRenderType extends RenderType {
                 COLOR_DEPTH_WRITE,
                 DEFAULT_LINE
         );
+        PALETTE_STATES = ImmutableList.of(
+                RENDERTYPE_PALETTE_SLIDE,
+                TRANSLUCENT_TRANSPARENCY,
+                LEQUAL_DEPTH_TEST,
+                CULL,
+                LIGHTMAP,
+                NO_OVERLAY,
+                NO_LAYERING,
+                MAIN_TARGET,
+                DEFAULT_TEXTURING,
+                COLOR_DEPTH_WRITE,
+                DEFAULT_LINE
+        );
     }
-
-    private final int mHashCode;
 
     public SlideRenderType(int texture) {
         super(SlideShow.ID, DefaultVertexFormat.BLOCK,
                 VertexFormat.Mode.QUADS, 256, false, true,
                 () -> {
                     GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
-                    // RenderSystem.enableTexture();
                     RenderSystem.setShaderTexture(0, texture);
                 },
                 () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
-        mHashCode = Objects.hash(super.hashCode(), GENERAL_STATES, texture);
+    }
+
+    public SlideRenderType(int imageTexture, int paletteTexture) {
+        super(SlideShow.ID + "_palette", DefaultVertexFormat.BLOCK,
+                VertexFormat.Mode.QUADS, 256, false, true,
+                () -> {
+                    PALETTE_STATES.forEach(RenderStateShard::setupRenderState);
+                    RenderSystem.setShaderTexture(0, imageTexture);
+                    RenderSystem.setShaderTexture(3, paletteTexture);
+                },
+                () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
     }
 
     public SlideRenderType(ResourceLocation texture) {
-        super(SlideShow.ID, DefaultVertexFormat.BLOCK,
+        super(SlideShow.ID + "_icon", DefaultVertexFormat.BLOCK,
                 VertexFormat.Mode.QUADS, 256, false, true,
                 () -> {
                     GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
-                    // RenderSystem.enableTexture();
                     RenderSystem.setShaderTexture(0, texture);
                 },
                 () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
-        mHashCode = Objects.hash(super.hashCode(), GENERAL_STATES, texture);
-    }
-
-    @Override
-    public int hashCode() {
-        return mHashCode;
     }
 
     @Override
     public boolean equals(Object o) {
         return this == o;
+    }
+
+    public static ShaderInstance getPaletteSlideShader() {
+        return sPaletteSlideShader;
+    }
+
+    public static void setPaletteSlideShader(ShaderInstance paletteSlideShader) {
+        sPaletteSlideShader = paletteSlideShader;
     }
 }

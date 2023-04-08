@@ -21,6 +21,10 @@ public interface TextureProvider extends AutoCloseable {
 
     int getHeight();
 
+    int getCPUMemorySize();
+
+    int getGPUMemorySize();
+
     @Override
     void close();
 }
