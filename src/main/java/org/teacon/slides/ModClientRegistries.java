@@ -31,7 +31,7 @@ public final class ModClientRegistries {
 
     @SubscribeEvent
     public static void setupClient(final FMLClientSetupEvent event) {
-        SlideShow.LOGGER.info("Optifine loaded: {}", IS_OPTIFINE_LOADED);
+        SlideShow.LOGGER.info("OptiFine loaded: {}", IS_OPTIFINE_LOADED);
         MenuScreens.register(ModRegistries.MENU.get(), ProjectorScreen::new);
     }
 
@@ -39,4 +39,15 @@ public final class ModClientRegistries {
     public static void registerRenders(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModRegistries.BLOCK_ENTITY.get(), ProjectorRenderer::new);
     }
+
+    /*@SubscribeEvent
+    public static void registerShaders(RegisterShadersEvent event) {
+        try {
+            event.registerShader(new ShaderInstance(event.getResourceProvider(),
+                    new ResourceLocation(SlideShow.ID, "rendertype_palette_slide"),
+                    DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP), SlideRenderType::setPaletteSlideShader);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }*/
 }

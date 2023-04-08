@@ -1,58 +1,67 @@
-package org.teacon.slides.texture;
+/*
+ * Modern UI.
+ * Copyright (C) 2019-2023 BloCamLimb. All rights reserved.
+ *
+ * Modern UI is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * Modern UI is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with Modern UI. If not, see <https://www.gnu.org/licenses/>.
+ */
 
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
+package org.teacon.slides.texture;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.EOFException;
 import java.io.IOException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
 
 /**
- * Buffered streaming GIF decoder with all compressed data loaded into heap memory.
+ * GIF decoder that created with compressed data and decode frame by frame,
+ * GIFDecoder is not thread safe, but can be locked and use across threads.
  *
  * @author BloCamLimb
  */
-@FieldsAreNonnullByDefault
-@MethodsReturnNonnullByDefault
-@ParametersAreNonnullByDefault
 public final class GIFDecoder {
 
-    public static final int DEFAULT_DELAY_MILLIS = 40;
+    public static volatile int sDefaultDelayMillis = 40;
 
-    private final byte[] mBuf;
+    private final ByteBuffer mBuf;
     private final LZWDecoder mDec;
 
-    private int mPos;
     private final int mHeaderPos;
 
     private final int mScreenWidth;
     private final int mScreenHeight;
-    private final @Nullable byte[][] mGlobalPalette;  // r,g,b,a
-    private final byte[] mImage;
+    @Nullable
+    private final byte[] mGlobalPalette; // rgba0 rgba1 ...
+    private final byte[] mImage; // rgba0 rgba1 ...
 
-    private @Nullable byte[][] mTmpPalette;
-    private final byte[] mTmpImage;
+    @Nullable
+    private byte[] mTmpPalette; // rgba0 rgba1 ...
+    private final byte[] mTmpImage; // index0 index1 ...
 
     private final int[] mTmpInterlace;
 
-    public GIFDecoder(byte[] buf, LZWDecoder dec, boolean checkMagic) throws IOException {
+    public GIFDecoder(ByteBuffer buf, LZWDecoder dec) throws IOException {
         mBuf = buf;
         mDec = dec;
-
-        // read GIF file header
-        if (checkMagic) {
-            int b;
-            if (readByte() != 'G' || readByte() != 'I' || readByte() != 'F' ||
-                    readByte() != '8' || ((b = readByte()) != '7' && b != '9') || readByte() != 'a') {
-                throw new IOException();
-            }
-        } else {
-            mPos = 6;
+        int b;
+        if (readByte() != 'G' || readByte() != 'I' || readByte() != 'F' ||
+                readByte() != '8' || ((b = readByte()) != '7' && b != '9') || readByte() != 'a') {
+            throw new IOException("Not GIF");
         }
+
         mScreenWidth = readShort();
         mScreenHeight = readShort();
         int packedField = readByte();
@@ -64,11 +73,11 @@ public final class GIFDecoder {
             mGlobalPalette = null;
         }
         mImage = new byte[mScreenWidth * mScreenHeight * 4];
-        mTmpImage = new byte[mImage.length];
+        mTmpImage = new byte[mScreenWidth * mScreenHeight];
 
         mTmpInterlace = new int[mScreenHeight];
 
-        mHeaderPos = mPos;
+        mHeaderPos = mBuf.position();
     }
 
     public static boolean checkMagic(@Nonnull byte[] buf) {
@@ -110,31 +119,40 @@ public final class GIFDecoder {
         boolean isInterlaced = (packedField & 0x40) != 0;
 
         int paletteSize = 2 << (packedField & 7);
-        if (mTmpPalette == null || mTmpPalette[0].length < paletteSize) {
-            mTmpPalette = new byte[4][paletteSize];
+        if (mTmpPalette == null || mTmpPalette.length < paletteSize * 4) {
+            mTmpPalette = new byte[paletteSize * 4];
         }
-        byte[][] palette = localPalette ? readPalette(paletteSize, transparentIndex, mTmpPalette) : Objects.requireNonNull(mGlobalPalette);
+        byte[] palette = localPalette
+                ? readPalette(paletteSize, transparentIndex, mTmpPalette)
+                : Objects.requireNonNull(mGlobalPalette);
 
-        int delayTime = imageControlCode & 0xFFFF;
+        int delayTime = imageControlCode & 0xFFFF; // frame duration in centi-seconds
 
         int disposalCode = (imageControlCode >>> 26) & 7;
-        decodeImage(mTmpImage, width, height, isInterlaced ? computeInterlaceReIndex(height, mTmpInterlace) : null);
+        decodeImage(mTmpImage, width, height,
+                isInterlaced
+                        ? computeInterlaceReIndex(height, mTmpInterlace)
+                        : null);
 
         decodePalette(mTmpImage, palette, transparentIndex, left, top, width, height, disposalCode, pixels);
 
-        return delayTime != 0 ? delayTime * 10 : DEFAULT_DELAY_MILLIS;
+        return delayTime != 0 ? delayTime * 10 : sDefaultDelayMillis;
     }
 
     @Nonnull
-    private byte[][] readPalette(int size, int transparentIndex, @Nullable byte[][] palette) throws IOException {
+    private byte[] readPalette(int size, int transparentIndex, @Nullable byte[] palette) throws IOException {
+        // max size is 256, flatten the array [r0 g0 b0 a0 r1 g1 b1 a1 ...]
         if (palette == null) {
-            palette = new byte[4][size];
+            palette = new byte[size * 4];
         }
-        for (int i = 0; i < size; ++i) {
-            for (int k = 0; k < 3; ++k) {
-                palette[k][i] = (byte) readByte();
+        for (int i = 0, iPos = 0; i < size; ++i) {
+            try {
+                mBuf.get(palette, iPos, 3);
+            } catch (BufferUnderflowException e) {
+                throw new EOFException();
             }
-            palette[3][i] = (i == transparentIndex) ? 0 : (byte) 0xFF;
+            palette[iPos + 3] = (i == transparentIndex) ? 0 : (byte) 0xFF;
+            iPos += 4;
         }
         return palette;
     }
@@ -163,7 +181,9 @@ public final class GIFDecoder {
     private int syncNextFrame() throws IOException {
         int controlData = 0;
         boolean restarted = false;
-        for (; ; ) {
+        // @formatter:off
+        for (;;) {
+            // @formatter:on
             int ch = read();
             switch (ch) {
                 case 0x2C -> { // Image Separator
@@ -178,13 +198,14 @@ public final class GIFDecoder {
                 }
                 case -1, 0x3B -> {  // EOF or Trailer
                     if (restarted) {
+                        // Dead loop or no data
                         return -1;
                     }
-                    mPos = mHeaderPos; // Return to beginning
+                    mBuf.position(mHeaderPos); // Return to beginning
                     controlData = 0;
                     restarted = true;
                 }
-                default -> throw new IOException();
+                default -> throw new IOException(String.valueOf(ch));
             }
         }
     }
@@ -192,9 +213,11 @@ public final class GIFDecoder {
     // Decode the one frame of GIF form the input stream using internal LZWDecoder class
     private void decodeImage(byte[] image, int width, int height, @Nullable int[] interlace) throws IOException {
         final LZWDecoder dec = mDec;
-        byte[] data = dec.setContext(this);
+        byte[] data = dec.setData(mBuf, readByte());
         int y = 0, iPos = 0, xr = width;
-        for (; ; ) {
+        // @formatter:off
+        for (;;) {
+            // @formatter:on
             int len = dec.readString();
             if (len == -1) { // end of stream
                 skipExtension();
@@ -240,7 +263,7 @@ public final class GIFDecoder {
         }
     }
 
-    private void decodePalette(byte[] srcImage, byte[][] palette, int transparentIndex,
+    private void decodePalette(byte[] srcImage, byte[] palette, int transparentIndex,
                                int left, int top, int width, int height, int disposalCode,
                                ByteBuffer pixels) {
         // Restore to previous
@@ -252,22 +275,16 @@ public final class GIFDecoder {
                 if (transparentIndex < 0) {
                     for (int x = 0; x < width; ++x) {
                         int index = 0xFF & srcImage[i + x];
-                        pixels.put(iPos++, palette[0][index]);
-                        pixels.put(iPos++, palette[1][index]);
-                        pixels.put(iPos++, palette[2][index]);
-                        pixels.put(iPos++, palette[3][index]);
+                        pixels.put(iPos, palette, index * 4, 4);
+                        iPos += 4;
                     }
                 } else {
                     for (int x = 0; x < width; ++x) {
                         int index = 0xFF & srcImage[i + x];
                         if (index != transparentIndex) {
-                            pixels.put(iPos++, palette[0][index]);
-                            pixels.put(iPos++, palette[1][index]);
-                            pixels.put(iPos++, palette[2][index]);
-                            pixels.put(iPos++, palette[3][index]);
-                        } else {
-                            iPos += 4;
+                            pixels.put(iPos, palette, index * 4, 4);
                         }
+                        iPos += 4;
                     }
                 }
             }
@@ -280,22 +297,16 @@ public final class GIFDecoder {
                 if (transparentIndex < 0) {
                     for (int x = 0; x < width; ++x) {
                         int index = 0xFF & srcImage[i + x];
-                        image[iPos++] = palette[0][index];
-                        image[iPos++] = palette[1][index];
-                        image[iPos++] = palette[2][index];
-                        image[iPos++] = palette[3][index];
+                        System.arraycopy(palette, index * 4, image, iPos, 4);
+                        iPos += 4;
                     }
                 } else {
                     for (int x = 0; x < width; ++x) {
                         int index = 0xFF & srcImage[i + x];
                         if (index != transparentIndex) {
-                            image[iPos++] = palette[0][index];
-                            image[iPos++] = palette[1][index];
-                            image[iPos++] = palette[2][index];
-                            image[iPos++] = palette[3][index];
-                        } else {
-                            iPos += 4;
+                            System.arraycopy(palette, index * 4, image, iPos, 4);
                         }
+                        iPos += 4;
                     }
                 }
             }
@@ -309,15 +320,19 @@ public final class GIFDecoder {
     }
 
     private int read() {
-        if (mPos < mBuf.length)
-            return (mBuf[mPos++] & 0xff);
-        return -1;
+        try {
+            return mBuf.get() & 0xFF;
+        } catch (BufferUnderflowException e) {
+            return -1;
+        }
     }
 
     public int readByte() throws IOException {
-        if (mPos < mBuf.length)
-            return (mBuf[mPos++] & 0xff);
-        throw new EOFException();
+        try {
+            return mBuf.get() & 0xFF;
+        } catch (BufferUnderflowException e) {
+            throw new EOFException();
+        }
     }
 
     private int readShort() throws IOException {
@@ -325,25 +340,10 @@ public final class GIFDecoder {
         return lsb + (msb << 8);
     }
 
-    public void readBytes(byte[] b, int off, int len) throws IOException {
-        int avail = mBuf.length - mPos;
-        if (avail <= 0) {
-            throw new EOFException();
-        }
-        if (len > avail) {
-            len = avail;
-        }
-        if (len <= 0) {
-            return;
-        }
-        System.arraycopy(mBuf, mPos, b, off, len);
-        mPos += len;
-    }
-
     private void skipBytes(int n) throws IOException {
-        if (mPos + n < mBuf.length) {
-            mPos += n;
-        } else {
+        try {
+            mBuf.position(mBuf.position() + n);
+        } catch (IllegalArgumentException e) {
             throw new EOFException();
         }
     }

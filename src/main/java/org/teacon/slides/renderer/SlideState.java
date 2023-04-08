@@ -14,21 +14,14 @@ import net.minecraftforge.fml.common.Mod;
 import org.apache.commons.lang3.StringUtils;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.cache.ImageCache;
-import org.teacon.slides.slide.IconSlide;
-import org.teacon.slides.slide.ImgSlide;
-import org.teacon.slides.slide.Slide;
-import org.teacon.slides.texture.AnimatedTextureProvider;
-import org.teacon.slides.texture.GIFDecoder;
-import org.teacon.slides.texture.StaticTextureProvider;
-import org.teacon.slides.texture.TextureProvider;
+import org.teacon.slides.slide.*;
+import org.teacon.slides.texture.*;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.net.URI;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -97,12 +90,13 @@ public final class SlideState {
     }
 
     private static String getDebugText() {
-        var size = 0L;
+        long cpuSize = 0L, gpuSize = 0L;
         var map = sCache.getAcquire();
         for (var state : map.values()) {
-            size += state.mSlide.getGPUMemorySize();
+            cpuSize += state.mSlide.getCPUMemorySize();
+            gpuSize += state.mSlide.getGPUMemorySize();
         }
-        return "SlideShow Cache: " + map.size() + " (" + (size >> 20) + " MiB)";
+        return "SlideShow Cache: " + map.size() + " (CPU=" + (cpuSize >> 20) + "MB, GPU=" + (gpuSize >> 20) + "MB)";
     }
 
     public static long getAnimationTick() {
@@ -110,7 +104,8 @@ public final class SlideState {
     }
 
     public static @Nullable Slide getSlide(String url) {
-        return StringUtils.isBlank(url) ? null : sCache.getAcquire().computeIfAbsent(url, SlideState::new).getWithUpdate();
+        return StringUtils.isBlank(url) ? null :
+                sCache.getAcquire().computeIfAbsent(url, SlideState::new).getWithUpdate();
     }
 
     /**
@@ -169,7 +164,7 @@ public final class SlideState {
         if (--mCounter < 0) {
             RenderSystem.recordRenderCall(() -> {
                 if (mState == State.LOADED) {
-                    assert mSlide instanceof ImgSlide;
+                    assert mSlide instanceof ImageSlide;
                     mSlide.close();
                 } else if (mState == State.LOADING) {
                     // noinspection resource

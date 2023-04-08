@@ -1,24 +1,49 @@
+/*
+ * Modern UI.
+ * Copyright (C) 2019-2023 BloCamLimb. All rights reserved.
+ *
+ * Modern UI is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * Modern UI is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with Modern UI. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 package org.teacon.slides.texture;
 
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import java.nio.BufferUnderflowException;
+import java.nio.ByteBuffer;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.annotation.ParametersAreNonnullByDefault;
-import java.io.EOFException;
-import java.io.IOException;
-import java.util.Objects;
-
-@FieldsAreNonnullByDefault
-@MethodsReturnNonnullByDefault
-@ParametersAreNonnullByDefault
+/**
+ * The GIF format uses LSB first. The initial code size can vary between 2 and 8 bits, inclusive.
+ */
 public final class LZWDecoder {
 
-    private int mInitCodeSize, mClearCode, mEOFCode;
-    private int mCodeSize, mCodeMask, mTableIndex, mPrevCode;
+    private static final int MAX_TABLE_SIZE = 1 << 12;
 
     // input data buffer
+    private ByteBuffer mData;
+
+    private int mInitCodeSize;
+    // ClearCode = (1 << L) + 0;
+    // EndOfInfo = (1 << L) + 1;
+    // NewCodeIndex = (1 << L) + 2;
+    private int mClearCode;
+    private int mEndOfInfo;
+
+    private int mCodeSize;
+    private int mCodeMask;
+
+    private int mTableIndex;
+    private int mPrevCode;
+
     private int mBlockPos;
     private int mBlockLength;
     private final byte[] mBlock = new byte[255];
@@ -26,53 +51,61 @@ public final class LZWDecoder {
     private int mInBits;
 
     // table
-    private final int[] mPrefix = new int[4096];
-    private final byte[] mSuffix = new byte[4096];
-    private final byte[] mInitial = new byte[4096];
-    private final int[] mLength = new int[4096];
-    private final byte[] mString = new byte[4096];
-
-    private @Nullable GIFDecoder mContext;
+    private final int[] mPrefix = new int[MAX_TABLE_SIZE];
+    private final byte[] mSuffix = new byte[MAX_TABLE_SIZE];
+    private final byte[] mInitial = new byte[MAX_TABLE_SIZE];
+    private final int[] mLength = new int[MAX_TABLE_SIZE];
+    private final byte[] mString = new byte[MAX_TABLE_SIZE];
 
     public LZWDecoder() {
     }
 
-    public byte[] setContext(@Nonnull GIFDecoder context) throws IOException {
-        mContext = context;
+    /**
+     * Reset the decoder with the given input data buffer.
+     *
+     * @param data the compressed data
+     * @return the string table
+     */
+    public byte[] setData(ByteBuffer data, int initCodeSize) {
+        mData = data;
         mBlockPos = 0;
         mBlockLength = 0;
         mInData = 0;
         mInBits = 0;
-        mInitCodeSize = context.readByte();
+        mInitCodeSize = initCodeSize;
         mClearCode = 1 << mInitCodeSize;
-        mEOFCode = mClearCode + 1;
+        mEndOfInfo = mClearCode + 1;
         initTable();
         return mString;
     }
 
-    // decode next string of data, which can be accessed by setContext() method
-    public final int readString() throws IOException {
-        int code = getCode();
-        if (code == mEOFCode) {
+    /**
+     * Decode next string of data, which can be accessed by {@link #setData(ByteBuffer, int)} method.
+     *
+     * @return the length of string, or -1 on EOF
+     */
+    public int readString() {
+        int code = getNextCode();
+        if (code == mEndOfInfo) {
             return -1;
         } else if (code == mClearCode) {
             initTable();
-            code = getCode();
-            if (code == mEOFCode) {
+            code = getNextCode();
+            if (code == mEndOfInfo) {
                 return -1;
             }
         } else {
-            int newSuffixIndex;
+            final int newSuffixIndex;
             if (code < mTableIndex) {
                 newSuffixIndex = code;
-            } else { // code == mTableIndex
+            } else {
                 newSuffixIndex = mPrevCode;
                 if (code != mTableIndex) {
-                    throw new IOException();
+                    return -1;
                 }
             }
 
-            if (mTableIndex < 4096) {
+            if (mTableIndex < MAX_TABLE_SIZE) {
                 int tableIndex = mTableIndex;
                 int prevCode = mPrevCode;
 
@@ -82,7 +115,7 @@ public final class LZWDecoder {
                 mLength[tableIndex] = mLength[prevCode] + 1;
 
                 ++mTableIndex;
-                if ((mTableIndex == (1 << mCodeSize)) && (mTableIndex < 4096)) {
+                if ((mTableIndex == (1 << mCodeSize)) && (mTableIndex < MAX_TABLE_SIZE)) {
                     ++mCodeSize;
                     mCodeMask = (1 << mCodeSize) - 1;
                 }
@@ -109,7 +142,7 @@ public final class LZWDecoder {
             mLength[i] = 1;
         }
 
-        for (int i = size; i < 4096; i++) {
+        for (int i = size; i < MAX_TABLE_SIZE; i++) {
             mPrefix[i] = -1;
             mSuffix[i] = 0;
             mInitial[i] = 0;
@@ -122,30 +155,26 @@ public final class LZWDecoder {
         mPrevCode = 0;
     }
 
-    private int getCode() throws IOException {
+    private int getNextCode() {
         while (mInBits < mCodeSize) {
-            mInData |= readByte() << mInBits;
+            if (mBlockPos == mBlockLength) {
+                mBlockPos = 0;
+                try {
+                    if ((mBlockLength = mData.get() & 0xFF) > 0) {
+                        mData.get(mBlock, 0, mBlockLength);
+                    } else {
+                        return mEndOfInfo;
+                    }
+                } catch (BufferUnderflowException e) {
+                    return mEndOfInfo;
+                }
+            }
+            mInData |= (mBlock[mBlockPos++] & 0xFF) << mInBits;
             mInBits += 8;
         }
         int code = mInData & mCodeMask;
         mInBits -= mCodeSize;
         mInData >>>= mCodeSize;
         return code;
-    }
-
-    private int readByte() throws IOException {
-        if (mBlockPos == mBlockLength) {
-            readBlock();
-        }
-        return (int) mBlock[mBlockPos++] & 0xFF;
-    }
-
-    private void readBlock() throws IOException {
-        mBlockPos = 0;
-        if ((mBlockLength = Objects.requireNonNull(mContext).readByte()) > 0) {
-            mContext.readBytes(mBlock, 0, mBlockLength);
-        } else {
-            throw new EOFException();
-        }
     }
 }
