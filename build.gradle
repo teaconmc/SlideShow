@@ -12,7 +12,7 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 // definitions at gradle/teacon-forge.gradle
 teacon {
     modId = 'slide_show'
-    modVersion = '0.7.0'
+    modVersion = '0.7.1'
     modLicense = 'BSD-3-Clause'
     modGitHubRepo = 'teaconmc/SlideShow'
     modAuthors = ['BloCamLimb', '3TUSK', 'ustc-zzzz']
