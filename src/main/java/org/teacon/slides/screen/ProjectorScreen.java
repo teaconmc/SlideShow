@@ -134,10 +134,9 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                     mImageUrlStatus = StringUtils.isNotBlank(text) ? ImageUrlStatus.INVALID : ImageUrlStatus.NO_CONTENT;
                 }
                 input.setTextColor(switch (mImageUrlStatus) {
-                    case NORMAL -> 0xE0E0E0;
+                    case NORMAL, NO_CONTENT -> 0xE0E0E0;
                     case BLOCKED -> 0xE0E04B;
                     case INVALID -> 0xE04B4B;
-                    case NO_CONTENT -> 0x4B4B4B;
                 });
             });
             input.setValue(value);
