@@ -25,6 +25,7 @@ import java.util.UUID;
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class SlidePermission {
+    private static @Nullable PermissionNode<Boolean> INTERACT_CREATE_PERM;
     private static @Nullable PermissionNode<Boolean> INTERACT_PERM;
     private static @Nullable PermissionNode<Boolean> BLOCK_PERM;
     private static @Nullable PermissionNode<Boolean> UNBLOCK_PERM;
@@ -34,6 +35,8 @@ public final class SlidePermission {
         // FIXME: permission resolving
         event.addNodes(INTERACT_PERM = new PermissionNode<>(SlideShow.ID,
                 "interact.projector", PermissionTypes.BOOLEAN, SlidePermission::everyone));
+        event.addNodes(INTERACT_CREATE_PERM = new PermissionNode<>(SlideShow.ID,
+                "interact.projector.create_url", PermissionTypes.BOOLEAN, SlidePermission::everyone));
         event.addNodes(BLOCK_PERM = new PermissionNode<>(SlideShow.ID,
                 "interact_url.block", PermissionTypes.BOOLEAN, SlidePermission::operator));
         event.addNodes(UNBLOCK_PERM = new PermissionNode<>(SlideShow.ID,
@@ -43,6 +46,13 @@ public final class SlidePermission {
     public static boolean canInteract(@Nullable CommandSource source) {
         if (source instanceof ServerPlayer sp) {
             return PermissionAPI.getPermission(sp, Objects.requireNonNull(INTERACT_PERM));
+        }
+        return false;
+    }
+
+    public static boolean canInteractCreateUrl(@Nullable CommandSource source) {
+        if (source instanceof ServerPlayer serverPlayer) {
+            return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(INTERACT_CREATE_PERM));
         }
         return false;
     }
