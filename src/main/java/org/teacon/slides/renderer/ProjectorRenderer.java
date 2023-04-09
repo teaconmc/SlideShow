@@ -31,7 +31,7 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
                        MultiBufferSource source, int packedLight, int packedOverlay) {
         // always update slide state whether the projector is powered or not
         var slide = SlideState.getSlide(tile.getImageLocation());
-        if (!tile.getBlockState().getValue(BlockStateProperties.POWERED)) {
+        if (slide != null && !tile.getBlockState().getValue(BlockStateProperties.POWERED)) {
             pStack.pushPose();
             var tileColorARGB = tile.getColorARGB();
             if ((tileColorARGB & 0xFF000000) != 0) {

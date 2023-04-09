@@ -11,6 +11,7 @@ import net.minecraft.nbt.StringTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -26,10 +27,13 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 import org.joml.*;
 import org.teacon.slides.ModRegistries;
+import org.teacon.slides.admin.SlidePermission;
+import org.teacon.slides.network.ProjectorUpdatePacket;
 import org.teacon.slides.renderer.SlideState;
 import org.teacon.slides.url.ProjectorURL;
 import org.teacon.slides.url.ProjectorURLSavedData;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
 import java.util.Optional;
@@ -189,8 +193,16 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     }
 
     @Override
-    public AbstractContainerMenu createMenu(int containerId, Inventory inventory, Player player) {
-        return new ProjectorContainerMenu(containerId, this);
+    public @Nullable AbstractContainerMenu createMenu(int id, Inventory inventory, Player currentPlayer) {
+        if (currentPlayer instanceof ServerPlayer player) {
+            var canInteract = SlidePermission.canInteract(player);
+            if (canInteract) {
+                var data = ProjectorURLSavedData.get(player.getLevel());
+                var canCreate = SlidePermission.canInteractCreateUrl(currentPlayer);
+                return new ProjectorContainerMenu(id, new ProjectorUpdatePacket(this, canCreate, data::getUrlById));
+            }
+        }
+        return null;
     }
 
     @Override

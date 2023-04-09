@@ -6,6 +6,8 @@ import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.PacketDistributor;
 import org.teacon.slides.ModRegistries;
@@ -14,67 +16,50 @@ import org.teacon.slides.url.ProjectorURL;
 import org.teacon.slides.url.ProjectorURLSavedData;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Supplier;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ProjectorURLPrefetchPacket {
-    private final ImmutableSet<UUID> blockedIdSet;
-
     private final ImmutableSet<UUID> nonExistentIdSet;
 
-    private final ImmutableMap<UUID, ProjectorURL> unblockedIdMap;
+    private final ImmutableMap<UUID, ProjectorURL> existentIdMap;
 
     private enum Status {
-        END, BLOCKED, NON_EXISTENT, UNBLOCKED
+        END, EXISTENT, NON_EXISTENT
     }
 
     public ProjectorURLPrefetchPacket(Set<UUID> idSet, ProjectorURLSavedData data) {
-        var blockedIdSetBuilder = ImmutableSet.<UUID>builder();
-        var nonExistentIdSetBuilder = ImmutableSet.<UUID>builder();
-        var unblockedIdMapBuilder = ImmutableMap.<UUID, ProjectorURL>builder();
+        var nonExistentBuilder = ImmutableSet.<UUID>builder();
+        var existentBuilder = ImmutableMap.<UUID, ProjectorURL>builder();
         for (var id : idSet) {
-            var url = data.getUrlById(id);
-            var isBlocked = data.isUrlBlocked(id);
-            if (isBlocked) {
-                blockedIdSetBuilder.add(id);
-            } else if (url.isEmpty()) {
-                nonExistentIdSetBuilder.add(id);
-            } else {
-                unblockedIdMapBuilder.put(id, url.get());
-            }
+            data.getUrlById(id).ifPresentOrElse(u -> existentBuilder.put(id, u), () -> nonExistentBuilder.add(id));
         }
-        this.blockedIdSet = blockedIdSetBuilder.build();
-        this.nonExistentIdSet = nonExistentIdSetBuilder.build();
-        this.unblockedIdMap = unblockedIdMapBuilder.build();
+        this.nonExistentIdSet = nonExistentBuilder.build();
+        this.existentIdMap = existentBuilder.build();
     }
 
     public ProjectorURLPrefetchPacket(FriendlyByteBuf buf) {
-        var blockedIdSetBuilder = ImmutableSet.<UUID>builder();
-        var nonExistentIdSetBuilder = ImmutableSet.<UUID>builder();
-        var unblockedIdMapBuilder = ImmutableMap.<UUID, ProjectorURL>builder();
+        var nonExistentBuilder = ImmutableSet.<UUID>builder();
+        var existentBuilder = ImmutableMap.<UUID, ProjectorURL>builder();
         while (true) {
             switch (buf.readEnum(Status.class)) {
                 case END -> {
-                    this.blockedIdSet = blockedIdSetBuilder.build();
-                    this.nonExistentIdSet = nonExistentIdSetBuilder.build();
-                    this.unblockedIdMap = unblockedIdMapBuilder.build();
+                    this.nonExistentIdSet = nonExistentBuilder.build();
+                    this.existentIdMap = existentBuilder.build();
                     return;
                 }
-                case BLOCKED -> blockedIdSetBuilder.add(buf.readUUID());
-                case NON_EXISTENT -> nonExistentIdSetBuilder.add(buf.readUUID());
-                case UNBLOCKED -> unblockedIdMapBuilder.put(buf.readUUID(), new ProjectorURL(buf.readUtf()));
+                case NON_EXISTENT -> nonExistentBuilder.add(buf.readUUID());
+                case EXISTENT -> existentBuilder.put(buf.readUUID(), new ProjectorURL(buf.readUtf()));
             }
         }
     }
 
     public void write(FriendlyByteBuf buf) {
-        this.blockedIdSet.forEach(uuid -> buf.writeEnum(Status.BLOCKED).writeUUID(uuid));
+        this.existentIdMap.forEach((uuid, url) -> buf.writeEnum(Status.EXISTENT).writeUUID(uuid).writeUtf(url.toUrl().toString()));
         this.nonExistentIdSet.forEach(uuid -> buf.writeEnum(Status.NON_EXISTENT).writeUUID(uuid));
-        this.unblockedIdMap.forEach((uuid, url) -> buf.writeEnum(Status.UNBLOCKED).writeUUID(uuid).writeUtf(url.toUrl().toString()));
         buf.writeEnum(Status.END);
     }
 
@@ -87,7 +72,10 @@ public final class ProjectorURLPrefetchPacket {
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(() -> SlideState.applyPrefetch(this.blockedIdSet, this.nonExistentIdSet, this.unblockedIdMap));
+        context.get().enqueueWork(() -> {
+            var applyPrefetch = DistExecutor.safeCallWhenOn(Dist.CLIENT, () -> SlideState::getApplyPrefetch);
+            Objects.requireNonNull(applyPrefetch).accept(this.nonExistentIdSet, this.existentIdMap);
+        });
         context.get().setPacketHandled(true);
     }
 }

@@ -1,6 +1,8 @@
 package org.teacon.slides.renderer;
 
 import com.google.common.collect.ImmutableSet;
+import com.machinezoo.noexception.optional.OptionalBoolean;
+import com.machinezoo.noexception.optional.OptionalPredicate;
 import com.mojang.blaze3d.systems.RenderSystem;
 import it.unimi.dsi.fastutil.objects.*;
 import net.minecraft.FieldsAreNonnullByDefault;
@@ -25,6 +27,7 @@ import org.teacon.slides.texture.StaticTextureProvider;
 import org.teacon.slides.texture.TextureProvider;
 import org.teacon.slides.url.ProjectorURL;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Map;
 import java.util.Set;
@@ -33,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
@@ -48,7 +52,7 @@ public final class SlideState {
     private static final int PENDING_TIMEOUT_SECONDS = 360; // 6min
     private static final Object2IntMap<BlockPos> sBlockPending = new Object2IntLinkedOpenHashMap<>();
     private static final Object2ObjectMap<UUID, ProjectorURL> sIdWithImage = new Object2ObjectOpenHashMap<>();
-    private static final Object2BooleanMap<UUID> sIdWithoutImageWithBlockStatus = new Object2BooleanOpenHashMap<>();
+    private static OptionalPredicate<ProjectorURL> sBlockedCheck = url -> OptionalBoolean.empty();
 
     private static final int RECYCLE_SECONDS = 120; // 2min
     private static final int RETRY_INTERVAL_SECONDS = 30; // 30s
@@ -143,34 +147,42 @@ public final class SlideState {
         return sAnimationTick;
     }
 
-    public static void applyPrefetch(Set<UUID> blocked, Set<UUID> nonExistent, Map<UUID, ProjectorURL> unblocked) {
-        // pending
-        sBlockPending.clear();
-        // blocked
-        sIdWithImage.keySet().removeAll(blocked);
-        blocked.forEach(u -> sIdWithoutImageWithBlockStatus.put(u, true));
-        // non existent
-        sIdWithImage.keySet().removeAll(nonExistent);
-        nonExistent.forEach(u -> sIdWithoutImageWithBlockStatus.put(u, false));
-        // unblocked
-        sIdWithoutImageWithBlockStatus.keySet().removeAll(unblocked.keySet());
-        sIdWithImage.putAll(unblocked);
-        // prefetch
-        unblocked.values().forEach(v -> sCache.getAcquire().computeIfAbsent(v, SlideState::new));
+    public static boolean getImgBlocked(ProjectorURL imgUrl, boolean fallback) {
+        return sBlockedCheck.test(imgUrl).orElse(fallback);
+    }
+
+    public static Consumer<OptionalPredicate<ProjectorURL>> getApplySummary() {
+        return summaryPredicate -> sBlockedCheck = summaryPredicate;
+    }
+
+    public static BiConsumer<Set<UUID>, Map<UUID, ProjectorURL>> getApplyPrefetch() {
+        return (nonExistent, existent) -> {
+            // pending
+            sBlockPending.clear();
+            // existent
+            sIdWithImage.putAll(existent);
+            // non-existent
+            sIdWithImage.keySet().removeAll(nonExistent);
+            // prefetch
+            existent.values().forEach(v -> sCache.getAcquire().computeIfAbsent(v, SlideState::new));
+        };
     }
 
     public static Consumer<BlockPos> getPrefetch() {
         return pos -> sBlockPending.putIfAbsent(pos, PENDING_TIMEOUT_SECONDS * 20);
     }
 
-    public static Slide getSlide(UUID id) {
-        if (sIdWithImage.containsKey(id)) {
-            return sCache.getAcquire().computeIfAbsent(sIdWithImage.get(id), SlideState::new).getWithUpdate();
+    public static @Nullable Slide getSlide(UUID id) {
+        var imageUrl = sIdWithImage.get(id);
+        if (imageUrl != null) {
+            var blocked = sBlockedCheck.test(imageUrl);
+            var doNotShowImageSlide = blocked.orElse(true);
+            if (!doNotShowImageSlide) {
+                return sCache.getAcquire().computeIfAbsent(sIdWithImage.get(id), SlideState::new).getWithUpdate();
+            }
+            return blocked.isPresent() ? Slide.blocked() : null;
         }
-        if (sIdWithoutImageWithBlockStatus.containsKey(id)) {
-            return sIdWithoutImageWithBlockStatus.getBoolean(id) ? Slide.blocked() : Slide.empty();
-        }
-        return Slide.loading();
+        return Slide.empty();
     }
 
     /**

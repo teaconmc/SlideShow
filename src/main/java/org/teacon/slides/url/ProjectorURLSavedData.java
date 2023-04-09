@@ -15,13 +15,19 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraftforge.common.util.FakePlayerFactory;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 import org.apache.commons.lang3.StringUtils;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.network.ProjectorURLPrefetchPacket;
+import org.teacon.slides.network.ProjectorURLSummaryPacket;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.net.URI;
 import java.time.Instant;
@@ -30,6 +36,7 @@ import java.util.*;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
+@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class ProjectorURLSavedData extends SavedData {
     private static final Comparator<ProjectorURL> PROJECTOR_URL_ASC = Comparator.comparing(ProjectorURL::toString);
     private static final Comparator<Log> LOG_TIME_ASC = Comparator.comparing(Log::time);
@@ -40,6 +47,15 @@ public final class ProjectorURLSavedData extends SavedData {
         return Objects.requireNonNull(dataStorage.computeIfAbsent(ProjectorURLSavedData::new, ProjectorURLSavedData::new, "slide_projector_urls"));
     }
 
+    @SubscribeEvent
+    public static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            var data = get(player.getLevel());
+            data.sendSummaryToPlayer(player);
+        }
+    }
+
+    private @Nullable ProjectorURLSummaryPacket cachedSummaryPacket;
     private final TreeMultimap<ProjectorURL, Log> urlStrToLogs;
     private final BiMap<UUID, ProjectorURL> idToUrlStr;
     private final Set<UUID> blockedIdCollection;
@@ -79,6 +95,7 @@ public final class ProjectorURLSavedData extends SavedData {
             result = UUID.randomUUID();
             this.logWithoutPos(LogType.CREATE, url, getProfile(creator));
             Preconditions.checkArgument(this.idToUrlStr.put(result, url) == null);
+            this.refreshAndSendSummaryToPlayers();
             this.setDirty();
         }
         return result;
@@ -90,6 +107,7 @@ public final class ProjectorURLSavedData extends SavedData {
             result = UUID.randomUUID();
             this.logWithPos(LogType.CREATE, projectorPos, url, creator.getGameProfile());
             Preconditions.checkArgument(this.idToUrlStr.put(result, url) == null);
+            this.refreshAndSendSummaryToPlayers();
             this.setDirty();
         }
         return result;
@@ -100,11 +118,13 @@ public final class ProjectorURLSavedData extends SavedData {
             var oldUrl = this.idToUrlStr.get(oldId);
             if (oldUrl != null) {
                 this.logWithPos(LogType.DETACH, projectorPos, oldUrl, creator.getGameProfile());
+                this.refreshAndSendSummaryToPlayers();
                 this.setDirty();
             }
             var newUrl = this.idToUrlStr.get(newId);
             if (newUrl != null) {
                 this.logWithPos(LogType.ATTACH, projectorPos, newUrl, creator.getGameProfile());
+                this.refreshAndSendSummaryToPlayers();
                 this.setDirty();
             }
         }
@@ -124,6 +144,7 @@ public final class ProjectorURLSavedData extends SavedData {
         }
         if (changed) {
             new ProjectorURLPrefetchPacket(Set.of(id), this).sendToAll();
+            this.refreshAndSendSummaryToPlayers();
             this.setDirty();
         }
         return changed;
@@ -185,6 +206,21 @@ public final class ProjectorURLSavedData extends SavedData {
                 this.blockedIdCollection.add(mappingId);
             }
         }
+    }
+
+    private void refreshAndSendSummaryToPlayers() {
+        var packet = new ProjectorURLSummaryPacket(this.idToUrlStr, this.blockedIdCollection);
+        this.cachedSummaryPacket = packet;
+        packet.sendToAll();
+    }
+
+    private void sendSummaryToPlayer(ServerPlayer player) {
+        var packet = this.cachedSummaryPacket;
+        if (packet == null) {
+            packet = new ProjectorURLSummaryPacket(this.idToUrlStr, this.blockedIdCollection);
+            this.cachedSummaryPacket = packet;
+        }
+        packet.sendToClient(player);
     }
 
     private void logWithPos(LogType logType, GlobalPos pos, ProjectorURL url, GameProfile creator) {

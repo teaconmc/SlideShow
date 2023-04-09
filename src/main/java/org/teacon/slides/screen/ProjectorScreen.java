@@ -38,10 +38,7 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -88,21 +85,24 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
     private final ProjectorUpdatePacket mUpdatePacket;
 
-    private @Nullable ProjectorURL mURL;
+    private @Nullable ProjectorURL mImgUrl;
     private int mImageColor = 0xFFFFFFFF;
     private Vector2f mImageSize = new Vector2f(1, 1);
     private Vector3f mImageOffset = new Vector3f(0, 0, 0);
 
-    private boolean mImgBlocked;
+    // initialized after construction
+
     private boolean mDoubleSided;
     private boolean mKeepAspectRatio;
     private SyncAspectRatio mSyncAspectRatio;
     private ProjectorBlock.InternalRotation mRotation;
 
-    private boolean mInvalidURL = true;
+    // refreshed after initialization
+
     private boolean mInvalidColor = true;
     private boolean mInvalidWidth = true, mInvalidHeight = true;
     private boolean mInvalidOffsetX = true, mInvalidOffsetY = true, mInvalidOffsetZ = true;
+    private ImageUrlStatus mImageUrlStatus = ImageUrlStatus.NO_CONTENT;
 
     public ProjectorScreen(ProjectorContainerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -113,7 +113,6 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         mUpdatePacket = packet;
         mRotation = packet.rotation;
         mDoubleSided = packet.doubleSided;
-        mImgBlocked = packet.imgUrlBlockedNow;
         mKeepAspectRatio = packet.keepAspectRatio;
         mSyncAspectRatio = packet.keepAspectRatio ? SyncAspectRatio.SYNC_WIDTH_WITH_HEIGHT : SyncAspectRatio.SYNCED;
         // url input
@@ -122,15 +121,24 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             input.setMaxLength(URL_MAX_LENGTH);
             input.setResponder(text -> {
                 try {
-                    mURL = new ProjectorURL(text);
-                    mInvalidURL = false;
-                    mImgBlocked = mUpdatePacket.imgUrlBlockedNow && mURL.equals(mUpdatePacket.imgUrl);
+                    mImgUrl = new ProjectorURL(text);
+                    if (mUpdatePacket.hasCreatePermission) {
+                        var blocked = SlideState.getImgBlocked(mImgUrl, false);
+                        mImageUrlStatus = blocked ? ImageUrlStatus.BLOCKED : ImageUrlStatus.NORMAL;
+                    } else {
+                        var invalid = SlideState.getImgBlocked(mImgUrl, true);
+                        mImageUrlStatus = invalid ? ImageUrlStatus.INVALID : ImageUrlStatus.NORMAL;
+                    }
                 } catch (IllegalArgumentException e) {
-                    mURL = null;
-                    mInvalidURL = StringUtils.isNotBlank(text);
-                    mImgBlocked = false;
+                    mImgUrl = null;
+                    mImageUrlStatus = StringUtils.isNotBlank(text) ? ImageUrlStatus.INVALID : ImageUrlStatus.NO_CONTENT;
                 }
-                input.setTextColor(mInvalidURL ? 0xE04B4B : mImgBlocked ? 0xE0E04B : 0xE0E0E0);
+                input.setTextColor(switch (mImageUrlStatus) {
+                    case NORMAL -> 0xE0E0E0;
+                    case BLOCKED -> 0xE0E04B;
+                    case INVALID -> 0xE04B4B;
+                    case NO_CONTENT -> 0x4B4B4B;
+                });
             });
             input.setValue(value);
             return input;
@@ -367,26 +375,32 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         var tilePos = mUpdatePacket.pos;
         var level = Objects.requireNonNull(minecraft).level;
         if (level != null && level.getBlockEntity(tilePos) instanceof ProjectorBlockEntity tile) {
-            var invalidSize = mInvalidWidth || mInvalidHeight;
-            var invalidOffset = mInvalidOffsetX || mInvalidOffsetY || mInvalidOffsetZ;
-            if (!mInvalidURL && !Objects.equals(mURL, mUpdatePacket.imgUrl)) {
+            var urlFallback = (ProjectorURL) null;
+            var urlRemoved = mImageUrlStatus == ImageUrlStatus.NO_CONTENT && mUpdatePacket.imgUrl != null;
+            var urlChanged = mImageUrlStatus == ImageUrlStatus.NORMAL && !Objects.equals(mImgUrl, mUpdatePacket.imgUrl);
+            if (urlRemoved || urlChanged) {
                 // apply random uuid and wait for server updates
+                urlFallback = urlRemoved ? null : mImgUrl;
                 tile.setImageLocation(UUID.randomUUID());
             }
-            if (!mInvalidColor) {
+            var validColor = !mInvalidColor;
+            if (validColor) {
                 tile.setColorARGB(mImageColor);
             }
-            if (!invalidSize) {
+            var validSize = !mInvalidWidth && !mInvalidHeight;
+            if (validSize) {
                 tile.setDimension(mImageSize);
             }
-            if (!invalidOffset) {
+            var validOffset = !mInvalidOffsetX && !mInvalidOffsetY && !mInvalidOffsetZ;
+            if (validOffset) {
                 tile.setSlideOffset(mImageOffset);
             }
             var state = tile.getBlockState().setValue(ProjectorBlock.ROTATION, mRotation);
             level.setBlock(tilePos, state, Block.UPDATE_NONE);
             tile.setDoubleSided(mDoubleSided);
             tile.setKeepAspectRatio(mKeepAspectRatio);
-            new ProjectorUpdatePacket(tile, mURL, null).sendToServer();
+            var urlFallbackOptional = Optional.ofNullable(urlFallback);
+            new ProjectorUpdatePacket(tile, mUpdatePacket.hasCreatePermission, u -> urlFallbackOptional).sendToServer();
         }
     }
 
@@ -438,7 +452,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         RenderSystem.setShaderTexture(0, GUI_TEXTURE);
         blit(stack, leftPos, topPos, 0, 0, imageWidth, imageHeight);
-        if (mImgBlocked) {
+        if (mImageUrlStatus == ImageUrlStatus.INVALID || mImageUrlStatus == ImageUrlStatus.BLOCKED) {
             blit(stack, leftPos + 9, topPos + 27, 179, 53, 18, 19);
         }
     }
@@ -492,7 +506,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         if (!mURLInput.get().isFocused()) {
             if (mSyncAspectRatio != SyncAspectRatio.SYNCED && !mInvalidWidth && !mInvalidHeight) {
                 var slide = SlideState.getSlide(mUpdatePacket.imgId);
-                var aspect = slide.getImageAspectRatio();
+                var aspect = slide == null ? Float.NaN : slide.getImageAspectRatio();
                 if (!Float.isNaN(aspect)) {
                     if (mSyncAspectRatio == SyncAspectRatio.SYNC_WIDTH_WITH_HEIGHT) {
                         var newSizeByHeight = new Vector2f(mImageSize.y * aspect, mImageSize.y);
@@ -628,6 +642,10 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         protected void updateWidgetNarration(NarrationElementOutput output) {
             output.add(NarratedElementType.TITLE, msg);
         }
+    }
+
+    private enum ImageUrlStatus {
+        NORMAL, BLOCKED, INVALID, NO_CONTENT
     }
 
     private enum SyncAspectRatio {

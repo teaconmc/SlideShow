@@ -14,6 +14,7 @@ import net.minecraftforge.network.NetworkHooks;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.admin.SlidePermission;
 import org.teacon.slides.network.ProjectorUpdatePacket;
+import org.teacon.slides.url.ProjectorURLSavedData;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -23,9 +24,9 @@ import javax.annotation.ParametersAreNonnullByDefault;
 public final class ProjectorContainerMenu extends AbstractContainerMenu {
     public final ProjectorUpdatePacket updatePacket;
 
-    public ProjectorContainerMenu(int containerId, ProjectorBlockEntity entity) {
+    public ProjectorContainerMenu(int containerId, ProjectorUpdatePacket updatePacket) {
         super(ModRegistries.MENU.get(), containerId);
-        this.updatePacket = new ProjectorUpdatePacket(entity, null, null);
+        this.updatePacket = updatePacket;
     }
 
     public ProjectorContainerMenu(int containerId, Inventory inventory, FriendlyByteBuf buf) {
@@ -33,8 +34,11 @@ public final class ProjectorContainerMenu extends AbstractContainerMenu {
         this.updatePacket = new ProjectorUpdatePacket(buf);
     }
 
-    public static void openGui(Player player, ProjectorBlockEntity tile) {
-        NetworkHooks.openScreen(((ServerPlayer) player), tile, new ProjectorUpdatePacket(tile, null, null)::write);
+    public static void openGui(Player currentPlayer, ProjectorBlockEntity tile) {
+        var player = (ServerPlayer) currentPlayer;
+        var data = ProjectorURLSavedData.get(player.getLevel());
+        var canCreate = SlidePermission.canInteractCreateUrl(currentPlayer);
+        NetworkHooks.openScreen(player, tile, new ProjectorUpdatePacket(tile, canCreate, data::getUrlById)::write);
     }
 
     public static MenuType<?> create() {
