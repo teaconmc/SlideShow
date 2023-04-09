@@ -484,8 +484,10 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             renderTooltip(stack, COLOR_TEXT, offsetX, offsetY);
         } else if (offsetX >= 9 && offsetY >= 49 && offsetX < 27 && offsetY < 68) {
             renderTooltip(stack, WIDTH_TEXT, offsetX, offsetY);
-        } else if (offsetX >= 90 && offsetY >= 49 && offsetX < 108 && offsetY < 68) {
+        } else if (offsetX >= 79 && offsetY >= 49 && offsetX < 97 && offsetY < 68) {
             renderTooltip(stack, HEIGHT_TEXT, offsetX, offsetY);
+        } else if (offsetX >= 149 && offsetY >= 49 && offsetX < 167 && offsetY < 68) {
+            renderTooltip(stack, KEEP_ASPECT_RATIO_TEXT, offsetX, offsetY);
         } else if (offsetX >= 9 && offsetY >= 101 && offsetX < 27 && offsetY < 120) {
             renderTooltip(stack, OFFSET_X_TEXT, offsetX, offsetY);
         } else if (offsetX >= 63 && offsetY >= 101 && offsetX < 81 && offsetY < 120) {
