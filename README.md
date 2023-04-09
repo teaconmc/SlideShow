@@ -1,6 +1,6 @@
 # SlideShow
 
-… is a Minecraft mod that adds a "Slide Show Projector" block. This block can projects any online image into the world.
+… is a Minecraft mod that adds a "Slide Show Projector" block. This block can project any online image into the world.
 
 ![Preview](./docs/preview.png)
 
@@ -9,8 +9,8 @@ There are also several options to adjust; hover your mouse to these icons to get
 
 ![GUI](./docs/gui.png)
 
-By now, only PNG format images are verified as supported; other image formats may or may not be supported, and further 
-testing are still needed.
+By now, only PNG/JPG/GIF format images are verified as supported (including animations);
+other image formats may or may not be supported, and further testing are still needed.
 
 ## Development
 
