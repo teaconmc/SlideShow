@@ -5,6 +5,8 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraftforge.common.CreativeModeTabRegistry;
+import net.minecraftforge.event.CreativeModeTabEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -18,8 +20,11 @@ import org.teacon.slides.network.ProjectorURLPrefetchPacket;
 import org.teacon.slides.network.ProjectorURLRequestPacket;
 import org.teacon.slides.network.ProjectorURLSummaryPacket;
 import org.teacon.slides.network.ProjectorUpdatePacket;
+import org.teacon.slides.projector.ProjectorBlock;
+import org.teacon.slides.projector.ProjectorBlockEntity;
+import org.teacon.slides.projector.ProjectorContainerMenu;
+import org.teacon.slides.projector.ProjectorItem;
 import org.teacon.slides.url.ProjectorURLArgument;
-import org.teacon.slides.projector.*;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Optional;
@@ -98,5 +103,13 @@ public final class ModRegistries {
                 ProjectorURLSummaryPacket::handle,
                 Optional.of(NetworkDirection.PLAY_TO_CLIENT));
         SlideShow.LOGGER.info("Registered {} network packages (version {})", index, NETWORK_VERSION);
+    }
+
+    @SubscribeEvent
+    public static void onBuildContents(CreativeModeTabEvent.BuildContents event) {
+        var tabName = CreativeModeTabRegistry.getName(event.getTab());
+        if (new ResourceLocation("minecraft", "tools_and_utilities").equals(tabName)) {
+            event.accept(PROJECTOR);
+        }
     }
 }
