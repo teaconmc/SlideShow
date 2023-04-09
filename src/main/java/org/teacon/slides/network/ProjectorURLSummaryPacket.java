@@ -122,16 +122,16 @@ public final class ProjectorURLSummaryPacket implements OptionalPredicate<Projec
         }
 
         public byte[] toBytes() {
-            var bytes = new byte[256 / Byte.SIZE];
-            var buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asLongBuffer();
-            buffer.put(this.bytesLE1).put(this.bytesLE2).put(this.bytesLE3).put(this.bytesLE4);
-            return bytes;
+            var buffer = ByteBuffer.wrap(new byte[256 / Byte.SIZE]).order(ByteOrder.LITTLE_ENDIAN);
+            buffer.putLong(this.bytesLE1).putLong(this.bytesLE2);
+            buffer.putLong(this.bytesLE3).putLong(this.bytesLE4);
+            return buffer.array();
         }
 
         public static Bits256 fromBytes(byte[] bytes) {
             checkArgument(bytes.length == 256 / Byte.SIZE);
-            var buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asLongBuffer();
-            return new Bits256(buffer.get(), buffer.get(), buffer.get(), buffer.get());
+            var buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+            return new Bits256(buffer.getLong(), buffer.getLong(), buffer.getLong(), buffer.getLong());
         }
 
         public static Bits256 random() {
@@ -142,11 +142,12 @@ public final class ProjectorURLSummaryPacket implements OptionalPredicate<Projec
 
         @Override
         public int compareTo(Bits256 that) {
+            // compare from the last byte to the first byte
             var cmp1 = Long.compareUnsigned(this.bytesLE1, that.bytesLE1);
             var cmp2 = Long.compareUnsigned(this.bytesLE2, that.bytesLE2);
             var cmp3 = Long.compareUnsigned(this.bytesLE3, that.bytesLE3);
             var cmp4 = Long.compareUnsigned(this.bytesLE4, that.bytesLE4);
-            return cmp1 == 0 ? cmp2 == 0 ? cmp3 == 0 ? cmp4 : cmp3 : cmp2 : cmp1;
+            return cmp4 == 0 ? cmp3 == 0 ? cmp2 == 0 ? cmp1 : cmp2 : cmp3 : cmp4;
         }
     }
 }
