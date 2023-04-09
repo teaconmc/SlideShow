@@ -20,6 +20,7 @@ jobs:
       - name: Maven Publish
         id: maven_publish
         env:
+          ARCHIVE_URL: ${{ secrets.TEACON_ARCHIVE_URL }}
           ARCHIVE_ENDPOINT: ${{ secrets.TEACON_ARCHIVE_ENDPOINT }}
           ARCHIVE_ACCESS_KEY: ${{ secrets.TEACON_ARCHIVE_ACCESS_KEY }}
           ARCHIVE_SECRET_KEY: ${{ secrets.TEACON_ARCHIVE_SECRET_KEY }}

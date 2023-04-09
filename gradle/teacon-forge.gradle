@@ -258,7 +258,7 @@ gradle.afterProject { Project current ->
         it.repositories {
             maven {
                 name = "teacon"
-                url = "s3://maven/"
+                url = System.env.ARCHIVE_URL
                 credentials(AwsCredentials) {
                     accessKey = System.env.ARCHIVE_ACCESS_KEY
                     secretKey = System.env.ARCHIVE_SECRET_KEY
