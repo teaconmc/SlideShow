@@ -227,7 +227,9 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         var nHalf = new Vector3f(0, 0.5f, 0).mul(normal);
         var base = new AABB(v00.x(), v00.y(), v00.z(), v01.x(), v01.y(), v01.z());
 
-        return base.move(this.getBlockPos()).inflate(nHalf.x(), nHalf.y(), nHalf.z());
+        var projectorAABB = new AABB(0, 0, 0, 1, 1, 1).inflate(0.5);
+        var slideAABB = base.inflate(nHalf.x(), nHalf.y(), nHalf.z());
+        return projectorAABB.minmax(slideAABB).move(this.getBlockPos());
     }
 
     public void transformToSlideSpace(Matrix4f pose, Matrix3f normal) {
