@@ -1,5 +1,6 @@
 {
     "argument.slide_show.projector_url.error": "Input %s is not a valid url",
+    "argument.slide_show.projector_url_pattern.error": "Input %s is not a valid url pattern",
 
     "block.slide_show.projector": "Slide Show Projector",
 

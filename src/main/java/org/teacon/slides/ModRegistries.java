@@ -25,6 +25,7 @@ import org.teacon.slides.projector.ProjectorBlockEntity;
 import org.teacon.slides.projector.ProjectorContainerMenu;
 import org.teacon.slides.projector.ProjectorItem;
 import org.teacon.slides.url.ProjectorURLArgument;
+import org.teacon.slides.url.ProjectorURLPatternArgument;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Optional;
@@ -43,6 +44,8 @@ public final class ModRegistries {
     // Last Update: Tue, 18 Jan 2022 20:00:00 +0800 (1 => 2)
     // Last Update: Sun, 26 Mar 2023 22:00:00 +0800 (2 => 3)
     public static final String NETWORK_VERSION = "3";
+
+    public static final ResourceLocation PROJECTOR_URL_PATTERN_ID = new ResourceLocation(SlideShow.ID, "projector_url_pattern");
 
     public static final ResourceLocation PROJECTOR_URL_ID = new ResourceLocation(SlideShow.ID, "projector_url");
 
@@ -73,6 +76,7 @@ public final class ModRegistries {
         event.register(ForgeRegistries.BLOCK_ENTITY_TYPES.getRegistryKey(), PROJECTOR_ID, ProjectorBlockEntity::create);
         event.register(ForgeRegistries.MENU_TYPES.getRegistryKey(), PROJECTOR_ID, ProjectorContainerMenu::create);
         event.register(ForgeRegistries.COMMAND_ARGUMENT_TYPES.getRegistryKey(), PROJECTOR_URL_ID, ProjectorURLArgument::create);
+        event.register(ForgeRegistries.COMMAND_ARGUMENT_TYPES.getRegistryKey(), PROJECTOR_URL_PATTERN_ID, ProjectorURLPatternArgument::create);
     }
 
     @SubscribeEvent

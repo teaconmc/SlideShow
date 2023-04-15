@@ -1,5 +1,6 @@
 {
     "argument.slide_show.projector_url.error": "输入 %s 不是一个合法的 URL",
+    "argument.slide_show.projector_url_pattern.error": "输入 %s 不是一个合法的 URL Pattern",
 
     "block.slide_show.projector": "幻灯片投影仪",
 

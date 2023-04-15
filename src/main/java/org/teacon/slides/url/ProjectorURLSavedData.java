@@ -3,6 +3,7 @@ package org.teacon.slides.url;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.*;
 import com.mojang.authlib.GameProfile;
+import it.unimi.dsi.fastutil.ints.IntObjectPair;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
@@ -26,6 +27,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.network.ProjectorURLPrefetchPacket;
 import org.teacon.slides.network.ProjectorURLSummaryPacket;
+import org.teacon.urlpattern.URLPattern;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -60,6 +62,18 @@ public final class ProjectorURLSavedData extends SavedData {
     private final BiMap<UUID, ProjectorURL> idToUrlStr;
     private final Set<UUID> blockedIdCollection;
     private long maxLogTimestamp = 0L;
+
+    public IntObjectPair<Map<UUID, URLPattern.Result<String>>> getUrlMatchResults(URLPattern pattern, int limit) {
+        var resultCount = 0;
+        var builder = ImmutableMap.<UUID, URLPattern.Result<String>>builder();
+        for (var entry : this.idToUrlStr.entrySet()) {
+            var result = pattern.exec(entry.getValue().toUrl());
+            if (result.isPresent() && ++resultCount <= limit) {
+                builder.put(entry.getKey(), result.get());
+            }
+        }
+        return IntObjectPair.of(resultCount, builder.build());
+    }
 
     public Optional<ProjectorURL> getUrlById(UUID id) {
         return Optional.ofNullable(this.idToUrlStr.get(id));
@@ -154,13 +168,13 @@ public final class ProjectorURLSavedData extends SavedData {
     public CompoundTag save(CompoundTag tag) {
         var logs = new ListTag();
         // noinspection UnstableApiUsage
-        for (var log: Iterables.mergeSorted(this.urlStrToLogs.asMap().values(), LOG_TIME_ASC)) {
+        for (var log : Iterables.mergeSorted(this.urlStrToLogs.asMap().values(), LOG_TIME_ASC)) {
             var logRecord = log.writeTag();
             logs.add(logRecord);
         }
         tag.put("Logs", logs);
         var mappings = new ListTag();
-        for (var mapping: this.idToUrlStr.entrySet()) {
+        for (var mapping : this.idToUrlStr.entrySet()) {
             var mappingRecord = new CompoundTag();
             mappingRecord.putUUID("UUID", mapping.getKey());
             mappingRecord.putString("URL", mapping.getValue().toUrl().toString());
