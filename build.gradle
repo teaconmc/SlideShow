@@ -50,6 +50,7 @@ dependencies {
 shadowJar {
     archiveClassifier.set(null)
     configurations = [project.configurations.shadow]
+    from(file('LICENSE')) { into 'META-INF' }
     dependencies {
         it.exclude it.dependency('org.apache.httpcomponents:httpclient:.*')
         it.exclude it.dependency('org.apache.httpcomponents:httpcore:.*')
