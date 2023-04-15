@@ -2,7 +2,6 @@ package org.teacon.slides.admin;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
@@ -13,6 +12,7 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentUtils;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -22,13 +22,13 @@ import org.teacon.slides.SlideShow;
 import org.teacon.slides.network.ProjectorURLPrefetchPacket;
 import org.teacon.slides.url.ProjectorURL;
 import org.teacon.slides.url.ProjectorURLArgument;
+import org.teacon.slides.url.ProjectorURLPatternArgument;
 import org.teacon.slides.url.ProjectorURLSavedData;
+import org.teacon.urlpattern.URLPattern;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Function;
 
 import static net.minecraft.commands.Commands.argument;
 import static net.minecraft.commands.Commands.literal;
@@ -37,7 +37,7 @@ import static net.minecraft.commands.Commands.literal;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
-public class SlideCommand {
+public final class SlideCommand {
     private static final DynamicCommandExceptionType URL_NOT_EXIST = new DynamicCommandExceptionType(v -> Component.translatable("command.slide_show.failed.url_not_exist", v));
 
     private static final SimpleCommandExceptionType PERM_NOT_EXIST = new SimpleCommandExceptionType(Component.translatable("command.slide_show.failed.perm_not_exist").withStyle(ChatFormatting.RED));
@@ -50,66 +50,103 @@ public class SlideCommand {
 
     private static LiteralArgumentBuilder<CommandSourceStack> command(String name) {
         return literal(name)
+                .then(literal("list")
+                        .then(argument("pattern", new ProjectorURLPatternArgument())
+                                .executes(context -> list(context.getSource(),
+                                        ProjectorURLPatternArgument.getUrl(context, "pattern"),
+                                        ProjectorURLSavedData.get(context.getSource().getLevel()))))
+                        .executes(context -> list(context.getSource(),
+                                new URLPattern(Map.of(URLPattern.ComponentType.PROTOCOL, "http(s?)")),
+                                ProjectorURLSavedData.get(context.getSource().getLevel()))))
                 .then(literal("prefetch")
                         .then(argument("url", new ProjectorURLArgument())
-                                .executes(SlideCommand::prefetchProjectorUrl)))
+                                .executes(context -> prefetch(context.getSource(),
+                                        ProjectorURLArgument.getUrl(context, "url"),
+                                        ProjectorURLSavedData.get(context.getSource().getLevel())))))
                 .then(literal("block")
                         .then(argument("url", new ProjectorURLArgument())
-                                .executes(SlideCommand::blockByProjectorUrl)))
+                                .executes(context -> block(context.getSource(),
+                                        ProjectorURLArgument.getUrl(context, "url"),
+                                        ProjectorURLSavedData.get(context.getSource().getLevel())))))
                 .then(literal("unblock")
                         .then(argument("url", new ProjectorURLArgument())
-                                .executes(SlideCommand::unblockByProjectorUrl)));
+                                .executes(context -> unblock(context.getSource(),
+                                        ProjectorURLArgument.getUrl(context, "url"),
+                                        ProjectorURLSavedData.get(context.getSource().getLevel())))));
     }
 
-    private static int prefetchProjectorUrl(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        var arg = ProjectorURLArgument.getUrl(ctx, "url");
-        var data = ProjectorURLSavedData.get(ctx.getSource().getLevel());
-        var urlOptional = arg.map(data::getUrlById, Optional::of);
+    private static int prefetch(CommandSourceStack source,
+                                Either<UUID, ProjectorURL> urlArgument,
+                                ProjectorURLSavedData data) throws CommandSyntaxException {
+        var urlOptional = urlArgument.map(data::getUrlById, Optional::of);
         if (urlOptional.isPresent()) {
             var url = urlOptional.get();
-            var uuid = data.getOrCreateIdByCommand(url, ctx.getSource());
-            new ProjectorURLPrefetchPacket(Set.of(uuid), data).sendToAll();
-            var msg = Component.translatable("command.slide_show.prefetch_projector_url.success", toText(uuid, url));
-            ctx.getSource().sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
-            return Command.SINGLE_SUCCESS;
+            var uuidOptional = data.getIdByUrl(url);
+            if (uuidOptional.isPresent() || SlidePermission.canInteractCreateUrl(source.source)) {
+                var uuid = uuidOptional.orElseGet(() -> data.getOrCreateIdByCommand(url, source));
+                new ProjectorURLPrefetchPacket(Set.of(uuid), data).sendToAll();
+                var msg = Component.translatable("command.slide_show.prefetch_projector_url.success", toText(uuid, url));
+                source.sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
+                return Command.SINGLE_SUCCESS;
+            }
         }
-        throw URL_NOT_EXIST.create(arg.map(SlideCommand::toText, SlideCommand::toText));
+        throw URL_NOT_EXIST.create(urlArgument.map(SlideCommand::toText, SlideCommand::toText));
     }
 
-    private static int blockByProjectorUrl(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        if (SlidePermission.canBlockUrl(ctx.getSource().source)) {
-            var data = ProjectorURLSavedData.get(ctx.getSource().getLevel());
-            var arg = ProjectorURLArgument.getUrl(ctx, "url");
-            var pairOptional = toPairOpt(data, arg);
-            if (pairOptional.isPresent()) {
-                var pair = pairOptional.get();
-                var text = toText(pair.getKey(), pair.getValue());
-                if (data.setBlockedStatusByCommand(pair.getKey(), pair.getValue(), ctx.getSource(), true)) {
-                    var msg = Component.translatable("command.slide_show.block_projector_url.success", text);
-                    ctx.getSource().sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
-                    return Command.SINGLE_SUCCESS;
-                }
+    private static int list(CommandSourceStack source,
+                            URLPattern urlPatternArgument,
+                            ProjectorURLSavedData data) throws CommandSyntaxException {
+        if (SlidePermission.canListUrl(source.source)) {
+            var limit = 20;
+            var matchResults = data.getUrlMatchResults(urlPatternArgument, limit);
+            var components = Arrays.asList(matchResults.value().keySet().stream().flatMap(
+                    id -> data.getUrlById(id).map(u -> toText(id, u)).stream()).toArray(Component[]::new));
+            var matchCount = matchResults.keyInt();
+            if (matchCount > limit) {
+                components.set(limit - 1, Component.literal("...").withStyle(ChatFormatting.GRAY));
             }
-            throw URL_NOT_EXIST.create(arg.map(SlideCommand::toText, SlideCommand::toText));
+            var component = ComponentUtils.formatList(components, Function.identity());
+            var msg = Component.translatable("command.slide_show.list_projector_url.success", matchCount, component);
+            source.sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
+            return Command.SINGLE_SUCCESS;
         }
         throw PERM_NOT_EXIST.create();
     }
 
-    private static int unblockByProjectorUrl(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
-        if (SlidePermission.canUnblockUrl(ctx.getSource().source)) {
-            var data = ProjectorURLSavedData.get(ctx.getSource().getLevel());
-            var arg = ProjectorURLArgument.getUrl(ctx, "url");
-            var pairOptional = toPairOpt(data, arg);
+    private static int block(CommandSourceStack source,
+                             Either<UUID, ProjectorURL> urlArgument,
+                             ProjectorURLSavedData data) throws CommandSyntaxException {
+        if (SlidePermission.canBlockUrl(source.source)) {
+            var pairOptional = toPairOpt(data, urlArgument);
             if (pairOptional.isPresent()) {
                 var pair = pairOptional.get();
                 var text = toText(pair.getKey(), pair.getValue());
-                if (data.setBlockedStatusByCommand(pair.getKey(), pair.getValue(), ctx.getSource(), false)) {
-                    var msg = Component.translatable("command.slide_show.unblock_projector_url.success", text);
-                    ctx.getSource().sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
+                if (data.setBlockedStatusByCommand(pair.getKey(), pair.getValue(), source, true)) {
+                    var msg = Component.translatable("command.slide_show.block_projector_url.success", text);
+                    source.sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
                     return Command.SINGLE_SUCCESS;
                 }
             }
-            throw URL_NOT_EXIST.create(arg.map(SlideCommand::toText, SlideCommand::toText));
+            throw URL_NOT_EXIST.create(urlArgument.map(SlideCommand::toText, SlideCommand::toText));
+        }
+        throw PERM_NOT_EXIST.create();
+    }
+
+    private static int unblock(CommandSourceStack source,
+                               Either<UUID, ProjectorURL> urlArgument,
+                               ProjectorURLSavedData data) throws CommandSyntaxException {
+        if (SlidePermission.canUnblockUrl(source.source)) {
+            var pairOptional = toPairOpt(data, urlArgument);
+            if (pairOptional.isPresent()) {
+                var pair = pairOptional.get();
+                var text = toText(pair.getKey(), pair.getValue());
+                if (data.setBlockedStatusByCommand(pair.getKey(), pair.getValue(), source, false)) {
+                    var msg = Component.translatable("command.slide_show.unblock_projector_url.success", text);
+                    source.sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
+                    return Command.SINGLE_SUCCESS;
+                }
+            }
+            throw URL_NOT_EXIST.create(urlArgument.map(SlideCommand::toText, SlideCommand::toText));
         }
         throw PERM_NOT_EXIST.create();
     }
