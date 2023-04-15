@@ -37,7 +37,12 @@ configurations {
     runtimeClasspath.extendsFrom(shadow)
 }
 
+repositories {
+    maven { url 'https://jitpack.io' }
+}
+
 dependencies {
+    shadow 'org.teacon:urlpattern:1.0.1'
     shadow 'net.objecthunter:exp4j:0.4.8'
     shadow 'org.apache.httpcomponents:httpclient-cache:4.5.13'
 }
@@ -52,6 +57,7 @@ shadowJar {
         it.exclude it.dependency('commons-codec:commons-codec:.*')
     }
     relocate 'net.objecthunter.exp4j', 'org.teacon.slides.exp4j'
+    relocate 'org.teacon.urlpattern', 'org.teacon.slides.urlpattern'
     relocate 'org.apache.http.client.cache', 'org.teacon.slides.http.client.cache'
     relocate 'org.apache.http.impl.client.cache', 'org.teacon.slides.http.impl.client.cache'
 }
