@@ -51,7 +51,7 @@ public final class ProjectorURLRequestPacket {
         context.get().enqueueWork(() -> {
             var player = context.get().getSender();
             if (player != null) {
-                var level = player.getLevel();
+                var level = player.serverLevel();
                 var imageLocations = new LinkedHashSet<UUID>(this.requestedPosSet.size());
                 for (var pos : this.requestedPosSet) {
                     // prevent remote chunk loading

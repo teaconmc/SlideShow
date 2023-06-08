@@ -197,7 +197,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         if (currentPlayer instanceof ServerPlayer player) {
             var canInteract = SlidePermission.canInteract(player);
             if (canInteract) {
-                var data = ProjectorURLSavedData.get(player.getLevel());
+                var data = ProjectorURLSavedData.get(player.serverLevel());
                 var canCreate = SlidePermission.canInteractCreateUrl(currentPlayer);
                 return new ProjectorContainerMenu(id, new ProjectorUpdatePacket(this, canCreate, data::getUrlById));
             }

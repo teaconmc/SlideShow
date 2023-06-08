@@ -1,8 +1,8 @@
 plugins {
     id 'eclipse'
     id 'maven-publish'
-    id 'net.minecraftforge.gradle' version '5.1.+'
-    id 'com.github.johnrengelman.shadow' version '7.1.+'
+    id 'net.minecraftforge.gradle' version '6.0.+'
+    id 'com.github.johnrengelman.shadow' version '8.1.+'
 }
 
 apply from: 'gradle/teacon-forge.gradle'
@@ -12,13 +12,13 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 // definitions at gradle/teacon-forge.gradle
 teacon {
     modId = 'slide_show'
-    modVersion = '0.7.4'
+    modVersion = '0.8.0'
     modLicense = 'BSD-3-Clause'
     modGitHubRepo = 'teaconmc/SlideShow'
     modAuthors = ['BloCamLimb', '3TUSK', 'ustc-zzzz']
     modDescription = 'Minecraft mod, adding a projector that can display online images.'
 
-    platform = 'forge-1.19.4-45.0.9'
+    platform = 'forge-1.20-46.0.1'
     // parchment = '2022.03.13'
 
     // uncomment these lines if you need

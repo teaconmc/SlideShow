@@ -52,7 +52,7 @@ public final class ProjectorURLSavedData extends SavedData {
     @SubscribeEvent
     public static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            var data = get(player.getLevel());
+            var data = get(player.serverLevel());
             data.sendSummaryToPlayer(player);
         }
     }

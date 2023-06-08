@@ -6,7 +6,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraftforge.common.CreativeModeTabRegistry;
-import net.minecraftforge.event.CreativeModeTabEvent;
+import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -110,7 +110,7 @@ public final class ModRegistries {
     }
 
     @SubscribeEvent
-    public static void onBuildContents(CreativeModeTabEvent.BuildContents event) {
+    public static void onBuildContents(BuildCreativeModeTabContentsEvent event) {
         var tabName = CreativeModeTabRegistry.getName(event.getTab());
         if (new ResourceLocation("minecraft", "tools_and_utilities").equals(tabName)) {
             event.accept(PROJECTOR);

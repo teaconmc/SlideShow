@@ -121,7 +121,7 @@ public final class ProjectorUpdatePacket {
         context.get().enqueueWork(() -> {
             var player = context.get().getSender();
             if (SlidePermission.canInteract(player)) {
-                var level = player.getLevel();
+                var level = player.serverLevel();
                 var globalPos = GlobalPos.of(level.dimension(), this.pos);
                 // prevent remote chunk loading
                 if (level.isLoaded(this.pos) && level.getBlockEntity(this.pos) instanceof ProjectorBlockEntity tile) {

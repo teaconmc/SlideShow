@@ -86,7 +86,7 @@ public final class SlideCommand {
                 var uuid = uuidOptional.orElseGet(() -> data.getOrCreateIdByCommand(url, source));
                 new ProjectorURLPrefetchPacket(Set.of(uuid), data).sendToAll();
                 var msg = Component.translatable("command.slide_show.prefetch_projector_url.success", toText(uuid, url));
-                source.sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
+                source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
                 return Command.SINGLE_SUCCESS;
             }
         }
@@ -107,7 +107,7 @@ public final class SlideCommand {
             }
             var component = ComponentUtils.formatList(components, Function.identity());
             var msg = Component.translatable("command.slide_show.list_projector_url.success", matchCount, component);
-            source.sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
+            source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
             return Command.SINGLE_SUCCESS;
         }
         throw PERM_NOT_EXIST.create();
@@ -123,7 +123,7 @@ public final class SlideCommand {
                 var text = toText(pair.getKey(), pair.getValue());
                 if (data.setBlockedStatusByCommand(pair.getKey(), pair.getValue(), source, true)) {
                     var msg = Component.translatable("command.slide_show.block_projector_url.success", text);
-                    source.sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
+                    source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
                     return Command.SINGLE_SUCCESS;
                 }
             }
@@ -142,7 +142,7 @@ public final class SlideCommand {
                 var text = toText(pair.getKey(), pair.getValue());
                 if (data.setBlockedStatusByCommand(pair.getKey(), pair.getValue(), source, false)) {
                     var msg = Component.translatable("command.slide_show.unblock_projector_url.success", text);
-                    source.sendSuccess(msg.withStyle(ChatFormatting.GREEN), true);
+                    source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
                     return Command.SINGLE_SUCCESS;
                 }
             }

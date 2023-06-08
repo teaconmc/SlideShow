@@ -36,7 +36,7 @@ public final class ProjectorContainerMenu extends AbstractContainerMenu {
 
     public static void openGui(Player currentPlayer, ProjectorBlockEntity tile) {
         var player = (ServerPlayer) currentPlayer;
-        var data = ProjectorURLSavedData.get(player.getLevel());
+        var data = ProjectorURLSavedData.get(player.serverLevel());
         var canCreate = SlidePermission.canInteractCreateUrl(currentPlayer);
         NetworkHooks.openScreen(player, tile, new ProjectorUpdatePacket(tile, canCreate, data::getUrlById)::write);
     }
@@ -52,7 +52,7 @@ public final class ProjectorContainerMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
-        var level = player.getLevel();
+        var level = player.level();
         if (!level.isLoaded(this.updatePacket.pos)) {
             return false;
         }
