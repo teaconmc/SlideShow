@@ -57,6 +57,7 @@ shadowJar {
         it.exclude it.dependency('org.apache.httpcomponents:httpcore:.*')
         it.exclude it.dependency('commons-logging:commons-logging:.*')
         it.exclude it.dependency('commons-codec:commons-codec:.*')
+        it.exclude it.dependency('org.slf4j:slf4j-api:.*')
     }
     relocate 'net.objecthunter.exp4j', 'org.teacon.slides.exp4j'
     relocate 'org.teacon.urlpattern', 'org.teacon.slides.urlpattern'
