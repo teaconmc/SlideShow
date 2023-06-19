@@ -13,7 +13,7 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 teacon {
     modId = 'slide_show'
     modVersion = '0.8.0'
-    modLicense = 'BSD-3-Clause'
+    modLicense = 'LGPL-3.0-only'
     modGitHubRepo = 'teaconmc/SlideShow'
     modAuthors = ['BloCamLimb', '3TUSK', 'ustc-zzzz']
     modDescription = 'Minecraft mod, adding a projector that can display online images.'
@@ -24,7 +24,7 @@ teacon {
     // uncomment these lines if you need
     modName = 'Slide Show' // default to repo name
     // modGitHubBranch = 1.18-forge // for referring the license
-    // modifyMemberAccess = true // for access transformer
+    modifyMemberAccess = true // for access transformer
     // useDataGeneration = true // for data generation
     publishTask = shadowJar // for shadow jar or other usages
     lazyTokens = ['minecraft_classpath': { (project.configurations.shadow - project.configurations.minecraft).asPath }] // for runtime tokens
@@ -39,6 +39,10 @@ configurations {
 
 repositories {
     maven { url 'https://jitpack.io' }
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+    }
 }
 
 dependencies {
@@ -46,6 +50,8 @@ dependencies {
     shadow 'net.objecthunter:exp4j:0.4.8'
     shadow 'com.machinezoo.noexception:noexception:1.7.1'
     shadow 'org.apache.httpcomponents:httpclient-cache:4.5.13'
+
+    runtimeOnly fg.deobf("maven.modrinth:oculus:HxUtDCCe") // 1.20-1.6.4
 }
 
 shadowJar {

@@ -11,7 +11,7 @@ import org.teacon.slides.SlideShow;
 /**
  * @author BloCamLimb
  */
-public final class SlideRenderType extends RenderType {
+public final class SlideRenderType extends RenderType.CompositeRenderType {
 
     private static ShaderInstance sPaletteSlideShader;
     private static final ShaderStateShard
@@ -52,32 +52,88 @@ public final class SlideRenderType extends RenderType {
     public SlideRenderType(int texture) {
         super(SlideShow.ID, DefaultVertexFormat.BLOCK,
                 VertexFormat.Mode.QUADS, 256, false, true,
-                () -> {
-                    GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
-                    RenderSystem.setShaderTexture(0, texture);
-                },
-                () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
+                CompositeState.builder()
+                        .setShaderState(RENDERTYPE_TEXT_SEE_THROUGH_SHADER)
+                        .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                        .setDepthTestState(LEQUAL_DEPTH_TEST)
+                        .setCullState(CULL)
+                        .setLightmapState(LIGHTMAP)
+                        .setOverlayState(NO_OVERLAY)
+                        .setLayeringState(NO_LAYERING)
+                        .setOutputState(MAIN_TARGET)
+                        .setTexturingState(DEFAULT_TEXTURING)
+                        .setWriteMaskState(COLOR_DEPTH_WRITE)
+                        .setLineState(DEFAULT_LINE)
+                        .createCompositeState(true)
+                );
+        var baseSetup = this.setupState;
+        this.setupState = () -> {
+            baseSetup.run();
+            RenderSystem.setShaderTexture(0, texture);
+        };
+//                () -> {
+//                    GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
+//                    RenderSystem.setShaderTexture(0, texture);
+//                },
+//                () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
     }
 
     public SlideRenderType(int imageTexture, int paletteTexture) {
         super(SlideShow.ID + "_palette", DefaultVertexFormat.BLOCK,
                 VertexFormat.Mode.QUADS, 256, false, true,
-                () -> {
-                    PALETTE_STATES.forEach(RenderStateShard::setupRenderState);
-                    RenderSystem.setShaderTexture(0, imageTexture);
-                    RenderSystem.setShaderTexture(3, paletteTexture);
-                },
-                () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
+                CompositeState.builder()
+                        .setShaderState(RENDERTYPE_PALETTE_SLIDE)
+                        .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                        .setDepthTestState(LEQUAL_DEPTH_TEST)
+                        .setCullState(CULL)
+                        .setLightmapState(LIGHTMAP)
+                        .setOverlayState(NO_OVERLAY)
+                        .setLayeringState(NO_LAYERING)
+                        .setOutputState(MAIN_TARGET)
+                        .setTexturingState(DEFAULT_TEXTURING)
+                        .setWriteMaskState(COLOR_DEPTH_WRITE)
+                        .setLineState(DEFAULT_LINE)
+                        .createCompositeState(true));
+        var baseSetup = this.setupState;
+        this.setupState = () -> {
+            baseSetup.run();
+            RenderSystem.setShaderTexture(0, imageTexture);
+            RenderSystem.setShaderTexture(3, paletteTexture);
+        };
+//                () -> {
+//                    PALETTE_STATES.forEach(RenderStateShard::setupRenderState);
+//                    RenderSystem.setShaderTexture(0, imageTexture);
+//                    RenderSystem.setShaderTexture(3, paletteTexture);
+//                },
+//                () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
     }
 
     public SlideRenderType(ResourceLocation texture) {
         super(SlideShow.ID + "_icon", DefaultVertexFormat.BLOCK,
                 VertexFormat.Mode.QUADS, 256, false, true,
-                () -> {
-                    GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
-                    RenderSystem.setShaderTexture(0, texture);
-                },
-                () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
+                CompositeState.builder()
+                        .setShaderState(RENDERTYPE_TEXT_SEE_THROUGH_SHADER)
+                        .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                        .setDepthTestState(LEQUAL_DEPTH_TEST)
+                        .setCullState(CULL)
+                        .setLightmapState(LIGHTMAP)
+                        .setOverlayState(NO_OVERLAY)
+                        .setLayeringState(NO_LAYERING)
+                        .setOutputState(MAIN_TARGET)
+                        .setTexturingState(DEFAULT_TEXTURING)
+                        .setWriteMaskState(COLOR_DEPTH_WRITE)
+                        .setLineState(DEFAULT_LINE)
+                        .createCompositeState(true));
+        var baseSetup = this.setupState;
+        this.setupState = () -> {
+            baseSetup.run();
+            RenderSystem.setShaderTexture(0, texture);
+        };
+//                () -> {
+//                    GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
+//                    RenderSystem.setShaderTexture(0, texture);
+//                },
+//                () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
     }
 
     @Override

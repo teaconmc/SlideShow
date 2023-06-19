@@ -33,7 +33,7 @@ import java.util.Optional;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
+@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD, modid = SlideShow.ID)
 public final class ModRegistries {
     /**
      * The networking channel version. Since we follow SemVer, this is
