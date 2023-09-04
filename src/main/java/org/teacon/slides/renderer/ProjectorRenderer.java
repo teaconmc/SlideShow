@@ -20,6 +20,7 @@ import org.joml.Matrix4f;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.projector.ProjectorBlock;
 import org.teacon.slides.projector.ProjectorBlockEntity;
+import org.teacon.slides.slide.IconSlide;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
@@ -39,11 +40,19 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
                        MultiBufferSource source, int packedLight, int packedOverlay) {
         pStack.pushPose();
         var tileState = tile.getBlockState();
-        // always update slide state whether the projector is powered or not
+        // always update slide state whether the projector should be hidden or not
         var slide = SlideState.getSlide(tile.getImageLocation());
-        if (slide != null && !tileState.getValue(BlockStateProperties.POWERED)) {
+        if (slide != null) {
             var tileColorARGB = tile.getColorARGB();
-            if ((tileColorARGB & 0xFF000000) != 0) {
+            var tileColorTransparent = (tileColorARGB & 0xFF000000) == 0;
+            var tilePowered = tileState.getValue(BlockStateProperties.POWERED);
+            var tileIconHidden = slide instanceof IconSlide iconSlide && switch (iconSlide) {
+                case DEFAULT_EMPTY -> tile.getHideEmptySlideIcon();
+                case DEFAULT_FAILED -> tile.getHideFailedSlideIcon();
+                case DEFAULT_BLOCKED -> tile.getHideBlockedSlideIcon();
+                case DEFAULT_LOADING -> tile.getHideLoadingSlideIcon();
+            };
+            if (!tileColorTransparent && !tilePowered && !tileIconHidden) {
                 var last = pStack.last();
                 var tilePose = new Matrix4f(last.pose());
                 var tileNormal = new Matrix3f(last.normal());
