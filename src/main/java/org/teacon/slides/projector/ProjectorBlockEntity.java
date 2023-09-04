@@ -59,6 +59,10 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     private float mOffsetZ = 0;
     private boolean mDoubleSided = true;
     private boolean mKeepAspectRatio = true;
+    private boolean mHideEmptySlideIcon = false;
+    private boolean mHideFailedSlideIcon = false;
+    private boolean mHideBlockedSlideIcon = false;
+    private boolean mHideLoadingSlideIcon = false;
     private Either<UUID, String> mImageLocation = Either.left(UUID.randomUUID());
 
     private ProjectorBlockEntity(BlockPos blockPos, BlockState blockState) {
@@ -117,6 +121,22 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         mKeepAspectRatio = keepAspectRatio;
     }
 
+    public boolean getHideEmptySlideIcon() {
+        return mHideEmptySlideIcon;
+    }
+
+    public boolean getHideFailedSlideIcon() {
+        return mHideFailedSlideIcon;
+    }
+
+    public boolean getHideBlockedSlideIcon() {
+        return mHideBlockedSlideIcon;
+    }
+
+    public boolean getHideLoadingSlideIcon() {
+        return mHideLoadingSlideIcon;
+    }
+
     private void requestUrlPrefetch() {
         var prefetch = DistExecutor.safeCallWhenOn(Dist.CLIENT, () -> SlideState::getPrefetch);
         Optional.ofNullable(prefetch).ifPresent(consumer -> consumer.accept(this.getBlockPos()));
@@ -131,6 +151,10 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         mOffsetZ = tag.getFloat("OffsetZ");
         mDoubleSided = tag.getBoolean("DoubleSided");
         mKeepAspectRatio = tag.getBoolean("KeepAspectRatio");
+        mHideEmptySlideIcon = tag.getBoolean("HideEmptySlide");
+        mHideFailedSlideIcon = tag.getBoolean("HideFailedSlide");
+        mHideBlockedSlideIcon = tag.getBoolean("HideBlockedSlide");
+        mHideLoadingSlideIcon = tag.getBoolean("HideLoadingSlide");
         if (tag.hasUUID("ImageLocation")) {
             mImageLocation = Either.left(tag.getUUID("ImageLocation"));
             this.requestUrlPrefetch();
@@ -149,6 +173,10 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         tag.putFloat("OffsetZ", mOffsetZ);
         tag.putBoolean("DoubleSided", mDoubleSided);
         tag.putBoolean("KeepAspectRatio", mKeepAspectRatio);
+        tag.putBoolean("HideEmptySlide", mHideEmptySlideIcon);
+        tag.putBoolean("HideFailedSlide", mHideFailedSlideIcon);
+        tag.putBoolean("HideBlockedSlide", mHideBlockedSlideIcon);
+        tag.putBoolean("HideLoadingSlide", mHideLoadingSlideIcon);
         tag.put("ImageLocation", mImageLocation.map(NbtUtils::createUUID, StringTag::valueOf));
     }
 
