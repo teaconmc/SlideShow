@@ -1,0 +1,50 @@
+{
+    "argument.slide_show.projector_url.error": "Input %s is not a valid url",
+    "argument.slide_show.projector_url_pattern.error": "Input %s is not a valid url pattern",
+
+    "block.slide_show.projector": "Slide Show Projector",
+
+    "command.slide_show.prefetch_projector_url.success": "Successfully prefetched the requested url (%s)",
+    "command.slide_show.list_projector_url.success": "Successfully found %s url(s): %s",
+    "command.slide_show.block_projector_url.success": "The projector url (%s) is successfully blocked",
+    "command.slide_show.unblock_projector_url.success": "The projector url (%s) is successfully unblocked",
+
+    "command.slide_show.failed.url_not_exist": "The input url or uuid (%s) cannot be used for further operations",
+    "command.slide_show.failed.perm_not_exist": "You do not have related permission for executing the command",
+
+    "gui.slide_show.url": "Image Link",
+    "gui.slide_show.color": "Slide Color",
+    "gui.slide_show.width": "Slide Width",
+    "gui.slide_show.height": "Slide Height",
+    "gui.slide_show.keep_aspect_ratio": "Maintain Aspect Ratio",
+    "gui.slide_show.offset_x": "Move Left/Right",
+    "gui.slide_show.offset_y": "Move Up/Down",
+    "gui.slide_show.offset_z": "Move Backward/Forward",
+    "gui.slide_show.flip": "Flip Horizontally",
+    "gui.slide_show.rotate": "Rotate Clockwise",
+    "gui.slide_show.single_double_sided": "Switch Single-Sided / Double-Sided",
+
+    "gui.slide_show.log_comment": "at %s by %s",
+    "gui.slide_show.log_message.slide_show.create_url": "The image was created in the server",
+    "gui.slide_show.log_message.slide_show.block_url": "The image was blocked in the server",
+    "gui.slide_show.log_message.slide_show.erase_url": "The image was erased in the server",
+    "gui.slide_show.log_message.slide_show.unblock_url": "The image was unblocked in the server",
+    "gui.slide_show.log_message.slide_show.attach_url_to_projector": "The image was attached to a projector at %s by %s",
+    "gui.slide_show.log_message.slide_show.detach_url_from_projector": "The image was detached from a projector at %s by %s",
+    "gui.slide_show.log_message.slide_show.create_url.in_current_level": "The image was created in the server",
+    "gui.slide_show.log_message.slide_show.block_url.in_current_level": "The image was blocked in the server",
+    "gui.slide_show.log_message.slide_show.erase_url.in_current_level": "The image was erased in the server",
+    "gui.slide_show.log_message.slide_show.unblock_url.in_current_level": "The image was unblocked in the server",
+    "gui.slide_show.log_message.slide_show.attach_url_to_projector.in_current_level": "The image was attached to a projector located at %s",
+    "gui.slide_show.log_message.slide_show.detach_url_from_projector.in_current_level": "The image was detached from a projector located at %s",
+    "gui.slide_show.log_message.slide_show.create_url.in_another_level": "The image was created in the server",
+    "gui.slide_show.log_message.slide_show.block_url.in_another_level": "The image was blocked in the server",
+    "gui.slide_show.log_message.slide_show.erase_url.in_another_level": "The image was erased in the server",
+    "gui.slide_show.log_message.slide_show.unblock_url.in_another_level": "The image was unblocked in the server",
+    "gui.slide_show.log_message.slide_show.attach_url_to_projector.in_another_level": "The image was attached to a projector in another dimension",
+    "gui.slide_show.log_message.slide_show.detach_url_from_projector.in_another_level": "The image was detached from a projector in another dimension",
+
+    "gui.slide_show.section.image": "Image Properties",
+    "gui.slide_show.section.offset": "Slide Offset",
+    "gui.slide_show.section.others": "Others"
+}
