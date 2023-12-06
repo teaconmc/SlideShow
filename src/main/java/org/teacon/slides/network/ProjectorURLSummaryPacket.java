@@ -39,10 +39,6 @@ public final class ProjectorURLSummaryPacket implements Function<ProjectorURL, P
     private final HashFunction hmacNonceFunction;
     private final Object2BooleanMap<Bits256> hmacUrlToBlockStatus;
 
-    private enum Status {
-        END, BLOCKED, UNBLOCKED
-    }
-
     public ProjectorURLSummaryPacket(BiMap<UUID, ProjectorURL> idToUrl, Set<UUID> blockedIdSet) {
         var hmacNonce = Bits256.random();
         var hmacNonceFunction = Hashing.hmacSha256(hmacNonce.toBytes());
@@ -61,15 +57,15 @@ public final class ProjectorURLSummaryPacket implements Function<ProjectorURL, P
         var nonce = Bits256.read(buf);
         var hmacUrlToBlockStatus = new Object2BooleanArrayMap<Bits256>(defaultCapacity);
         while (true) {
-            switch (buf.readEnum(Status.class)) {
-                case END -> {
+            switch (buf.readEnum(ProjectorURL.Status.class)) {
+                case UNKNOWN -> {
                     this.hmacNonce = nonce;
                     this.hmacNonceFunction = Hashing.hmacSha256(nonce.toBytes());
                     this.hmacUrlToBlockStatus = Object2BooleanMaps.unmodifiable(hmacUrlToBlockStatus);
                     return;
                 }
                 case BLOCKED -> hmacUrlToBlockStatus.put(Bits256.read(buf), true);
-                case UNBLOCKED -> hmacUrlToBlockStatus.put(Bits256.read(buf), false);
+                case ALLOWED -> hmacUrlToBlockStatus.put(Bits256.read(buf), false);
             }
         }
     }
@@ -85,10 +81,10 @@ public final class ProjectorURLSummaryPacket implements Function<ProjectorURL, P
     public void write(FriendlyByteBuf buf) {
         this.hmacNonce.write(buf);
         for (var entry : this.hmacUrlToBlockStatus.object2BooleanEntrySet()) {
-            buf.writeEnum(entry.getBooleanValue() ? ProjectorURLSummaryPacket.Status.BLOCKED : ProjectorURLSummaryPacket.Status.UNBLOCKED);
+            buf.writeEnum(entry.getBooleanValue() ? ProjectorURL.Status.BLOCKED : ProjectorURL.Status.ALLOWED);
             entry.getKey().write(buf);
         }
-        buf.writeEnum(ProjectorURLSummaryPacket.Status.END);
+        buf.writeEnum(ProjectorURL.Status.UNKNOWN);
     }
 
     @Override

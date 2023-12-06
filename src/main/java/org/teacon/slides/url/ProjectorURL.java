@@ -45,7 +45,7 @@ public final class ProjectorURL {
     }
 
     public enum Status {
-        BLOCKED, ALLOWED, UNKNOWN;
+        UNKNOWN, BLOCKED, ALLOWED;
 
         public boolean isBlocked() {
             return this == BLOCKED;
