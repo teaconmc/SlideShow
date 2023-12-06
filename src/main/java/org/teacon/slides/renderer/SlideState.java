@@ -1,8 +1,6 @@
 package org.teacon.slides.renderer;
 
 import com.google.common.collect.ImmutableSet;
-import com.machinezoo.noexception.optional.OptionalBoolean;
-import com.machinezoo.noexception.optional.OptionalPredicate;
 import com.mojang.blaze3d.systems.RenderSystem;
 import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
@@ -38,6 +36,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * @author BloCamLimb
@@ -52,7 +51,7 @@ public final class SlideState {
     private static final int PENDING_TIMEOUT_SECONDS = 360; // 6min
     private static final Object2IntMap<BlockPos> sBlockPending = new Object2IntLinkedOpenHashMap<>();
     private static final Object2ObjectMap<UUID, ProjectorURL> sIdWithImage = new Object2ObjectOpenHashMap<>();
-    private static OptionalPredicate<ProjectorURL> sBlockedCheck = url -> OptionalBoolean.empty();
+    private static Function<ProjectorURL, ProjectorURL.Status> sBlockedCheck = url -> ProjectorURL.Status.UNKNOWN;
 
     private static final int RECYCLE_SECONDS = 120; // 2min
     private static final int RETRY_INTERVAL_SECONDS = 30; // 30s
@@ -151,11 +150,15 @@ public final class SlideState {
         return sAnimationTick;
     }
 
-    public static boolean getImgBlocked(ProjectorURL imgUrl, boolean fallback) {
-        return sBlockedCheck.test(imgUrl).orElse(fallback);
+    public static boolean getImgBlocked(ProjectorURL imgUrl) {
+        return sBlockedCheck.apply(imgUrl).isBlocked();
     }
 
-    public static Consumer<OptionalPredicate<ProjectorURL>> getApplySummary() {
+    public static boolean getImgAllowed(ProjectorURL imgUrl) {
+        return sBlockedCheck.apply(imgUrl).isAllowed();
+    }
+
+    public static Consumer<Function<ProjectorURL, ProjectorURL.Status>> getApplySummary() {
         return summaryPredicate -> sBlockedCheck = summaryPredicate;
     }
 
@@ -179,12 +182,11 @@ public final class SlideState {
     public static @Nullable Slide getSlide(UUID id) {
         var imageUrl = sIdWithImage.get(id);
         if (imageUrl != null) {
-            var blocked = sBlockedCheck.test(imageUrl);
-            var doNotShowImageSlide = blocked.orElse(true);
-            if (!doNotShowImageSlide) {
+            var blockTestResult = sBlockedCheck.apply(imageUrl);
+            if (blockTestResult.isAllowed()) {
                 return sCache.getAcquire().computeIfAbsent(sIdWithImage.get(id), SlideState::new).fetch();
             }
-            return blocked.isPresent() ? Slide.blocked() : null;
+            return blockTestResult.isBlocked() ? Slide.blocked() : null;
         }
         return Slide.empty();
     }

@@ -3,8 +3,6 @@ package org.teacon.slides.network;
 import com.google.common.collect.BiMap;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
-import com.machinezoo.noexception.optional.OptionalBoolean;
-import com.machinezoo.noexception.optional.OptionalPredicate;
 import it.unimi.dsi.fastutil.objects.Object2BooleanArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMaps;
@@ -28,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -35,7 +34,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class ProjectorURLSummaryPacket implements OptionalPredicate<ProjectorURL> {
+public final class ProjectorURLSummaryPacket implements Function<ProjectorURL, ProjectorURL.Status> {
     private final Bits256 hmacNonce;
     private final HashFunction hmacNonceFunction;
     private final Object2BooleanMap<Bits256> hmacUrlToBlockStatus;
@@ -86,20 +85,20 @@ public final class ProjectorURLSummaryPacket implements OptionalPredicate<Projec
     public void write(FriendlyByteBuf buf) {
         this.hmacNonce.write(buf);
         for (var entry : this.hmacUrlToBlockStatus.object2BooleanEntrySet()) {
-            buf.writeEnum(entry.getBooleanValue() ? Status.BLOCKED : Status.UNBLOCKED);
+            buf.writeEnum(entry.getBooleanValue() ? ProjectorURLSummaryPacket.Status.BLOCKED : ProjectorURLSummaryPacket.Status.UNBLOCKED);
             entry.getKey().write(buf);
         }
-        buf.writeEnum(Status.END);
+        buf.writeEnum(ProjectorURLSummaryPacket.Status.END);
     }
 
     @Override
-    public OptionalBoolean test(ProjectorURL url) {
+    public ProjectorURL.Status apply(ProjectorURL url) {
         var hmacBytes = this.hmacNonceFunction.hashString(url.toString(), StandardCharsets.US_ASCII);
         var hmac = Bits256.fromBytes(hmacBytes.asBytes());
         if (this.hmacUrlToBlockStatus.containsKey(hmac)) {
-            return OptionalBoolean.of(this.hmacUrlToBlockStatus.getBoolean(hmac));
+            return this.hmacUrlToBlockStatus.getBoolean(hmac) ? ProjectorURL.Status.BLOCKED : ProjectorURL.Status.ALLOWED;
         }
-        return OptionalBoolean.empty();
+        return ProjectorURL.Status.UNKNOWN;
     }
 
     public void handle(Supplier<NetworkEvent.Context> context) {

@@ -1,6 +1,5 @@
 package org.teacon.slides.network;
 
-import com.machinezoo.noexception.optional.OptionalFunction;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
@@ -29,6 +28,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -56,7 +56,7 @@ public final class ProjectorUpdatePacket {
 
     public ProjectorUpdatePacket(ProjectorBlockEntity entity,
                                  boolean canCreateNewProjectorUrl,
-                                 OptionalFunction<UUID, ProjectorURL> uuidToUrl) {
+                                 Function<UUID, Optional<ProjectorURL>> uuidToUrl) {
         this.pos = entity.getBlockPos();
         var imgLocation = entity.getImageLocation();
         var dimension = entity.getDimension();

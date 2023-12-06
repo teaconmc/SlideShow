@@ -123,11 +123,11 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 try {
                     mImgUrl = new ProjectorURL(text);
                     if (mUpdatePacket.hasCreatePermission) {
-                        var blocked = SlideState.getImgBlocked(mImgUrl, false);
+                        var blocked = SlideState.getImgBlocked(mImgUrl);
                         mImageUrlStatus = blocked ? ImageUrlStatus.BLOCKED : ImageUrlStatus.NORMAL;
                     } else {
-                        var invalid = SlideState.getImgBlocked(mImgUrl, true);
-                        mImageUrlStatus = invalid ? ImageUrlStatus.INVALID : ImageUrlStatus.NORMAL;
+                        var allowed = SlideState.getImgAllowed(mImgUrl);
+                        mImageUrlStatus = allowed ? ImageUrlStatus.NORMAL : ImageUrlStatus.INVALID;
                     }
                 } catch (IllegalArgumentException e) {
                     mImgUrl = null;

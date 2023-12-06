@@ -43,4 +43,16 @@ public final class ProjectorURL {
     public boolean equals(Object o) {
         return this == o || o instanceof ProjectorURL that && this.urlString.equals(that.urlString);
     }
+
+    public enum Status {
+        BLOCKED, ALLOWED, UNKNOWN;
+
+        public boolean isBlocked() {
+            return this == BLOCKED;
+        }
+
+        public boolean isAllowed() {
+            return this == ALLOWED;
+        }
+    }
 }

@@ -48,7 +48,6 @@ repositories {
 dependencies {
     shadow 'org.teacon:urlpattern:1.0.1'
     shadow 'net.objecthunter:exp4j:0.4.8'
-    shadow 'com.machinezoo.noexception:noexception:1.7.1'
     shadow 'org.apache.httpcomponents:httpclient-cache:4.5.13'
 
     runtimeOnly fg.deobf("maven.modrinth:oculus:HxUtDCCe") // 1.20-1.6.4
@@ -67,7 +66,6 @@ shadowJar {
     }
     relocate 'net.objecthunter.exp4j', 'org.teacon.slides.exp4j'
     relocate 'org.teacon.urlpattern', 'org.teacon.slides.urlpattern'
-    relocate 'com.machinezoo.noexception', 'org.teacon.slides.noexception'
     relocate 'org.apache.http.client.cache', 'org.teacon.slides.http.client.cache'
     relocate 'org.apache.http.impl.client.cache', 'org.teacon.slides.http.impl.client.cache'
 }
