@@ -4,7 +4,10 @@ import com.google.common.collect.ImmutableSet;
 import com.machinezoo.noexception.optional.OptionalBoolean;
 import com.machinezoo.noexception.optional.OptionalPredicate;
 import com.mojang.blaze3d.systems.RenderSystem;
-import it.unimi.dsi.fastutil.objects.*;
+import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
@@ -17,9 +20,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.cache.ImageCache;
-import org.teacon.slides.slide.*;
 import org.teacon.slides.network.ProjectorURLRequestPacket;
-import org.teacon.slides.slide.IconSlide;
 import org.teacon.slides.slide.Slide;
 import org.teacon.slides.texture.AnimatedTextureProvider;
 import org.teacon.slides.texture.GIFDecoder;
@@ -32,7 +33,6 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
@@ -113,7 +113,7 @@ public final class SlideState {
         if (!paused && ++sAnimationTick % 20 == 0) {
             var map = sCache.getAcquire();
             if (!map.isEmpty()) {
-                map.entrySet().removeIf(entry -> entry.getValue().update());
+                RENDER_EXECUTOR.execute(() -> map.entrySet().removeIf(e -> e.getValue().update(e.getKey())));
             }
             if (++sCleanerTimer > CLEANER_INTERVAL_SECONDS) {
                 var n = ImageCache.getInstance().cleanResources();
@@ -128,7 +128,11 @@ public final class SlideState {
     private static void clear() {
         sBlockPending.clear();
         var map = sCache.getAndSet(new ConcurrentHashMap<>());
-        map.values().forEach(s -> s.mSlide.close());
+        map.values().forEach(s -> {
+            s.mSlide.close();
+            s.mState = State.TIMEOUT;
+            s.mSlide = Slide.failed();
+        });
         SlideShow.LOGGER.debug("Release {} slide images", map.size());
         map.clear();
     }
@@ -178,7 +182,7 @@ public final class SlideState {
             var blocked = sBlockedCheck.test(imageUrl);
             var doNotShowImageSlide = blocked.orElse(true);
             if (!doNotShowImageSlide) {
-                return sCache.getAcquire().computeIfAbsent(sIdWithImage.get(id), SlideState::new).getWithUpdate();
+                return sCache.getAcquire().computeIfAbsent(sIdWithImage.get(id), SlideState::new).fetch();
             }
             return blocked.isPresent() ? Slide.blocked() : null;
         }
@@ -188,74 +192,91 @@ public final class SlideState {
     /**
      * Current slide and state.
      */
-    private Slide mSlide;
     private State mState;
-
-    private int mCounter;
+    private Slide mSlide;
+    private int mRecycleCounter;
+    private int mRequestCounter;
+    private boolean mFetchedAfterUpdate;
 
     private SlideState(ProjectorURL location) {
+        mState = State.INITIAL;
         mSlide = Slide.loading();
-        mState = State.LOADING;
-        mCounter = RECYCLE_SECONDS;
-        ImageCache.getInstance()
-                .getResource(location.toUrl(), true)
-                .thenCompose(SlideState::createTexture)
-                .thenAccept(textureProvider -> {
-                    if (mState == State.LOADING) {
-                        mSlide = Slide.make(textureProvider);
-                        mState = State.LOADED;
-                    } else {
-                        // timeout
-                        assert mState == State.LOADED;
-                        textureProvider.close();
-                    }
-                }).exceptionally(e -> {
-                    RenderSystem.recordRenderCall(() -> {
-                        assert mState == State.LOADING;
-                        mSlide = Slide.failed();
-                        mState = State.FAILED_OR_EMPTY;
-                        mCounter = RETRY_INTERVAL_SECONDS;
-                    });
-                    return null;
-                });
+        mRecycleCounter = RETRY_INTERVAL_SECONDS;
+        mRequestCounter = 0;
+        mFetchedAfterUpdate = false;
+        this.refresh(location);
     }
 
-    private Slide getWithUpdate() {
-        if (mState != State.FAILED_OR_EMPTY) {
-            mCounter = RECYCLE_SECONDS;
-        }
+    private void refresh(ProjectorURL location) {
+        var requestCounter = mRequestCounter;
+        ImageCache.getInstance()
+                .getResource(location.toUrl(), true)
+                .thenApplyAsync(SlideState::createTexture, RENDER_EXECUTOR)
+                .whenCompleteAsync((textureProvider, throwable) -> {
+                    if (requestCounter == mRequestCounter) {
+                        if (mState == State.INITIAL) {
+                            mSlide.close();
+                            mState = State.FAILURE;
+                            mSlide = Slide.failed();
+                        }
+                        if (textureProvider != null) {
+                            mSlide.close();
+                            mState = State.SUCCESS;
+                            mSlide = Slide.make(textureProvider);
+                            mRecycleCounter += RECYCLE_SECONDS - RETRY_INTERVAL_SECONDS;
+                        }
+                        mRequestCounter = requestCounter + 1;
+                    }
+                }, RENDER_EXECUTOR);
+        ImageCache.getInstance()
+                .getResource(location.toUrl(), false)
+                .thenApplyAsync(SlideState::createTexture, RENDER_EXECUTOR)
+                .whenCompleteAsync((textureProvider, throwable) -> {
+                    if (requestCounter == mRequestCounter) {
+                        if (textureProvider != null) {
+                            mSlide.close();
+                            mState = State.OFFLINE;
+                            mSlide = Slide.make(textureProvider);
+                        }
+                    }
+                }, RENDER_EXECUTOR);
+    }
+
+    private Slide fetch() {
+        mFetchedAfterUpdate = true;
         return mSlide;
     }
 
     /**
      * Updates on the client/render thread each seconds.
      *
-     * @return this slide is destroyed
+     * @return this slide is destroyed and should not wait for any update
      */
-    private boolean update() {
-        if (--mCounter < 0) {
-            RenderSystem.recordRenderCall(() -> {
-                if (mState == State.LOADED) {
-                    assert mSlide instanceof ImageSlide;
-                    mSlide.close();
-                } else if (mState == State.LOADING) {
-                    // noinspection resource
-                    assert mSlide == Slide.loading();
-                    // timeout
-                    mState = State.LOADED;
-                } else {
-                    assert mSlide instanceof IconSlide;
-                    assert mState == State.FAILED_OR_EMPTY;
-                }
-            });
-            return true;
+    private boolean update(ProjectorURL location) {
+        var requestCounter = mRequestCounter;
+        if (--mRecycleCounter >= 0) {
+            mFetchedAfterUpdate = false;
+            return false;
         }
-        return false;
+        if (mFetchedAfterUpdate) {
+            mState = State.TIMEOUT;
+            mRecycleCounter = RECYCLE_SECONDS;
+            mRequestCounter = requestCounter + 1;
+            mFetchedAfterUpdate = false;
+            refresh(location);
+            return false;
+        }
+        mSlide.close();
+        mState = State.TIMEOUT;
+        mSlide = Slide.failed();
+        return true;
     }
 
     @Override
     public String toString() {
-        return "SlideState{slide=" + mSlide + ", state=" + mState + ", counter=" + mCounter + "}";
+        return "SlideState{" +
+                "slide=" + mSlide + ", state=" + mState + ", " +
+                "counter=" + mRecycleCounter + ", requests=" + mRequestCounter + "}";
     }
 
     /**
@@ -264,27 +285,18 @@ public final class SlideState {
      * @param data compressed image data
      * @return texture
      */
-    private static CompletableFuture<TextureProvider> createTexture(byte[] data) {
-        return CompletableFuture.supplyAsync(
-                GIFDecoder.checkMagic(data) ? () -> new AnimatedTextureProvider(data) :
-                        () -> new StaticTextureProvider(data), RENDER_EXECUTOR);
+    private static TextureProvider createTexture(byte[] data) {
+        return GIFDecoder.checkMagic(data) ? new AnimatedTextureProvider(data) : new StaticTextureProvider(data);
     }
 
     public enum State {
         /**
-         * States that will be changed at the next tick
-         * <p>
-         * NOTHING: the slide is newly created and ready for loading.
-         * LOADING: a slide is loading and a loading image is displayed (expired after {@link #RECYCLE_SECONDS}).
+         * INITIAL: a slide which has never been loaded yet.
+         * SUCCESS: a network resource is succeeded to retrieve.
+         * OFFLINE: a network resource is failed to retrieve but the offline resource is available.
+         * TIMEOUT: a slide which has been marked as timeout and a refresh task is executing.
+         * FAILURE: it is failed to retrieve either the network or the offline resource.
          */
-        NOTHING, LOADING,
-        /**
-         * States that will not be changed but can be expired
-         * <p>
-         * LOADED: a network resource is succeeded to retrieve (no expiration if the slide is rendered).
-         * FAILED_OR_EMPTY: it is empty or failed to retrieve the network resource (expired after {@link
-         * #RETRY_INTERVAL_SECONDS}).
-         */
-        LOADED, FAILED_OR_EMPTY
+        INITIAL, SUCCESS, OFFLINE, TIMEOUT, FAILURE
     }
 }
