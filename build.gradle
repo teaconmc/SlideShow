@@ -3,7 +3,7 @@ plugins {
     id 'eclipse'
     id 'idea'
     id 'maven-publish'
-    id 'net.neoforged.moddev' version '1.0.14'
+    id 'net.neoforged.moddev' version '1.0.15'
 }
 
 // Added by TeaCon
@@ -149,9 +149,13 @@ configurations {
 
 dependencies {
     // Modified by TeaCon
-    jarJar implementation('org.teacon:urlpattern') { version { strictly '1.0.1' } }
-    jarJar implementation('net.objecthunter:exp4j') { version { strictly '0.4.8' } }
-    jarJar implementation('org.apache.httpcomponents:httpclient-cache') { version { strictly '4.5.13' } }
+    jarJar implementation('org.teacon:urlpattern:1.0.1')
+    jarJar implementation('net.objecthunter:exp4j:0.4.8')
+    jarJar implementation('org.apache.httpcomponents:httpclient-cache:4.5.13')
+    // Modified by TeaCon
+    additionalRuntimeClasspath 'org.teacon:urlpattern:1.0.1'
+    additionalRuntimeClasspath 'net.objecthunter:exp4j:0.4.8'
+    additionalRuntimeClasspath 'org.apache.httpcomponents:httpclient-cache:4.5.13'
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
