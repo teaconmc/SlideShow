@@ -39,11 +39,11 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
     @Override
     public void render(ProjectorBlockEntity tile, float partialTick, PoseStack pStack,
                        MultiBufferSource source, int packedLight, int packedOverlay) {
-        pStack.pushPose();
         var tileState = tile.getBlockState();
         // always update slide state whether the projector should be hidden or not
         var slide = SlideState.getSlide(tile.getImageLocation());
         if (slide != null) {
+            pStack.pushPose();
             var tileColorARGB = tile.getColorARGB();
             var tileColorTransparent = (tileColorARGB & 0xFF000000) == 0;
             var tilePowered = tileState.getValue(BlockStateProperties.POWERED);
@@ -55,17 +55,17 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
             };
             if (!tileColorTransparent && !tilePowered && !tileIconHidden) {
                 var last = pStack.last();
-                var tilePose = new Matrix4f(last.pose());
-                var tileNormal = new Matrix3f(last.normal());
-                tile.transformToSlideSpace(tilePose, tileNormal);
+                tile.transformToSlideSpace(last.pose(), last.normal());
                 var flipped = tileState.getValue(ProjectorBlock.ROTATION).isFlipped();
                 slide.render(source, last, tile.getDimension(),
                         tileColorARGB, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
                         flipped || tile.getDoubleSided(), !flipped || tile.getDoubleSided(),
                         SlideState.getAnimationTick(), partialTick);
             }
+            pStack.popPose();
         }
         if (tile.hasLevel()) {
+            pStack.pushPose();
             var mc = Minecraft.getInstance();
             var handItems = mc.player == null ? List.of(Items.AIR, Items.AIR) :
                     List.of(mc.player.getMainHandItem().getItem(), mc.player.getOffhandItem().getItem());
@@ -77,8 +77,8 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
                         pStack.last(), outlineSource.getBuffer(outline), tileState, blockModel,
                         0.0F, 0.0F, 0.0F, packedLight, packedOverlay, ModelData.EMPTY, outline);
             }
+            pStack.popPose();
         }
-        pStack.popPose();
     }
 
     @Override
