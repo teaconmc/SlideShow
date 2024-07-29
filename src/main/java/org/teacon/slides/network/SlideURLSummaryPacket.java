@@ -9,37 +9,41 @@ import it.unimi.dsi.fastutil.objects.Object2BooleanMaps;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Crypt;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.network.PacketDistributor;
-import org.teacon.slides.ModRegistries;
-import org.teacon.slides.renderer.SlideState;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import org.teacon.slides.SlideShow;
 import org.teacon.slides.url.ProjectorURL;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class ProjectorURLSummaryPacket implements Function<ProjectorURL, ProjectorURL.Status> {
+public final class SlideURLSummaryPacket implements Function<ProjectorURL, ProjectorURL.Status>, CustomPacketPayload {
+    public static final CustomPacketPayload.Type<SlideURLSummaryPacket> TYPE;
+    public static final StreamCodec<FriendlyByteBuf, SlideURLSummaryPacket> CODEC;
+
+    static {
+        TYPE = new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "url_summary"));
+        CODEC = StreamCodec.ofMember(SlideURLSummaryPacket::write, SlideURLSummaryPacket::new);
+    }
+
     private final Bits256 hmacNonce;
     private final HashFunction hmacNonceFunction;
     private final Object2BooleanMap<Bits256> hmacUrlToBlockStatus;
 
-    public ProjectorURLSummaryPacket(BiMap<UUID, ProjectorURL> idToUrl, Set<UUID> blockedIdSet) {
+    public SlideURLSummaryPacket(BiMap<UUID, ProjectorURL> idToUrl, Set<UUID> blockedIdSet) {
         var hmacNonce = Bits256.random();
         var hmacNonceFunction = Hashing.hmacSha256(hmacNonce.toBytes());
         var hmacUrlToBlockStatus = new Object2BooleanArrayMap<Bits256>(idToUrl.size());
@@ -52,7 +56,7 @@ public final class ProjectorURLSummaryPacket implements Function<ProjectorURL, P
         this.hmacUrlToBlockStatus = Object2BooleanMaps.unmodifiable(hmacUrlToBlockStatus);
     }
 
-    public ProjectorURLSummaryPacket(FriendlyByteBuf buf) {
+    public SlideURLSummaryPacket(FriendlyByteBuf buf) {
         var defaultCapacity = 16;
         var nonce = Bits256.read(buf);
         var hmacUrlToBlockStatus = new Object2BooleanArrayMap<Bits256>(defaultCapacity);
@@ -68,14 +72,6 @@ public final class ProjectorURLSummaryPacket implements Function<ProjectorURL, P
                 case ALLOWED -> hmacUrlToBlockStatus.put(Bits256.read(buf), false);
             }
         }
-    }
-
-    public void sendToAll() {
-        ModRegistries.CHANNEL.send(PacketDistributor.ALL.noArg(), this);
-    }
-
-    public void sendToClient(ServerPlayer player) {
-        ModRegistries.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), this);
     }
 
     public void write(FriendlyByteBuf buf) {
@@ -97,12 +93,14 @@ public final class ProjectorURLSummaryPacket implements Function<ProjectorURL, P
         return ProjectorURL.Status.UNKNOWN;
     }
 
-    public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(() -> {
-            var applySummary = DistExecutor.safeCallWhenOn(Dist.CLIENT, () -> SlideState::getApplySummary);
-            Objects.requireNonNull(applySummary).accept(this);
-        });
-        context.get().setPacketHandled(true);
+    public void handle(IPayloadContext context) {
+        // thread safe
+        SlideShow.setCheckBlock(this);
+    }
+
+    @Override
+    public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 
     public record Bits256(long bytesLE1, long bytesLE2,

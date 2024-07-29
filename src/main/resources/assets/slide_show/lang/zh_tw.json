@@ -24,6 +24,7 @@
     "gui.slide_show.single_double_sided": "切換單面/雙面",
 
     "gui.slide_show.log_comment": "%s（操作者：%s）",
+    "gui.slide_show.log_comment_nobody": "%s",
     "gui.slide_show.log_message.slide_show.create_url": "該圖片在伺服器的創建時間：",
     "gui.slide_show.log_message.slide_show.block_url": "該圖片在伺服器的隱藏時間：",
     "gui.slide_show.log_message.slide_show.erase_url": "該圖片在伺服器的抹除時間：",

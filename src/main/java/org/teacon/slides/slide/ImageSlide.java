@@ -1,10 +1,9 @@
 package org.teacon.slides.slide;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.MultiBufferSource;
-import org.joml.Matrix3f;
-import org.joml.Matrix4f;
 import org.joml.Vector2f;
 import org.teacon.slides.texture.TextureProvider;
 
@@ -22,50 +21,48 @@ public final class ImageSlide implements Slide {
     }
 
     @Override
-    public void render(MultiBufferSource source, Matrix4f matrix, Matrix3f normal, Vector2f dimension,
+    public void render(MultiBufferSource source, PoseStack.Pose pose, Vector2f dimension,
                        int color, int light, int overlay, boolean front, boolean back, long tick, float partialTick) {
-        var width = dimension.x();
-        var height = dimension.y();
         var red = (color >> 16) & 255;
         var green = (color >> 8) & 255;
         var blue = color & 255;
         var alpha = color >>> 24;
         var consumer = source.getBuffer(mTexture.updateAndGet(tick, partialTick));
         if (front) {
-            consumer.vertex(matrix, 0, 1 / 192F, 1)
-                    .color(red, green, blue, alpha).uv(0, 1)
-                    .uv2(light)
-                    .normal(normal, 0, 1, 0).endVertex();
-            consumer.vertex(matrix, 1, 1 / 192F, 1)
-                    .color(red, green, blue, alpha).uv(1, 1)
-                    .uv2(light)
-                    .normal(normal, 0, 1, 0).endVertex();
-            consumer.vertex(matrix, 1, 1 / 192F, 0)
-                    .color(red, green, blue, alpha).uv(1, 0)
-                    .uv2(light)
-                    .normal(normal, 0, 1, 0).endVertex();
-            consumer.vertex(matrix, 0, 1 / 192F, 0)
-                    .color(red, green, blue, alpha).uv(0, 0)
-                    .uv2(light)
-                    .normal(normal, 0, 1, 0).endVertex();
+            consumer.addVertex(pose, 0, 1 / 192F, 1)
+                    .setColor(red, green, blue, alpha)
+                    .setUv(0, 1).setLight(light)
+                    .setNormal(pose, 0, 1, 0);
+            consumer.addVertex(pose, 1, 1 / 192F, 1)
+                    .setColor(red, green, blue, alpha)
+                    .setUv(1, 1).setLight(light)
+                    .setNormal(pose, 0, 1, 0);
+            consumer.addVertex(pose, 1, 1 / 192F, 0)
+                    .setColor(red, green, blue, alpha)
+                    .setUv(1, 0).setLight(light)
+                    .setNormal(pose, 0, 1, 0);
+            consumer.addVertex(pose, 0, 1 / 192F, 0)
+                    .setColor(red, green, blue, alpha)
+                    .setUv(0, 0).setLight(light)
+                    .setNormal(pose, 0, 1, 0);
         }
         if (back) {
-            consumer.vertex(matrix, 0, -1 / 256F, 0)
-                    .color(red, green, blue, alpha).uv(0, 0)
-                    .uv2(light)
-                    .normal(normal, 0, -1, 0).endVertex();
-            consumer.vertex(matrix, 1, -1 / 256F, 0)
-                    .color(red, green, blue, alpha).uv(1, 0)
-                    .uv2(light)
-                    .normal(normal, 0, -1, 0).endVertex();
-            consumer.vertex(matrix, 1, -1 / 256F, 1)
-                    .color(red, green, blue, alpha).uv(1, 1)
-                    .uv2(light)
-                    .normal(normal, 0, -1, 0).endVertex();
-            consumer.vertex(matrix, 0, -1 / 256F, 1)
-                    .color(red, green, blue, alpha).uv(0, 1)
-                    .uv2(light)
-                    .normal(normal, 0, -1, 0).endVertex();
+            consumer.addVertex(pose, 0, -1 / 256F, 0)
+                    .setColor(red, green, blue, alpha)
+                    .setUv(0, 0).setLight(light)
+                    .setNormal(pose, 0, -1, 0);
+            consumer.addVertex(pose, 1, -1 / 256F, 0)
+                    .setColor(red, green, blue, alpha)
+                    .setUv(1, 0).setLight(light)
+                    .setNormal(pose, 0, -1, 0);
+            consumer.addVertex(pose, 1, -1 / 256F, 1)
+                    .setColor(red, green, blue, alpha)
+                    .setUv(1, 1).setLight(light)
+                    .setNormal(pose, 0, -1, 0);
+            consumer.addVertex(pose, 0, -1 / 256F, 1)
+                    .setColor(red, green, blue, alpha)
+                    .setUv(0, 1).setLight(light)
+                    .setNormal(pose, 0, -1, 0);
         }
     }
 

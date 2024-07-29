@@ -5,6 +5,7 @@ import com.mojang.datafixers.util.Either;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.StringTag;
@@ -23,20 +24,17 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.AABB;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
 import org.joml.*;
 import org.teacon.slides.ModRegistries;
+import org.teacon.slides.SlideShow;
 import org.teacon.slides.admin.SlidePermission;
-import org.teacon.slides.network.ProjectorUpdatePacket;
-import org.teacon.slides.renderer.SlideState;
+import org.teacon.slides.network.SlideUpdatePacket;
 import org.teacon.slides.url.ProjectorURL;
 import org.teacon.slides.url.ProjectorURLSavedData;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -110,7 +108,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
 
     public void setImageLocation(UUID imageLocation) {
         mImageLocation = Either.left(imageLocation);
-        this.requestUrlPrefetch();
+        SlideShow.requestUrlPrefetch(this);
     }
 
     public boolean getKeepAspectRatio() {
@@ -137,12 +135,8 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         return mHideLoadingSlideIcon;
     }
 
-    private void requestUrlPrefetch() {
-        var prefetch = DistExecutor.safeCallWhenOn(Dist.CLIENT, () -> SlideState::getPrefetch);
-        Optional.ofNullable(prefetch).ifPresent(consumer -> consumer.accept(this.getBlockPos()));
-    }
-
-    private void readAdditional(CompoundTag tag) {
+    @Override
+    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         mColor = tag.getInt("Color");
         mWidth = tag.getFloat("Width");
         mHeight = tag.getFloat("Height");
@@ -157,14 +151,14 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         mHideLoadingSlideIcon = tag.getBoolean("HideLoadingSlide");
         if (tag.hasUUID("ImageLocation")) {
             mImageLocation = Either.left(tag.getUUID("ImageLocation"));
-            this.requestUrlPrefetch();
+            SlideShow.requestUrlPrefetch(this);
         } else {
             mImageLocation = Either.right(tag.getString("ImageLocation"));
         }
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag) {
+    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         tag.putInt("Color", mColor);
         tag.putFloat("Width", mWidth);
         tag.putFloat("Height", mHeight);
@@ -188,7 +182,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
             if (level instanceof ServerLevel serverLevel) {
                 try {
                     var url = new ProjectorURL(urlString);
-                    var data = ProjectorURLSavedData.get(serverLevel);
+                    var data = ProjectorURLSavedData.get(serverLevel.getServer());
                     var css = level.getServer().createCommandSourceStack();
                     mImageLocation = Either.left(data.getOrCreateIdByCommand(url, css));
                 } catch (IllegalArgumentException e) {
@@ -205,19 +199,13 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     }
 
     @Override
-    public void load(CompoundTag tag) {
-        super.load(tag);
-        this.readAdditional(tag);
-    }
-
-    @Override
     public ClientboundBlockEntityDataPacket getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
     }
 
     @Override
-    public CompoundTag getUpdateTag() {
-        return this.saveWithoutMetadata();
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+        return this.saveWithoutMetadata(registries);
     }
 
     @Override
@@ -225,9 +213,9 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         if (currentPlayer instanceof ServerPlayer player) {
             var canInteract = SlidePermission.canInteract(player);
             if (canInteract) {
-                var data = ProjectorURLSavedData.get(player.serverLevel());
+                var data = ProjectorURLSavedData.get(player.getServer());
                 var canCreate = SlidePermission.canInteractCreateUrl(currentPlayer);
-                return new ProjectorContainerMenu(id, new ProjectorUpdatePacket(this, canCreate, data::getUrlById));
+                return new ProjectorContainerMenu(id, new SlideUpdatePacket(this, canCreate, data::getUrlById));
             }
         }
         return null;
@@ -244,7 +232,6 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         return handItems.contains(ModRegistries.PROJECTOR.get().asItem());
     }
 
-    @Override
     public AABB getRenderBoundingBox() {
         var pose = new Matrix4f();
         var normal = new Matrix3f();

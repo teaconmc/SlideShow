@@ -14,12 +14,13 @@ import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentUtils;
 import net.minecraft.network.chat.HoverEvent;
-import net.minecraftforge.event.RegisterCommandsEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.apache.commons.lang3.StringUtils;
 import org.teacon.slides.SlideShow;
-import org.teacon.slides.network.ProjectorURLPrefetchPacket;
+import org.teacon.slides.network.SlideURLPrefetchPacket;
 import org.teacon.slides.url.ProjectorURL;
 import org.teacon.slides.url.ProjectorURLArgument;
 import org.teacon.slides.url.ProjectorURLPatternArgument;
@@ -36,7 +37,7 @@ import static net.minecraft.commands.Commands.literal;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
 public final class SlideCommand {
     private static final DynamicCommandExceptionType URL_NOT_EXIST = new DynamicCommandExceptionType(v -> Component.translatable("command.slide_show.failed.url_not_exist", v));
 
@@ -54,25 +55,25 @@ public final class SlideCommand {
                         .then(argument("pattern", new ProjectorURLPatternArgument())
                                 .executes(context -> list(context.getSource(),
                                         ProjectorURLPatternArgument.getUrl(context, "pattern"),
-                                        ProjectorURLSavedData.get(context.getSource().getLevel()))))
+                                        ProjectorURLSavedData.get(context.getSource().getServer()))))
                         .executes(context -> list(context.getSource(),
                                 new URLPattern(Map.of(URLPattern.ComponentType.PROTOCOL, "http(s?)")),
-                                ProjectorURLSavedData.get(context.getSource().getLevel()))))
+                                ProjectorURLSavedData.get(context.getSource().getServer()))))
                 .then(literal("prefetch")
                         .then(argument("url", new ProjectorURLArgument())
                                 .executes(context -> prefetch(context.getSource(),
                                         ProjectorURLArgument.getUrl(context, "url"),
-                                        ProjectorURLSavedData.get(context.getSource().getLevel())))))
+                                        ProjectorURLSavedData.get(context.getSource().getServer())))))
                 .then(literal("block")
                         .then(argument("url", new ProjectorURLArgument())
                                 .executes(context -> block(context.getSource(),
                                         ProjectorURLArgument.getUrl(context, "url"),
-                                        ProjectorURLSavedData.get(context.getSource().getLevel())))))
+                                        ProjectorURLSavedData.get(context.getSource().getServer())))))
                 .then(literal("unblock")
                         .then(argument("url", new ProjectorURLArgument())
                                 .executes(context -> unblock(context.getSource(),
                                         ProjectorURLArgument.getUrl(context, "url"),
-                                        ProjectorURLSavedData.get(context.getSource().getLevel())))));
+                                        ProjectorURLSavedData.get(context.getSource().getServer())))));
     }
 
     private static int prefetch(CommandSourceStack source,
@@ -84,7 +85,7 @@ public final class SlideCommand {
             var uuidOptional = data.getIdByUrl(url);
             if (uuidOptional.isPresent() || SlidePermission.canInteractCreateUrl(source.source)) {
                 var uuid = uuidOptional.orElseGet(() -> data.getOrCreateIdByCommand(url, source));
-                new ProjectorURLPrefetchPacket(Set.of(uuid), data).sendToAll();
+                PacketDistributor.sendToAllPlayers(new SlideURLPrefetchPacket(Set.of(uuid), data));
                 var msg = Component.translatable("command.slide_show.prefetch_projector_url.success", toText(uuid, url));
                 source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
                 return Command.SINGLE_SUCCESS;

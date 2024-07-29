@@ -2,18 +2,17 @@ package org.teacon.slides.projector;
 
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.common.extensions.IForgeMenuType;
-import net.minecraftforge.network.NetworkHooks;
+import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.admin.SlidePermission;
-import org.teacon.slides.network.ProjectorUpdatePacket;
+import org.teacon.slides.network.SlideUpdatePacket;
 import org.teacon.slides.url.ProjectorURLSavedData;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -22,27 +21,28 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ProjectorContainerMenu extends AbstractContainerMenu {
-    public final ProjectorUpdatePacket updatePacket;
+    public final SlideUpdatePacket slideUpdatePacket;
 
-    public ProjectorContainerMenu(int containerId, ProjectorUpdatePacket updatePacket) {
+    public ProjectorContainerMenu(int containerId, SlideUpdatePacket slideUpdatePacket) {
         super(ModRegistries.MENU.get(), containerId);
-        this.updatePacket = updatePacket;
+        this.slideUpdatePacket = slideUpdatePacket;
     }
 
-    public ProjectorContainerMenu(int containerId, Inventory inventory, FriendlyByteBuf buf) {
+    public ProjectorContainerMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf buf) {
         super(ModRegistries.MENU.get(), containerId);
-        this.updatePacket = new ProjectorUpdatePacket(buf);
+        this.slideUpdatePacket = new SlideUpdatePacket(buf);
     }
 
     public static void openGui(Player currentPlayer, ProjectorBlockEntity tile) {
-        var player = (ServerPlayer) currentPlayer;
-        var data = ProjectorURLSavedData.get(player.serverLevel());
-        var canCreate = SlidePermission.canInteractCreateUrl(currentPlayer);
-        NetworkHooks.openScreen(player, tile, new ProjectorUpdatePacket(tile, canCreate, data::getUrlById)::write);
+        if (currentPlayer instanceof ServerPlayer player) {
+            var data = ProjectorURLSavedData.get(player.getServer());
+            var canCreate = SlidePermission.canInteractCreateUrl(currentPlayer);
+            currentPlayer.openMenu(tile, new SlideUpdatePacket(tile, canCreate, data::getUrlById)::write);
+        }
     }
 
     public static MenuType<?> create() {
-        return IForgeMenuType.create(ProjectorContainerMenu::new);
+        return IMenuTypeExtension.create(ProjectorContainerMenu::new);
     }
 
     @Override
@@ -52,11 +52,12 @@ public final class ProjectorContainerMenu extends AbstractContainerMenu {
 
     @Override
     public boolean stillValid(Player player) {
+        // noinspection resource
         var level = player.level();
-        if (!level.isLoaded(this.updatePacket.pos)) {
+        if (!level.isLoaded(this.slideUpdatePacket.pos)) {
             return false;
         }
-        if (!(level.getBlockEntity(this.updatePacket.pos) instanceof ProjectorBlockEntity)) {
+        if (!(level.getBlockEntity(this.slideUpdatePacket.pos) instanceof ProjectorBlockEntity)) {
             return false;
         }
         return SlidePermission.canInteract(player);

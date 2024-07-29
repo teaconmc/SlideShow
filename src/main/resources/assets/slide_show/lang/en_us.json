@@ -25,6 +25,7 @@
     "gui.slide_show.single_double_sided": "Switch Single-Sided / Double-Sided",
 
     "gui.slide_show.log_comment": "at %s by %s",
+    "gui.slide_show.log_comment_nobody": "at %s",
     "gui.slide_show.log_message.slide_show.create_url": "The image was created in the server",
     "gui.slide_show.log_message.slide_show.block_url": "The image was blocked in the server",
     "gui.slide_show.log_message.slide_show.erase_url": "The image was erased in the server",

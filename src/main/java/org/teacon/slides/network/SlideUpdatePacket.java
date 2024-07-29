@@ -4,16 +4,17 @@ import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Block;
-import net.minecraftforge.fml.loading.FMLEnvironment;
-import net.minecraftforge.network.NetworkEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
-import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.admin.SlidePermission;
 import org.teacon.slides.projector.ProjectorBlock;
@@ -29,15 +30,20 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
-import java.util.function.Supplier;
-
-import static com.google.common.base.Preconditions.checkArgument;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class ProjectorUpdatePacket {
+public final class SlideUpdatePacket implements CustomPacketPayload {
     private static final Marker MARKER = MarkerManager.getMarker("Network");
+
+    public static final CustomPacketPayload.Type<SlideUpdatePacket> TYPE;
+    public static final StreamCodec<RegistryFriendlyByteBuf, SlideUpdatePacket> CODEC;
+
+    static {
+        TYPE = new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "update"));
+        CODEC = StreamCodec.ofMember(SlideUpdatePacket::write, SlideUpdatePacket::new);
+    }
 
     public final BlockPos pos;
     public final UUID imgId;
@@ -54,9 +60,9 @@ public final class ProjectorUpdatePacket {
     public final @Nullable ProjectorURL imgUrl;
     public final @Nullable Log lastOperationLog;
 
-    public ProjectorUpdatePacket(ProjectorBlockEntity entity,
-                                 boolean canCreateNewProjectorUrl,
-                                 Function<UUID, Optional<ProjectorURL>> uuidToUrl) {
+    public SlideUpdatePacket(ProjectorBlockEntity entity,
+                             boolean canCreateNewProjectorUrl,
+                             Function<UUID, Optional<ProjectorURL>> uuidToUrl) {
         this.pos = entity.getBlockPos();
         var imgLocation = entity.getImageLocation();
         var dimension = entity.getDimension();
@@ -64,7 +70,7 @@ public final class ProjectorUpdatePacket {
         var imgUrlOptional = uuidToUrl.apply(imgLocation);
         var lastOperationOptional = imgUrlOptional.flatMap(uuid -> {
             if (entity.getLevel() instanceof ServerLevel serverLevel) {
-                var data = ProjectorURLSavedData.get(serverLevel);
+                var data = ProjectorURLSavedData.get(serverLevel.getServer());
                 var globalPos = GlobalPos.of(serverLevel.dimension(), this.pos);
                 return data.getLatestLog(uuid, globalPos, Set.of(LogType.BLOCK, LogType.UNBLOCK))
                         .or(() -> data.getLatestLog(uuid, globalPos, Set.of(LogType.values())));
@@ -86,7 +92,7 @@ public final class ProjectorUpdatePacket {
         this.lastOperationLog = lastOperationOptional.orElse(null);
     }
 
-    public ProjectorUpdatePacket(FriendlyByteBuf buf) {
+    public SlideUpdatePacket(RegistryFriendlyByteBuf buf) {
         this.pos = buf.readBlockPos();
         this.imgId = buf.readUUID();
         this.rotation = buf.readEnum(ProjectorBlock.InternalRotation.class);
@@ -103,7 +109,7 @@ public final class ProjectorUpdatePacket {
         this.lastOperationLog = Optional.ofNullable(buf.readNbt()).map(c -> Log.readTag(c).getValue()).orElse(null);
     }
 
-    public void write(FriendlyByteBuf buf) {
+    public void write(RegistryFriendlyByteBuf buf) {
         buf.writeBlockPos(this.pos).writeUUID(this.imgId);
         buf.writeEnum(this.rotation).writeInt(this.color).writeFloat(this.dimensionX).writeFloat(this.dimensionY);
         buf.writeFloat(this.slideOffsetX).writeFloat(this.slideOffsetY).writeFloat(this.slideOffsetZ);
@@ -112,22 +118,17 @@ public final class ProjectorUpdatePacket {
         buf.writeNbt(this.lastOperationLog == null ? null : this.lastOperationLog.writeTag());
     }
 
-    public void sendToServer() {
-        checkArgument(FMLEnvironment.dist.isClient());
-        ModRegistries.CHANNEL.sendToServer(this);
-    }
-
-    public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(() -> {
-            var player = context.get().getSender();
-            if (SlidePermission.canInteract(player)) {
-                var level = player.serverLevel();
+    public void handle(IPayloadContext context) {
+        context.enqueueWork(() -> {
+            var player = context.player();
+            // noinspection resource
+            if (SlidePermission.canInteract(player) && player.level() instanceof ServerLevel level) {
                 var globalPos = GlobalPos.of(level.dimension(), this.pos);
                 // prevent remote chunk loading
                 if (level.isLoaded(this.pos) && level.getBlockEntity(this.pos) instanceof ProjectorBlockEntity tile) {
                     // update image locations
                     var oldId = tile.getImageLocation();
-                    var data = ProjectorURLSavedData.get(level);
+                    var data = ProjectorURLSavedData.get(level.getServer());
                     var newId = data.getUrlById(this.imgId).map(u -> this.imgId).orElseGet(() -> {
                         if (this.imgUrl != null) {
                             if (this.hasCreatePermission) {
@@ -165,6 +166,10 @@ public final class ProjectorUpdatePacket {
                 SlideShow.LOGGER.debug(MARKER, "Received illegal packet: player = {}, pos = {}", profile, globalPos);
             }
         });
-        context.get().setPacketHandled(true);
+    }
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 }

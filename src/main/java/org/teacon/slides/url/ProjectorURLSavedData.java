@@ -9,24 +9,27 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.saveddata.SavedData;
-import net.minecraftforge.common.util.FakePlayerFactory;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import org.apache.commons.lang3.StringUtils;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.configuration.ICustomConfigurationTask;
+import net.neoforged.neoforge.network.event.RegisterConfigurationTasksEvent;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.teacon.slides.SlideShow;
-import org.teacon.slides.network.ProjectorURLPrefetchPacket;
-import org.teacon.slides.network.ProjectorURLSummaryPacket;
+import org.teacon.slides.network.SlideURLPrefetchPacket;
+import org.teacon.slides.network.SlideURLSummaryPacket;
 import org.teacon.urlpattern.URLPattern;
 
 import javax.annotation.Nullable;
@@ -34,30 +37,28 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.net.URI;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Consumer;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD)
 public final class ProjectorURLSavedData extends SavedData {
+    private static final Factory<ProjectorURLSavedData> FACTORY = new Factory<>(ProjectorURLSavedData::new, ProjectorURLSavedData::new);
     private static final Comparator<ProjectorURL> PROJECTOR_URL_ASC = Comparator.comparing(ProjectorURL::toString);
     private static final Comparator<Log> LOG_TIME_ASC = Comparator.comparing(Log::time);
 
-    public static ProjectorURLSavedData get(ServerLevel level) {
-        // noinspection resource
-        var dataStorage = level.getServer().overworld().getDataStorage();
-        return Objects.requireNonNull(dataStorage.computeIfAbsent(ProjectorURLSavedData::new, ProjectorURLSavedData::new, "slide_projector_urls"));
+    public static ProjectorURLSavedData get(@Nullable MinecraftServer server) {
+        var dataStorage = Objects.requireNonNull(server).overworld().getDataStorage();
+        return Objects.requireNonNull(dataStorage.computeIfAbsent(FACTORY, "slide_projector_urls"));
     }
 
     @SubscribeEvent
-    public static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) {
-            var data = get(player.serverLevel());
-            data.sendSummaryToPlayer(player);
-        }
+    public static void onRegisterConfigurationTask(RegisterConfigurationTasksEvent event) {
+        event.register(new ConfigurationTask(event));
     }
 
-    private @Nullable ProjectorURLSummaryPacket cachedSummaryPacket;
+    private @Nullable SlideURLSummaryPacket cachedSummaryPacket;
     private final TreeMultimap<ProjectorURL, Log> urlStrToLogs;
     private final BiMap<UUID, ProjectorURL> idToUrlStr;
     private final Set<UUID> blockedIdCollection;
@@ -157,7 +158,7 @@ public final class ProjectorURLSavedData extends SavedData {
             }
         }
         if (changed) {
-            new ProjectorURLPrefetchPacket(Set.of(id), this).sendToAll();
+            PacketDistributor.sendToAllPlayers(new SlideURLPrefetchPacket(Set.of(id), this));
             this.refreshAndSendSummaryToPlayers();
             this.setDirty();
         }
@@ -165,9 +166,8 @@ public final class ProjectorURLSavedData extends SavedData {
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag) {
+    public CompoundTag save(CompoundTag tag, HolderLookup.Provider provider) {
         var logs = new ListTag();
-        // noinspection UnstableApiUsage
         for (var log : Iterables.mergeSorted(this.urlStrToLogs.asMap().values(), LOG_TIME_ASC)) {
             var logRecord = log.writeTag();
             logs.add(logRecord);
@@ -195,7 +195,7 @@ public final class ProjectorURLSavedData extends SavedData {
         this.blockedIdCollection = new HashSet<>();
     }
 
-    private ProjectorURLSavedData(CompoundTag tag) {
+    private ProjectorURLSavedData(CompoundTag tag, HolderLookup.Provider provider) {
         var logs = tag.getList("Logs", Tag.TAG_COMPOUND);
         this.urlStrToLogs = TreeMultimap.create(PROJECTOR_URL_ASC, LOG_TIME_ASC);
         for (var i = 0; i < logs.size(); ++i) {
@@ -223,18 +223,9 @@ public final class ProjectorURLSavedData extends SavedData {
     }
 
     private void refreshAndSendSummaryToPlayers() {
-        var packet = new ProjectorURLSummaryPacket(this.idToUrlStr, this.blockedIdCollection);
+        var packet = new SlideURLSummaryPacket(this.idToUrlStr, this.blockedIdCollection);
+        PacketDistributor.sendToAllPlayers(packet);
         this.cachedSummaryPacket = packet;
-        packet.sendToAll();
-    }
-
-    private void sendSummaryToPlayer(ServerPlayer player) {
-        var packet = this.cachedSummaryPacket;
-        if (packet == null) {
-            packet = new ProjectorURLSummaryPacket(this.idToUrlStr, this.blockedIdCollection);
-            this.cachedSummaryPacket = packet;
-        }
-        packet.sendToClient(player);
     }
 
     private void logWithPos(LogType logType, GlobalPos pos, ProjectorURL url, GameProfile creator) {
@@ -242,7 +233,8 @@ public final class ProjectorURLSavedData extends SavedData {
             var opt = Optional.of(pos);
             var logTime = Math.max(this.maxLogTimestamp + 1L, System.currentTimeMillis());
             this.maxLogTimestamp = logTime;
-            this.urlStrToLogs.put(url, new Log(url.toUrl(), Instant.ofEpochMilli(logTime), logType, creator, opt));
+            var gameProfile = Optional.of(creator);
+            this.urlStrToLogs.put(url, new Log(url.toUrl(), Instant.ofEpochMilli(logTime), logType, gameProfile, opt));
         }
     }
 
@@ -251,7 +243,8 @@ public final class ProjectorURLSavedData extends SavedData {
             var opt = Optional.<GlobalPos>empty();
             var logTime = Math.max(this.maxLogTimestamp + 1L, System.currentTimeMillis());
             this.maxLogTimestamp = logTime;
-            this.urlStrToLogs.put(url, new Log(url.toUrl(), Instant.ofEpochMilli(logTime), logType, creator, opt));
+            var gameProfile = Optional.of(creator);
+            this.urlStrToLogs.put(url, new Log(url.toUrl(), Instant.ofEpochMilli(logTime), logType, gameProfile, opt));
         }
     }
 
@@ -277,7 +270,7 @@ public final class ProjectorURLSavedData extends SavedData {
         }
 
         LogType(String domain, String path) {
-            this.id = new ResourceLocation(domain, path);
+            this.id = ResourceLocation.fromNamespaceAndPath(domain, path);
         }
 
         public ResourceLocation id() {
@@ -289,17 +282,16 @@ public final class ProjectorURLSavedData extends SavedData {
         }
     }
 
-    public record Log(URI url, Instant time, LogType type, GameProfile operator, Optional<GlobalPos> projector) {
+    public record Log(URI url, Instant time, LogType type,
+                      Optional<GameProfile> operator, Optional<GlobalPos> projector) {
         public CompoundTag writeTag() {
             var result = new CompoundTag();
             result.putString("URL", this.url.toString());
             result.putLong("LogTime", this.time.toEpochMilli());
             result.putString("LogType", this.type.id().toString());
-            if (this.operator.getId() != null) {
-                result.putUUID("OperatorUUID", this.operator.getId());
-            }
-            if (StringUtils.isNotBlank(this.operator.getName())) {
-                result.putString("OperatorName", this.operator.getName());
+            if (this.operator.isPresent()) {
+                result.putUUID("OperatorUUID", this.operator.get().getId());
+                result.putString("OperatorName", this.operator.get().getName());
             }
             result.merge(this.writeProjector());
             return result;
@@ -320,10 +312,12 @@ public final class ProjectorURLSavedData extends SavedData {
         public static Map.Entry<ProjectorURL, Log> readTag(CompoundTag tag) {
             var url = new ProjectorURL(tag.getString("URL"));
             var time = Instant.ofEpochMilli(tag.getLong("LogTime"));
-            var type = LogType.of(new ResourceLocation(tag.getString("LogType")));
-            var optId = tag.contains("OperatorUUID", Tag.TAG_INT_ARRAY) ? tag.getUUID("OperatorUUID") : null;
-            var optName = tag.contains("OperatorName", Tag.TAG_STRING) ? tag.getString("OperatorName") : null;
-            return Map.entry(url, new Log(url.toUrl(), time, type, new GameProfile(optId, optName), readProjector(tag)));
+            var type = LogType.of(ResourceLocation.parse(tag.getString("LogType")));
+            var gameProfile = Optional.<GameProfile>empty();
+            if (tag.contains("OperatorUUID", Tag.TAG_INT_ARRAY) && tag.contains("OperatorName", Tag.TAG_STRING)) {
+                gameProfile = Optional.of(new GameProfile(tag.getUUID("OperatorUUID"), tag.getString("OperatorName")));
+            }
+            return Map.entry(url, new Log(url.toUrl(), time, type, gameProfile, readProjector(tag)));
         }
 
         private static Optional<GlobalPos> readProjector(CompoundTag tag) {
@@ -331,10 +325,31 @@ public final class ProjectorURLSavedData extends SavedData {
                 var x = tag.getInt("ReferredProjectorX");
                 var y = tag.getInt("ReferredProjectorY");
                 var z = tag.getInt("ReferredProjectorZ");
-                var dim = new ResourceLocation(tag.getString("ReferredProjectorDimension"));
+                var dim = ResourceLocation.parse(tag.getString("ReferredProjectorDimension"));
                 return Optional.of(GlobalPos.of(ResourceKey.create(Registries.DIMENSION, dim), new BlockPos(x, y, z)));
             }
             return Optional.empty();
+        }
+    }
+
+    private record ConfigurationTask(RegisterConfigurationTasksEvent event) implements ICustomConfigurationTask {
+        private static final Type TYPE = new Type(ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "url_summaries"));
+
+        @Override
+        public void run(Consumer<CustomPacketPayload> consumer) {
+            var data = get(ServerLifecycleHooks.getCurrentServer());
+            var packet = data.cachedSummaryPacket;
+            if (packet == null) {
+                packet = new SlideURLSummaryPacket(data.idToUrlStr, data.blockedIdCollection);
+                data.cachedSummaryPacket = packet;
+            }
+            consumer.accept(packet);
+            event.getListener().finishCurrentTask(TYPE);
+        }
+
+        @Override
+        public Type type() {
+            return TYPE;
         }
     }
 }

@@ -49,6 +49,8 @@ public final class SlideRenderType extends RenderType.CompositeRenderType {
         );
     }
 
+    private final Runnable additionalSetupState;
+
     public SlideRenderType(int texture) {
         super(SlideShow.ID, DefaultVertexFormat.BLOCK,
                 VertexFormat.Mode.QUADS, 256, false, true,
@@ -66,16 +68,7 @@ public final class SlideRenderType extends RenderType.CompositeRenderType {
                         .setLineState(DEFAULT_LINE)
                         .createCompositeState(true)
                 );
-        var baseSetup = this.setupState;
-        this.setupState = () -> {
-            baseSetup.run();
-            RenderSystem.setShaderTexture(0, texture);
-        };
-//                () -> {
-//                    GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
-//                    RenderSystem.setShaderTexture(0, texture);
-//                },
-//                () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
+        this.additionalSetupState = () -> RenderSystem.setShaderTexture(0, texture);
     }
 
     public SlideRenderType(int imageTexture, int paletteTexture) {
@@ -95,17 +88,10 @@ public final class SlideRenderType extends RenderType.CompositeRenderType {
                         .setLineState(DEFAULT_LINE)
                         .createCompositeState(true));
         var baseSetup = this.setupState;
-        this.setupState = () -> {
-            baseSetup.run();
+        this.additionalSetupState = () -> {
             RenderSystem.setShaderTexture(0, imageTexture);
             RenderSystem.setShaderTexture(3, paletteTexture);
         };
-//                () -> {
-//                    PALETTE_STATES.forEach(RenderStateShard::setupRenderState);
-//                    RenderSystem.setShaderTexture(0, imageTexture);
-//                    RenderSystem.setShaderTexture(3, paletteTexture);
-//                },
-//                () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
     }
 
     public SlideRenderType(ResourceLocation texture) {
@@ -125,15 +111,13 @@ public final class SlideRenderType extends RenderType.CompositeRenderType {
                         .setLineState(DEFAULT_LINE)
                         .createCompositeState(true));
         var baseSetup = this.setupState;
-        this.setupState = () -> {
-            baseSetup.run();
-            RenderSystem.setShaderTexture(0, texture);
-        };
-//                () -> {
-//                    GENERAL_STATES.forEach(RenderStateShard::setupRenderState);
-//                    RenderSystem.setShaderTexture(0, texture);
-//                },
-//                () -> GENERAL_STATES.forEach(RenderStateShard::clearRenderState));
+        this.additionalSetupState = () -> RenderSystem.setShaderTexture(0, texture);
+    }
+
+    @Override
+    public void setupRenderState() {
+        super.setupRenderState();
+        this.additionalSetupState.run();
     }
 
     @Override

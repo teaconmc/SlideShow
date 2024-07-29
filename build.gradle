@@ -1,77 +1,260 @@
 plugins {
+    id 'java-library'
     id 'eclipse'
+    id 'idea'
     id 'maven-publish'
-    id 'net.minecraftforge.gradle' version '6.0.+'
-    id 'com.github.johnrengelman.shadow' version '8.1.+'
+    id 'net.neoforged.moddev' version '1.0.14'
 }
 
-apply from: 'gradle/teacon-forge.gradle'
+// Added by TeaCon
+abstract class TeaConDumpPathToGitHub extends DefaultTask {
+    @Input
+    abstract Property<String> getPublishName()
+    @InputFile
+    abstract RegularFileProperty getTargetFile()
+    @TaskAction
+    void dump() {
+        if (System.env.GITHUB_ACTIONS) {
+            File theFile = targetFile.getAsFile().get()
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+            def outputFile = new File(System.env.GITHUB_OUTPUT)
+            // Use the env-specific line separator for maximally possible compatibility
+            def newLine = System.getProperty('line.separator')
 
-// definitions at gradle/teacon-forge.gradle
-teacon {
-    modId = 'slide_show'
-    modVersion = '0.8.4'
-    modLicense = 'LGPL-3.0-only'
-    modGitHubRepo = 'teaconmc/SlideShow'
-    modAuthors = ['BloCamLimb', '3TUSK', 'ustc-zzzz']
-    modDescription = 'Minecraft mod, adding a projector that can display online images.'
-
-    platform = 'forge-1.20-46.0.1'
-    // parchment = '2022.03.13'
-
-    // uncomment these lines if you need
-    modName = 'Slide Show' // default to repo name
-    // modGitHubBranch = 1.18-forge // for referring the license
-    modifyMemberAccess = true // for access transformer
-    // useDataGeneration = true // for data generation
-    publishTask = shadowJar // for shadow jar or other usages
-    lazyTokens = ['minecraft_classpath': { (project.configurations.shadow - project.configurations.minecraft).asPath }] // for runtime tokens
-
-    // use './gradlew -q printModMeta > src/main/resources/META-INF/mods.toml' to generate mod meta
+            // Write out new env variable for later usage
+            outputFile << newLine << "artifact_name=${theFile.getName()}"
+            outputFile << newLine << "artifact_publish_name=${publishName.get()}"
+            outputFile << newLine << "artifact_path=${theFile.absolutePath}"
+        }
+    }
 }
 
-configurations {
-    compileClasspath.extendsFrom(shadow)
-    runtimeClasspath.extendsFrom(shadow)
+tasks.named('wrapper', Wrapper).configure {
+    // Define wrapper values here so as to not have to always do so when updating gradlew.properties.
+    // Switching this to Wrapper.DistributionType.ALL will download the full gradle sources that comes with
+    // documentation attached on cursor hover of gradle classes and methods. However, this comes with increased
+    // file size for Gradle. If you do switch this to ALL, run the Gradle wrapper task twice afterwards.
+    // (Verify by checking gradle/wrapper/gradle-wrapper.properties to see if distributionUrl now points to `-all`)
+    distributionType = Wrapper.DistributionType.BIN
 }
+
+version = mod_version
+group = mod_group_id
 
 repositories {
-    maven { url 'https://jitpack.io' }
+    mavenLocal()
+    // Added by TeaCon
     maven {
-        name = "Modrinth"
-        url = "https://api.modrinth.com/maven"
+        name "JitPack"
+        url 'https://jitpack.io'
     }
+    // Added by TeaCon
+    maven {
+        name "Modrinth"
+        url "https://api.modrinth.com/maven"
+    }
+}
+
+base {
+    // Modified by TeaCon
+    archivesName = "$mod_github_repo-NeoForge-$minecraft_version"
+}
+
+// Mojang ships Java 21 to end users starting in 1.20.5, so mods should target Java 21.
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    // Specify the version of NeoForge to use.
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    // This line is optional. Access Transformers are automatically detected
+    // accessTransformers = project.files('src/main/resources/META-INF/accesstransformer.cfg')
+
+    // Default run configurations.
+    // These can be tweaked, removed, or duplicated as needed.
+    runs {
+        client {
+            client()
+
+            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        // This run config launches GameTestServer and runs all registered gametests, then exits.
+        // By default, the server will crash when no gametests are provided.
+        // The gametest system is also enabled by default for other run configs under the /test command.
+        gameTestServer {
+            type = "gameTestServer"
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        data {
+            data()
+
+            // example of overriding the workingDirectory set in configureEach above, uncomment if you want to use it
+            // gameDirectory = project.file('run-data')
+
+            // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
+            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+        }
+
+        // applies to all the run configs above
+        configureEach {
+            // Recommended logging data for a userdev environment
+            // The markers can be added/remove as needed separated by commas.
+            // "SCAN": For mods scan.
+            // "REGISTRIES": For firing of registry events.
+            // "REGISTRYDUMP": For getting the contents of all registries.
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+
+            // Recommended logging level for the console
+            // You can set various levels here.
+            // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        // define mod <-> source bindings
+        // these are used to tell the game which sources are for which mod
+        // mostly optional in a single mod project
+        // but multi mod projects should define one per mod
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+// Include resources generated by data generators.
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+// Sets up a dependency configuration called 'localRuntime'.
+// This configuration should be used instead of 'runtimeOnly' to declare
+// a dependency that will be present for runtime testing but that is
+// "optional", meaning it will not be pulled by dependents of this mod.
+configurations {
+    runtimeClasspath.extendsFrom localRuntime
 }
 
 dependencies {
-    shadow 'org.teacon:urlpattern:1.0.1'
-    shadow 'net.objecthunter:exp4j:0.4.8'
-    shadow 'org.apache.httpcomponents:httpclient-cache:4.5.13'
-
-    runtimeOnly fg.deobf("maven.modrinth:oculus:HxUtDCCe") // 1.20-1.6.4
+    // Modified by TeaCon
+    jarJar implementation('org.teacon:urlpattern') { version { strictly '1.0.1' } }
+    jarJar implementation('net.objecthunter:exp4j') { version { strictly '0.4.8' } }
+    jarJar implementation('org.apache.httpcomponents:httpclient-cache') { version { strictly '4.5.13' } }
 }
 
-shadowJar {
-    archiveClassifier.set(null)
-    configurations = [project.configurations.shadow]
-    from(file('LICENSE')) { into 'META-INF' rename { "$it-slide-show" } }
-    dependencies {
-        it.exclude it.dependency('org.apache.httpcomponents:httpclient:.*')
-        it.exclude it.dependency('org.apache.httpcomponents:httpcore:.*')
-        it.exclude it.dependency('commons-logging:commons-logging:.*')
-        it.exclude it.dependency('commons-codec:commons-codec:.*')
-        it.exclude it.dependency('org.slf4j:slf4j-api:.*')
+// This block of code expands all declared replace properties in the specified resource targets.
+// A missing property will result in an error. Properties are expanded using ${} Groovy notation.
+// When "copyIdeResources" is enabled, this will also run before the game launches in IDE environments.
+// See https://docs.gradle.org/current/dsl/org.gradle.language.jvm.tasks.ProcessResources.html
+tasks.withType(ProcessResources).configureEach {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            neo_version_range      : neo_version_range,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            mod_description        : mod_description
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/neoforge.mods.toml']) {
+        expand replaceProperties
     }
-    relocate 'net.objecthunter.exp4j', 'org.teacon.slides.exp4j'
-    relocate 'org.teacon.urlpattern', 'org.teacon.slides.urlpattern'
-    relocate 'org.apache.http.client.cache', 'org.teacon.slides.http.client.cache'
-    relocate 'org.apache.http.impl.client.cache', 'org.teacon.slides.http.impl.client.cache'
 }
 
-jar { it.enabled false }
+publishing {
+    publications {
+        // Modified by TeaCon
+        register('release', MavenPublication) {
+            // noinspection GroovyAssignabilityCheck
+            from components.java
+            version = mod_version
+            groupId = mod_group_id
+            artifactId = "$mod_github_repo-NeoForge-$minecraft_version"
+            pom {
+                name = mod_github_repo
+                url = "https://github.com/$mod_github_owner/$mod_github_repo"
+                licenses {
+                    license {
+                        name = mod_license
+                        url = "https://github.com/$mod_github_owner/$mod_github_repo/blob/HEAD/LICENSE"
+                    }
+                }
+                organization {
+                    name = 'TeaConMC'
+                    url = 'https://github.com/teaconmc'
+                }
+                developers {
+                    for (mod_author in "$mod_authors".split(',')) {
+                        developer { id = mod_author.trim(); name = mod_author.trim() }
+                    }
+                }
+                issueManagement {
+                    system = 'GitHub Issues'
+                    url = "https://github.com/$mod_github_owner/$mod_github_repo/issues"
+                }
+                scm {
+                    url = "https://github.com/$mod_github_owner/$mod_github_repo"
+                    connection = "scm:git:git://github.com/$mod_github_owner/${mod_github_repo}.git"
+                    developerConnection = "scm:git:git@github.com:$mod_github_owner/${mod_github_repo}.git"
+                }
+            }
+        }
+    }
+    repositories {
+        // Modified by TeaCon
+        maven {
+            name "teacon"
+            url "s3://maven/"
+            credentials(AwsCredentials) {
+                accessKey = System.env.ARCHIVE_ACCESS_KEY
+                secretKey = System.env.ARCHIVE_SECRET_KEY
+            }
+        }
+    }
+}
 
-reobf {
-    jar { it.enabled false }
+// Added by TeaCon
+tasks.withType(PublishToMavenRepository).configureEach {
+    if (repository && repository.name == "archive") {
+        it.onlyIf {
+            System.env.MAVEN_USERNAME && System.env.MAVEN_PASSWORD
+        }
+    }
+}
+
+// Added by TeaCon
+tasks.register("githubActionOutput", TeaConDumpPathToGitHub) { task ->
+    task.onlyIf { System.env.GITHUB_ACTIONS }
+    task.getTargetFile().set(jar.archiveFile)
+    task.getPublishName().set("${jar.archiveBaseName.get()}-${version}.jar")
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+// IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
 }

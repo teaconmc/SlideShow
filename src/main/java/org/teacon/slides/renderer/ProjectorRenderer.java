@@ -14,7 +14,8 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraftforge.client.model.data.ModelData;
+import net.minecraft.world.phys.AABB;
+import net.neoforged.neoforge.client.model.data.ModelData;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.teacon.slides.ModRegistries;
@@ -58,7 +59,7 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
                 var tileNormal = new Matrix3f(last.normal());
                 tile.transformToSlideSpace(tilePose, tileNormal);
                 var flipped = tileState.getValue(ProjectorBlock.ROTATION).isFlipped();
-                slide.render(source, tilePose, tileNormal, tile.getDimension(),
+                slide.render(source, last, tile.getDimension(),
                         tileColorARGB, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
                         flipped || tile.getDoubleSided(), !flipped || tile.getDoubleSided(),
                         SlideState.getAnimationTick(), partialTick);
@@ -78,6 +79,11 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
             }
         }
         pStack.popPose();
+    }
+
+    @Override
+    public AABB getRenderBoundingBox(ProjectorBlockEntity blockEntity) {
+        return blockEntity.getRenderBoundingBox();
     }
 
     @Override

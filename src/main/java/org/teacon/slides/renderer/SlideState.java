@@ -10,15 +10,17 @@ import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraftforge.client.event.CustomizeGuiOverlayEvent;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.CustomizeGuiOverlayEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.cache.ImageCache;
-import org.teacon.slides.network.ProjectorURLRequestPacket;
+import org.teacon.slides.network.SlideURLRequestPacket;
+import org.teacon.slides.projector.ProjectorBlockEntity;
 import org.teacon.slides.slide.Slide;
 import org.teacon.slides.texture.AnimatedTextureProvider;
 import org.teacon.slides.texture.GIFDecoder;
@@ -35,8 +37,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 /**
  * @author BloCamLimb
@@ -44,14 +44,13 @@ import java.util.function.Function;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
+@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
 public final class SlideState {
     private static final Executor RENDER_EXECUTOR = r -> RenderSystem.recordRenderCall(r::run);
 
     private static final int PENDING_TIMEOUT_SECONDS = 360; // 6min
     private static final Object2IntMap<BlockPos> sBlockPending = new Object2IntLinkedOpenHashMap<>();
     private static final Object2ObjectMap<UUID, ProjectorURL> sIdWithImage = new Object2ObjectOpenHashMap<>();
-    private static Function<ProjectorURL, ProjectorURL.Status> sBlockedCheck = url -> ProjectorURL.Status.UNKNOWN;
 
     private static final int RECYCLE_SECONDS = 120; // 2min
     private static final int RETRY_INTERVAL_SECONDS = 30; // 30s
@@ -67,12 +66,10 @@ public final class SlideState {
     }
 
     @SubscribeEvent
-    public static void onTick(TickEvent.ClientTickEvent event) {
-        if (event.phase == TickEvent.Phase.START) {
-            var minecraft = Minecraft.getInstance();
-            if (minecraft.player != null) {
-                SlideState.tick(minecraft.isPaused());
-            }
+    public static void onTick(ClientTickEvent.Pre event) {
+        var minecraft = Minecraft.getInstance();
+        if (minecraft.player != null) {
+            SlideState.tick(minecraft.isPaused());
         }
     }
 
@@ -83,13 +80,12 @@ public final class SlideState {
 
     @SubscribeEvent
     public static void onDebugTextCollection(CustomizeGuiOverlayEvent.DebugText event) {
-        if (Minecraft.getInstance().options.renderDebug) {
+        if (!Minecraft.getInstance().options.reducedDebugInfo().get()) {
             event.getLeft().add(SlideState.getDebugText());
         }
     }
 
     private static void tick(boolean paused) {
-        // noinspection UnstableApiUsage
         var blockPosBuilder = ImmutableSet.<BlockPos>builderWithExpectedSize(sBlockPending.size());
         // pending request and timeout (which should not have been occurred)
         sBlockPending.object2IntEntrySet().removeIf(e -> {
@@ -106,7 +102,7 @@ public final class SlideState {
         var blockPosSet = blockPosBuilder.build();
         if (!blockPosSet.isEmpty()) {
             SlideShow.LOGGER.debug("Requesting project urls for {} block position(s)", blockPosSet.size());
-            new ProjectorURLRequestPacket(blockPosSet).sendToServer();
+            PacketDistributor.sendToServer(new SlideURLRequestPacket(blockPosSet));
         }
         // update cache
         if (!paused && ++sAnimationTick % 20 == 0) {
@@ -151,38 +147,32 @@ public final class SlideState {
     }
 
     public static boolean getImgBlocked(ProjectorURL imgUrl) {
-        return sBlockedCheck.apply(imgUrl).isBlocked();
+        return SlideShow.checkBlock(imgUrl).isBlocked();
     }
 
     public static boolean getImgAllowed(ProjectorURL imgUrl) {
-        return sBlockedCheck.apply(imgUrl).isAllowed();
+        return SlideShow.checkBlock(imgUrl).isAllowed();
     }
 
-    public static Consumer<Function<ProjectorURL, ProjectorURL.Status>> getApplySummary() {
-        return summaryPredicate -> sBlockedCheck = summaryPredicate;
+    public static void applyPrefetch(Set<UUID> nonExistent, Map<UUID, ProjectorURL> existent) {
+        // pending
+        sBlockPending.clear();
+        // existent
+        sIdWithImage.putAll(existent);
+        // non-existent
+        sIdWithImage.keySet().removeAll(nonExistent);
+        // prefetch
+        existent.values().forEach(v -> sCache.getAcquire().computeIfAbsent(v, SlideState::new));
     }
 
-    public static BiConsumer<Set<UUID>, Map<UUID, ProjectorURL>> getApplyPrefetch() {
-        return (nonExistent, existent) -> {
-            // pending
-            sBlockPending.clear();
-            // existent
-            sIdWithImage.putAll(existent);
-            // non-existent
-            sIdWithImage.keySet().removeAll(nonExistent);
-            // prefetch
-            existent.values().forEach(v -> sCache.getAcquire().computeIfAbsent(v, SlideState::new));
-        };
-    }
-
-    public static Consumer<BlockPos> getPrefetch() {
-        return pos -> sBlockPending.putIfAbsent(pos, PENDING_TIMEOUT_SECONDS * 20);
+    public static void prefetch(ProjectorBlockEntity blockEntity) {
+        sBlockPending.putIfAbsent(blockEntity.getBlockPos(), PENDING_TIMEOUT_SECONDS * 20);
     }
 
     public static @Nullable Slide getSlide(UUID id) {
         var imageUrl = sIdWithImage.get(id);
         if (imageUrl != null) {
-            var blockTestResult = sBlockedCheck.apply(imageUrl);
+            var blockTestResult = SlideShow.checkBlock(imageUrl);
             if (blockTestResult.isAllowed()) {
                 return sCache.getAcquire().computeIfAbsent(sIdWithImage.get(id), SlideState::new).fetch();
             }

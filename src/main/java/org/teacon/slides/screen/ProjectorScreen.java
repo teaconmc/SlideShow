@@ -14,11 +14,11 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.ComponentUtils;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Rotation;
+import net.neoforged.neoforge.network.PacketDistributor;
 import net.objecthunter.exp4j.ExpressionBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.joml.Matrix4f;
@@ -27,7 +27,7 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.glfw.GLFW;
 import org.teacon.slides.SlideShow;
-import org.teacon.slides.network.ProjectorUpdatePacket;
+import org.teacon.slides.network.SlideUpdatePacket;
 import org.teacon.slides.projector.ProjectorBlock;
 import org.teacon.slides.projector.ProjectorBlockEntity;
 import org.teacon.slides.projector.ProjectorContainerMenu;
@@ -45,7 +45,7 @@ import java.util.*;
 @ParametersAreNonnullByDefault
 public final class ProjectorScreen extends AbstractContainerScreen<ProjectorContainerMenu> {
     private static final ResourceLocation
-            GUI_TEXTURE = new ResourceLocation(SlideShow.ID, "textures/gui/projector.png");
+            GUI_TEXTURE = ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "textures/gui/projector.png");
 
     private static final Component
             IMAGE_TEXT = Component.translatable("gui.slide_show.section.image"),
@@ -83,7 +83,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     private final LazyWidget<Button> mKeepAspectChecked;
     private final LazyWidget<Button> mKeepAspectUnchecked;
 
-    private final ProjectorUpdatePacket mUpdatePacket;
+    private final SlideUpdatePacket mSlideUpdatePacket;
 
     private @Nullable ProjectorURL mImgUrl;
     private int mImageColor = 0xFFFFFFFF;
@@ -109,20 +109,20 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         imageWidth = 176;
         imageHeight = 217;
         // initialize variables
-        var packet = menu.updatePacket;
-        mUpdatePacket = packet;
+        var packet = menu.slideUpdatePacket;
+        mSlideUpdatePacket = packet;
         mRotation = packet.rotation;
         mDoubleSided = packet.doubleSided;
         mKeepAspectRatio = packet.keepAspectRatio;
         mSyncAspectRatio = packet.keepAspectRatio ? SyncAspectRatio.SYNC_WIDTH_WITH_HEIGHT : SyncAspectRatio.SYNCED;
         // url input
-        mURLInput = LazyWidget.of(toImageUrl(mUpdatePacket.imgUrl), EditBox::getValue, value -> {
+        mURLInput = LazyWidget.of(toImageUrl(mSlideUpdatePacket.imgUrl), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 30, topPos + 29, 136, 16, URL_TEXT);
             input.setMaxLength(URL_MAX_LENGTH);
             input.setResponder(text -> {
                 try {
                     mImgUrl = new ProjectorURL(text);
-                    if (mUpdatePacket.hasCreatePermission) {
+                    if (mSlideUpdatePacket.hasCreatePermission) {
                         var blocked = SlideState.getImgBlocked(mImgUrl);
                         mImageUrlStatus = blocked ? ImageUrlStatus.BLOCKED : ImageUrlStatus.NORMAL;
                     } else {
@@ -143,7 +143,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return input;
         });
         // color input
-        mColorInput = LazyWidget.of(String.format("%08X", mUpdatePacket.color), EditBox::getValue, value -> {
+        mColorInput = LazyWidget.of(String.format("%08X", mSlideUpdatePacket.color), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 55, topPos + 155, 56, 16, COLOR_TEXT);
             input.setMaxLength(COLOR_MAX_LENGTH);
             input.setResponder(text -> {
@@ -159,7 +159,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return input;
         });
         // width input
-        mWidthInput = LazyWidget.of(toOptionalSignedString(mUpdatePacket.dimensionX), EditBox::getValue, value -> {
+        mWidthInput = LazyWidget.of(toOptionalSignedString(mSlideUpdatePacket.dimensionX), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 30, topPos + 51, 46, 16, WIDTH_TEXT);
             input.setResponder(text -> {
                 try {
@@ -178,7 +178,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return input;
         });
         // height input
-        mHeightInput = LazyWidget.of(toOptionalSignedString(mUpdatePacket.dimensionY), EditBox::getValue, value -> {
+        mHeightInput = LazyWidget.of(toOptionalSignedString(mSlideUpdatePacket.dimensionY), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 100, topPos + 51, 46, 16, HEIGHT_TEXT);
             input.setResponder(text -> {
                 try {
@@ -197,7 +197,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return input;
         });
         // offset x input
-        mOffsetXInput = LazyWidget.of(toSignedString(mUpdatePacket.slideOffsetX), EditBox::getValue, value -> {
+        mOffsetXInput = LazyWidget.of(toSignedString(mSlideUpdatePacket.slideOffsetX), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 30, topPos + 103, 29, 16, OFFSET_X_TEXT);
             input.setResponder(text -> {
                 try {
@@ -212,7 +212,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return input;
         });
         // offset y input
-        mOffsetYInput = LazyWidget.of(toSignedString(mUpdatePacket.slideOffsetY), EditBox::getValue, value -> {
+        mOffsetYInput = LazyWidget.of(toSignedString(mSlideUpdatePacket.slideOffsetY), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 84, topPos + 103, 29, 16, OFFSET_Y_TEXT);
             input.setResponder(text -> {
                 try {
@@ -227,7 +227,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return input;
         });
         // offset z input
-        mOffsetZInput = LazyWidget.of(toSignedString(mUpdatePacket.slideOffsetZ), EditBox::getValue, value -> {
+        mOffsetZInput = LazyWidget.of(toSignedString(mSlideUpdatePacket.slideOffsetZ), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 138, topPos + 103, 29, 16, OFFSET_Z_TEXT);
             input.setResponder(text -> {
                 try {
@@ -358,6 +358,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
     @Override
     public void containerTick() {
+        /*
         mURLInput.get().tick();
         mColorInput.get().tick();
         mWidthInput.get().tick();
@@ -365,18 +366,19 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         mOffsetXInput.get().tick();
         mOffsetYInput.get().tick();
         mOffsetZInput.get().tick();
+        */
         this.syncAspectRatioTick();
     }
 
     @Override
     public void removed() {
         super.removed();
-        var tilePos = mUpdatePacket.pos;
+        var tilePos = mSlideUpdatePacket.pos;
         var level = Objects.requireNonNull(minecraft).level;
         if (level != null && level.getBlockEntity(tilePos) instanceof ProjectorBlockEntity tile) {
             var urlFallback = (ProjectorURL) null;
-            var urlRemoved = mImageUrlStatus == ImageUrlStatus.NO_CONTENT && mUpdatePacket.imgUrl != null;
-            var urlChanged = mImageUrlStatus == ImageUrlStatus.NORMAL && !Objects.equals(mImgUrl, mUpdatePacket.imgUrl);
+            var urlRemoved = mImageUrlStatus == ImageUrlStatus.NO_CONTENT && mSlideUpdatePacket.imgUrl != null;
+            var urlChanged = mImageUrlStatus == ImageUrlStatus.NORMAL && !Objects.equals(mImgUrl, mSlideUpdatePacket.imgUrl);
             if (urlRemoved || urlChanged) {
                 // apply random uuid and wait for server updates
                 urlFallback = urlRemoved ? null : mImgUrl;
@@ -399,12 +401,13 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             tile.setDoubleSided(mDoubleSided);
             tile.setKeepAspectRatio(mKeepAspectRatio);
             var urlFallbackOptional = Optional.ofNullable(urlFallback);
-            new ProjectorUpdatePacket(tile, mUpdatePacket.hasCreatePermission, u -> urlFallbackOptional).sendToServer();
+            var hasCreatePermission = mSlideUpdatePacket.hasCreatePermission;
+            PacketDistributor.sendToServer(new SlideUpdatePacket(tile, hasCreatePermission, u -> urlFallbackOptional));
         }
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (mWidthInput.get().isMouseOver(mouseX, mouseY)) {
             if (!mInvalidWidth) {
                 mWidthInput.get().setValue(toOptionalSignedString(Math.round(mImageSize.x * 2.0 + scrollY) * 0.5f));
@@ -422,7 +425,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 return true;
             }
         }
-        return super.mouseScrolled(mouseX, mouseY, scrollY);
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     @Override
@@ -447,7 +450,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
     @Override
     protected void renderBg(GuiGraphics gui, float partialTicks, int mouseX, int mouseY) {
-        renderBackground(gui);
+        renderBackground(gui, mouseX, mouseY, partialTicks);
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         RenderSystem.setShaderTexture(0, GUI_TEXTURE);
         gui.blit(GUI_TEXTURE, leftPos, topPos, 0, 0, imageWidth, imageHeight);
@@ -506,7 +509,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     private void syncAspectRatioTick() {
         if (!mURLInput.get().isFocused()) {
             if (mSyncAspectRatio != SyncAspectRatio.SYNCED && !mInvalidWidth && !mInvalidHeight) {
-                var slide = SlideState.getSlide(mUpdatePacket.imgId);
+                var slide = SlideState.getSlide(mSlideUpdatePacket.imgId);
                 var aspect = slide == null ? Float.NaN : slide.getImageAspectRatio();
                 if (!Float.isNaN(aspect)) {
                     if (mSyncAspectRatio == SyncAspectRatio.SYNC_WIDTH_WITH_HEIGHT) {
@@ -530,7 +533,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     }
 
     private List<Component> getUrlTexts() {
-        var lastLog = mUpdatePacket.lastOperationLog;
+        var lastLog = mSlideUpdatePacket.lastOperationLog;
         var components = new ArrayList<Component>();
         components.add(URL_TEXT);
         if (lastLog != null) {
@@ -556,9 +559,15 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
                 var key = String.format("gui.slide_show.log_message.%s.%s.in_current_level", namespace, path);
                 components.add(Component.translatable(key, posText).withStyle(ChatFormatting.GRAY));
             }
-            var operatorText = ComponentUtils.getDisplayName(lastLog.operator());
             var timeText = Component.literal(DateTimeFormatter.RFC_1123_DATE_TIME.format(time.toOffsetDateTime()));
-            components.add(Component.translatable("gui.slide_show.log_comment", timeText, operatorText).withStyle(ChatFormatting.GRAY));
+            if (lastLog.operator().isPresent()) {
+                var nameText = lastLog.operator().get().getName();
+                components.add(Component.translatable(
+                        "gui.slide_show.log_comment", timeText, nameText).withStyle(ChatFormatting.GRAY));
+            } else {
+                components.add(Component.translatable(
+                        "gui.slide_show.log_comment_nobody", timeText).withStyle(ChatFormatting.GRAY));
+            }
         }
         return components;
     }

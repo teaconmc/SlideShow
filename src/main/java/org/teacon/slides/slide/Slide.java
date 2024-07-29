@@ -1,5 +1,6 @@
 package org.teacon.slides.slide;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -20,7 +21,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public sealed interface Slide extends AutoCloseable permits IconSlide, ImageSlide {
-    void render(MultiBufferSource source, Matrix4f matrix, Matrix3f normal, Vector2f dimension,
+    void render(MultiBufferSource source, PoseStack.Pose pose, Vector2f dimension,
                 int color, int light, int overlay, boolean front, boolean back, long tick, float partialTick);
 
     @Override

@@ -4,25 +4,31 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.network.PacketDistributor;
-import org.teacon.slides.ModRegistries;
-import org.teacon.slides.renderer.SlideState;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import org.teacon.slides.SlideShow;
 import org.teacon.slides.url.ProjectorURL;
 import org.teacon.slides.url.ProjectorURLSavedData;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.*;
-import java.util.function.Supplier;
+import java.util.Set;
+import java.util.UUID;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class ProjectorURLPrefetchPacket {
+public final class SlideURLPrefetchPacket implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<SlideURLPrefetchPacket> TYPE;
+    public static final StreamCodec<RegistryFriendlyByteBuf, SlideURLPrefetchPacket> CODEC;
+
+    static {
+        TYPE = new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "url_prefetch"));
+        CODEC = StreamCodec.ofMember(SlideURLPrefetchPacket::write, SlideURLPrefetchPacket::new);
+    }
+
     private final ImmutableSet<UUID> nonExistentIdSet;
 
     private final ImmutableMap<UUID, ProjectorURL> existentIdMap;
@@ -31,7 +37,7 @@ public final class ProjectorURLPrefetchPacket {
         END, EXISTENT, NON_EXISTENT
     }
 
-    public ProjectorURLPrefetchPacket(Set<UUID> idSet, ProjectorURLSavedData data) {
+    public SlideURLPrefetchPacket(Set<UUID> idSet, ProjectorURLSavedData data) {
         var nonExistentBuilder = ImmutableSet.<UUID>builder();
         var existentBuilder = ImmutableMap.<UUID, ProjectorURL>builder();
         for (var id : idSet) {
@@ -41,7 +47,7 @@ public final class ProjectorURLPrefetchPacket {
         this.existentIdMap = existentBuilder.build();
     }
 
-    public ProjectorURLPrefetchPacket(FriendlyByteBuf buf) {
+    public SlideURLPrefetchPacket(RegistryFriendlyByteBuf buf) {
         var nonExistentBuilder = ImmutableSet.<UUID>builder();
         var existentBuilder = ImmutableMap.<UUID, ProjectorURL>builder();
         while (true) {
@@ -57,25 +63,18 @@ public final class ProjectorURLPrefetchPacket {
         }
     }
 
-    public void write(FriendlyByteBuf buf) {
+    public void write(RegistryFriendlyByteBuf buf) {
         this.existentIdMap.forEach((uuid, url) -> buf.writeEnum(Status.EXISTENT).writeUUID(uuid).writeUtf(url.toUrl().toString()));
         this.nonExistentIdSet.forEach(uuid -> buf.writeEnum(Status.NON_EXISTENT).writeUUID(uuid));
         buf.writeEnum(Status.END);
     }
 
-    public void sendToAll() {
-        ModRegistries.CHANNEL.send(PacketDistributor.ALL.noArg(), this);
+    public void handle(IPayloadContext context) {
+        context.enqueueWork(() -> SlideShow.applyPrefetch(this.nonExistentIdSet, this.existentIdMap));
     }
 
-    public void sendToClient(ServerPlayer player) {
-        ModRegistries.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), this);
-    }
-
-    public void handle(Supplier<NetworkEvent.Context> context) {
-        context.get().enqueueWork(() -> {
-            var applyPrefetch = DistExecutor.safeCallWhenOn(Dist.CLIENT, () -> SlideState::getApplyPrefetch);
-            Objects.requireNonNull(applyPrefetch).accept(this.nonExistentIdSet, this.existentIdMap);
-        });
-        context.get().setPacketHandled(true);
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
     }
 }

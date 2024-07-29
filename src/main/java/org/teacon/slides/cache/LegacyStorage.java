@@ -73,6 +73,7 @@ final class LegacyStorage {
         return new HttpCacheEntry(dummyDate, dummyDate, dummyStatus, headers, resource, Collections.emptyMap());
     }
 
+    @SuppressWarnings("deprecation")
     private static String normalizeUri(String uriString) {
         try {
             URI uri = URI.create(uriString);
