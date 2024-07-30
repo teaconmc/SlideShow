@@ -25,7 +25,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
-import org.joml.Vector4f;
+import org.joml.Vector4d;
 import org.teacon.slides.ModRegistries;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -202,7 +202,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
             return ordinal() >= 4;
         }
 
-        public void transform(Vector4f vector) {
+        public void transform(Vector4d vector) {
             vector.mul(mMatrix);
         }
 

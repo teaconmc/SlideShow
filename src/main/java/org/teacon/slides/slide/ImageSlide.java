@@ -5,9 +5,11 @@ import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.MultiBufferSource;
 import org.joml.Vector2f;
+import org.joml.Vector2i;
 import org.teacon.slides.texture.TextureProvider;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Optional;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -72,18 +74,8 @@ public final class ImageSlide implements Slide {
     }
 
     @Override
-    public int getWidth() {
-        return mTexture.getWidth();
-    }
-
-    @Override
-    public int getHeight() {
-        return mTexture.getHeight();
-    }
-
-    @Override
-    public float getImageAspectRatio() {
-        return (float) getWidth() / getHeight();
+    public Optional<Vector2i> getDimension() {
+        return Optional.of(new Vector2i(mTexture.getWidth(), mTexture.getHeight()));
     }
 
     @Override

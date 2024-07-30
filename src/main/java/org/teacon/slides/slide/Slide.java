@@ -7,10 +7,12 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector2f;
+import org.joml.Vector2i;
 import org.teacon.slides.renderer.SlideState;
 import org.teacon.slides.texture.TextureProvider;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Optional;
 
 /**
  * Represents a slide drawable, with immutable storage.
@@ -27,16 +29,8 @@ public sealed interface Slide extends AutoCloseable permits IconSlide, ImageSlid
     @Override
     void close();
 
-    default int getWidth() {
-        return 1;
-    }
-
-    default int getHeight() {
-        return 1;
-    }
-
-    default float getImageAspectRatio() {
-        return Float.NaN;
+    default Optional<Vector2i> getDimension() {
+        return Optional.empty();
     }
 
     default int getCPUMemorySize() {

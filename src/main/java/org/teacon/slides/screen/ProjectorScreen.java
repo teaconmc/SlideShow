@@ -21,10 +21,7 @@ import net.minecraft.world.level.block.Rotation;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.objecthunter.exp4j.ExpressionBuilder;
 import org.apache.commons.lang3.StringUtils;
-import org.joml.Matrix4f;
-import org.joml.Vector2f;
-import org.joml.Vector3f;
-import org.joml.Vector4f;
+import org.joml.*;
 import org.lwjgl.glfw.GLFW;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.network.SlideUpdatePacket;
@@ -36,9 +33,12 @@ import org.teacon.slides.url.ProjectorURL;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.lang.Math;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+
+import static org.joml.RoundingMode.HALF_EVEN;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -83,12 +83,12 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     private final LazyWidget<Button> mKeepAspectChecked;
     private final LazyWidget<Button> mKeepAspectUnchecked;
 
-    private final SlideUpdatePacket mSlideUpdatePacket;
+    private final SlideUpdatePacket mInitSlide;
 
     private @Nullable ProjectorURL mImgUrl;
     private int mImageColor = 0xFFFFFFFF;
-    private Vector2f mImageSize = new Vector2f(1, 1);
-    private Vector3f mImageOffset = new Vector3f(0, 0, 0);
+    private Vector3i mImageOffsetMicros = new Vector3i(0, 0, 0);
+    private Vector2i mImageSizeMicros = new Vector2i(1_000_000, 1_000_000);
 
     // initialized after construction
 
@@ -110,19 +110,19 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         imageHeight = 217;
         // initialize variables
         var packet = menu.slideUpdatePacket;
-        mSlideUpdatePacket = packet;
+        mInitSlide = packet;
         mRotation = packet.rotation;
         mDoubleSided = packet.doubleSided;
         mKeepAspectRatio = packet.keepAspectRatio;
         mSyncAspectRatio = packet.keepAspectRatio ? SyncAspectRatio.SYNC_WIDTH_WITH_HEIGHT : SyncAspectRatio.SYNCED;
         // url input
-        mURLInput = LazyWidget.of(toImageUrl(mSlideUpdatePacket.imgUrl), EditBox::getValue, value -> {
+        mURLInput = LazyWidget.of(toImageUrl(mInitSlide.imgUrl), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 30, topPos + 29, 136, 16, URL_TEXT);
             input.setMaxLength(URL_MAX_LENGTH);
             input.setResponder(text -> {
                 try {
                     mImgUrl = new ProjectorURL(text);
-                    if (mSlideUpdatePacket.hasCreatePermission) {
+                    if (mInitSlide.hasCreatePermission) {
                         var blocked = SlideState.getImgBlocked(mImgUrl);
                         mImageUrlStatus = blocked ? ImageUrlStatus.BLOCKED : ImageUrlStatus.NORMAL;
                     } else {
@@ -143,7 +143,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return input;
         });
         // color input
-        mColorInput = LazyWidget.of(String.format("%08X", mSlideUpdatePacket.color), EditBox::getValue, value -> {
+        mColorInput = LazyWidget.of(String.format("%08X", mInitSlide.color), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 55, topPos + 155, 56, 16, COLOR_TEXT);
             input.setMaxLength(COLOR_MAX_LENGTH);
             input.setResponder(text -> {
@@ -159,12 +159,12 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return input;
         });
         // width input
-        mWidthInput = LazyWidget.of(toOptionalSignedString(mSlideUpdatePacket.dimensionX), EditBox::getValue, value -> {
+        mWidthInput = LazyWidget.of(fromMicros(toMicros(mInitSlide.dimensionX), false), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 30, topPos + 51, 46, 16, WIDTH_TEXT);
             input.setResponder(text -> {
                 try {
-                    var newSize = new Vector2f(parseFloat(text), mImageSize.y);
-                    updateOffsetByDimension(newSize);
+                    var newSizeMicros = new Vector2i(toMicros(text), mImageSizeMicros.y);
+                    updateOffsetByDimension(newSizeMicros);
                     mInvalidWidth = false;
                 } catch (Exception e) {
                     mInvalidWidth = true;
@@ -178,12 +178,12 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return input;
         });
         // height input
-        mHeightInput = LazyWidget.of(toOptionalSignedString(mSlideUpdatePacket.dimensionY), EditBox::getValue, value -> {
+        mHeightInput = LazyWidget.of(fromMicros(toMicros(mInitSlide.dimensionY), false), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 100, topPos + 51, 46, 16, HEIGHT_TEXT);
             input.setResponder(text -> {
                 try {
-                    var newSize = new Vector2f(mImageSize.x, parseFloat(text));
-                    updateOffsetByDimension(newSize);
+                    var newSizeMicros = new Vector2i(mImageSizeMicros.x, toMicros(text));
+                    updateOffsetByDimension(newSizeMicros);
                     mInvalidHeight = false;
                 } catch (Exception e) {
                     mInvalidHeight = true;
@@ -197,11 +197,11 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return input;
         });
         // offset x input
-        mOffsetXInput = LazyWidget.of(toSignedString(mSlideUpdatePacket.slideOffsetX), EditBox::getValue, value -> {
+        mOffsetXInput = LazyWidget.of(fromMicros(toMicros(mInitSlide.slideOffsetX), true), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 30, topPos + 103, 29, 16, OFFSET_X_TEXT);
             input.setResponder(text -> {
                 try {
-                    mImageOffset = new Vector3f(parseFloat(text), mImageOffset.y(), mImageOffset.z());
+                    mImageOffsetMicros = new Vector3i(toMicros(text), mImageOffsetMicros.y(), mImageOffsetMicros.z());
                     mInvalidOffsetX = false;
                 } catch (Exception e) {
                     mInvalidOffsetX = true;
@@ -212,11 +212,11 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return input;
         });
         // offset y input
-        mOffsetYInput = LazyWidget.of(toSignedString(mSlideUpdatePacket.slideOffsetY), EditBox::getValue, value -> {
+        mOffsetYInput = LazyWidget.of(fromMicros(toMicros(mInitSlide.slideOffsetY), true), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 84, topPos + 103, 29, 16, OFFSET_Y_TEXT);
             input.setResponder(text -> {
                 try {
-                    mImageOffset = new Vector3f(mImageOffset.x(), parseFloat(text), mImageOffset.z());
+                    mImageOffsetMicros = new Vector3i(mImageOffsetMicros.x(), toMicros(text), mImageOffsetMicros.z());
                     mInvalidOffsetY = false;
                 } catch (Exception e) {
                     mInvalidOffsetY = true;
@@ -227,11 +227,11 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return input;
         });
         // offset z input
-        mOffsetZInput = LazyWidget.of(toSignedString(mSlideUpdatePacket.slideOffsetZ), EditBox::getValue, value -> {
+        mOffsetZInput = LazyWidget.of(fromMicros(toMicros(mInitSlide.slideOffsetZ), true), EditBox::getValue, value -> {
             var input = new EditBox(font, leftPos + 138, topPos + 103, 29, 16, OFFSET_Z_TEXT);
             input.setResponder(text -> {
                 try {
-                    mImageOffset = new Vector3f(mImageOffset.x(), mImageOffset.y(), parseFloat(text));
+                    mImageOffsetMicros = new Vector3i(mImageOffsetMicros.x(), mImageOffsetMicros.y(), toMicros(text));
                     mInvalidOffsetZ = false;
                 } catch (Exception e) {
                     mInvalidOffsetZ = true;
@@ -322,25 +322,25 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     private void updateOffsetByRotation(ProjectorBlock.InternalRotation newRotation) {
         // noinspection DuplicatedCode
         if (!mInvalidOffsetX && !mInvalidOffsetY && !mInvalidOffsetZ) {
-            var absolute = relativeToAbsolute(mImageOffset, mImageSize, mRotation);
-            var newRelative = absoluteToRelative(absolute, mImageSize, newRotation);
-            mOffsetXInput.get().setValue(toSignedString(newRelative.x()));
-            mOffsetYInput.get().setValue(toSignedString(newRelative.y()));
-            mOffsetZInput.get().setValue(toSignedString(newRelative.z()));
+            var absoluteMicros = fromRelativeOffsetMicros(mImageOffsetMicros, mImageSizeMicros, mRotation);
+            var newRelativeMicros = fromAbsoluteOffsetMicros(absoluteMicros, mImageSizeMicros, newRotation);
+            mOffsetXInput.get().setValue(fromMicros(newRelativeMicros.x(), true));
+            mOffsetYInput.get().setValue(fromMicros(newRelativeMicros.y(), true));
+            mOffsetZInput.get().setValue(fromMicros(newRelativeMicros.z(), true));
         }
         mRotation = newRotation;
     }
 
-    private void updateOffsetByDimension(Vector2f newDimension) {
+    private void updateOffsetByDimension(Vector2i newDimensionMicros) {
         // noinspection DuplicatedCode
         if (!mInvalidOffsetX && !mInvalidOffsetY && !mInvalidOffsetZ) {
-            var absolute = relativeToAbsolute(mImageOffset, mImageSize, mRotation);
-            var newRelative = absoluteToRelative(absolute, newDimension, mRotation);
-            mOffsetXInput.get().setValue(toSignedString(newRelative.x()));
-            mOffsetYInput.get().setValue(toSignedString(newRelative.y()));
-            mOffsetZInput.get().setValue(toSignedString(newRelative.z()));
+            var absoluteMicros = fromRelativeOffsetMicros(mImageOffsetMicros, mImageSizeMicros, mRotation);
+            var newRelativeMicros = fromAbsoluteOffsetMicros(absoluteMicros, newDimensionMicros, mRotation);
+            mOffsetXInput.get().setValue(fromMicros(newRelativeMicros.x(), true));
+            mOffsetYInput.get().setValue(fromMicros(newRelativeMicros.y(), true));
+            mOffsetZInput.get().setValue(fromMicros(newRelativeMicros.z(), true));
         }
-        mImageSize = newDimension;
+        mImageSizeMicros = newDimensionMicros;
     }
 
     private void updateDoubleSided(boolean doubleSided) {
@@ -358,27 +358,18 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
     @Override
     public void containerTick() {
-        /*
-        mURLInput.get().tick();
-        mColorInput.get().tick();
-        mWidthInput.get().tick();
-        mHeightInput.get().tick();
-        mOffsetXInput.get().tick();
-        mOffsetYInput.get().tick();
-        mOffsetZInput.get().tick();
-        */
         this.syncAspectRatioTick();
     }
 
     @Override
     public void removed() {
         super.removed();
-        var tilePos = mSlideUpdatePacket.pos;
+        var tilePos = mInitSlide.pos;
         var level = Objects.requireNonNull(minecraft).level;
         if (level != null && level.getBlockEntity(tilePos) instanceof ProjectorBlockEntity tile) {
             var urlFallback = (ProjectorURL) null;
-            var urlRemoved = mImageUrlStatus == ImageUrlStatus.NO_CONTENT && mSlideUpdatePacket.imgUrl != null;
-            var urlChanged = mImageUrlStatus == ImageUrlStatus.NORMAL && !Objects.equals(mImgUrl, mSlideUpdatePacket.imgUrl);
+            var urlRemoved = mImageUrlStatus == ImageUrlStatus.NO_CONTENT && mInitSlide.imgUrl != null;
+            var urlChanged = mImageUrlStatus == ImageUrlStatus.NORMAL && !Objects.equals(mImgUrl, mInitSlide.imgUrl);
             if (urlRemoved || urlChanged) {
                 // apply random uuid and wait for server updates
                 urlFallback = urlRemoved ? null : mImgUrl;
@@ -390,18 +381,23 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             }
             var validSize = !mInvalidWidth && !mInvalidHeight;
             if (validSize) {
-                tile.setDimension(mImageSize);
+                var dimensionX = fromMicros(mImageSizeMicros.x());
+                var dimensionY = fromMicros(mImageSizeMicros.y());
+                tile.setDimension(new Vector2f(dimensionX, dimensionY));
             }
             var validOffset = !mInvalidOffsetX && !mInvalidOffsetY && !mInvalidOffsetZ;
             if (validOffset) {
-                tile.setSlideOffset(mImageOffset);
+                var offsetX = fromMicros(mImageOffsetMicros.x());
+                var offsetY = fromMicros(mImageOffsetMicros.y());
+                var offsetZ = fromMicros(mImageOffsetMicros.z());
+                tile.setSlideOffset(new Vector3f(offsetX, offsetY, offsetZ));
             }
             var state = tile.getBlockState().setValue(ProjectorBlock.ROTATION, mRotation);
             level.setBlock(tilePos, state, Block.UPDATE_NONE);
             tile.setDoubleSided(mDoubleSided);
             tile.setKeepAspectRatio(mKeepAspectRatio);
             var urlFallbackOptional = Optional.ofNullable(urlFallback);
-            var hasCreatePermission = mSlideUpdatePacket.hasCreatePermission;
+            var hasCreatePermission = mInitSlide.hasCreatePermission;
             PacketDistributor.sendToServer(new SlideUpdatePacket(tile, hasCreatePermission, u -> urlFallbackOptional));
         }
     }
@@ -410,7 +406,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         if (mWidthInput.get().isMouseOver(mouseX, mouseY)) {
             if (!mInvalidWidth) {
-                mWidthInput.get().setValue(toOptionalSignedString(Math.round(mImageSize.x * 2.0 + scrollY) * 0.5f));
+                mWidthInput.get().setValue(fromMicros((int) Math.rint(mImageSizeMicros.x() + scrollY * 25E4), false));
                 if (mKeepAspectRatio) {
                     mSyncAspectRatio = SyncAspectRatio.SYNC_HEIGHT_WITH_WIDTH;
                 }
@@ -418,7 +414,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             }
         } else if (mHeightInput.get().isMouseOver(mouseX, mouseY)) {
             if (!mInvalidHeight) {
-                mHeightInput.get().setValue(toOptionalSignedString(Math.round(mImageSize.y * 2.0 + scrollY) * 0.5f));
+                mHeightInput.get().setValue(fromMicros((int) Math.rint(mImageSizeMicros.y() + scrollY * 25E4), false));
                 if (mKeepAspectRatio) {
                     mSyncAspectRatio = SyncAspectRatio.SYNC_WIDTH_WITH_HEIGHT;
                 }
@@ -508,21 +504,25 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     private void syncAspectRatioTick() {
         if (!mURLInput.get().isFocused()) {
             if (mSyncAspectRatio != SyncAspectRatio.SYNCED && !mInvalidWidth && !mInvalidHeight) {
-                var slide = SlideState.getSlide(mSlideUpdatePacket.imgId);
-                var aspect = slide == null ? Float.NaN : slide.getImageAspectRatio();
-                if (!Float.isNaN(aspect)) {
+                var slide = SlideState.getSlide(mInitSlide.imgId);
+                var dimensionOptional = slide == null ? Optional.<Vector2i>empty() : slide.getDimension();
+                if (dimensionOptional.isPresent()) {
+                    var imageWidth = dimensionOptional.get().x();
+                    var imageHeight = dimensionOptional.get().y();
                     if (mSyncAspectRatio == SyncAspectRatio.SYNC_WIDTH_WITH_HEIGHT) {
-                        var newSizeByHeight = new Vector2f(mImageSize.y * aspect, mImageSize.y);
-                        updateOffsetByDimension(newSizeByHeight);
+                        var newWidthMicros = (int) Math.rint(1.0 * mImageSizeMicros.y() * imageWidth / imageHeight);
+                        var newSizeMicrosByHeight = new Vector2i(newWidthMicros, mImageSizeMicros.y());
+                        updateOffsetByDimension(newSizeMicrosByHeight);
                         if (!mWidthInput.get().isFocused()) {
-                            mWidthInput.get().setValue(toOptionalSignedString(newSizeByHeight.x()));
+                            mWidthInput.get().setValue(fromMicros(newSizeMicrosByHeight.x(), false));
                         }
                     }
                     if (mSyncAspectRatio == SyncAspectRatio.SYNC_HEIGHT_WITH_WIDTH) {
-                        var newSizeByWidth = new Vector2f(mImageSize.x, mImageSize.x / aspect);
-                        updateOffsetByDimension(newSizeByWidth);
+                        var newHeightMicros = (int) Math.rint(1.0 * mImageSizeMicros.x() * imageHeight / imageWidth);
+                        var newSizeMicrosByWidth = new Vector2i(mImageSizeMicros.x(), newHeightMicros);
+                        updateOffsetByDimension(newSizeMicrosByWidth);
                         if (!mHeightInput.get().isFocused()) {
-                            mHeightInput.get().setValue(toOptionalSignedString(newSizeByWidth.y()));
+                            mHeightInput.get().setValue(fromMicros(newSizeMicrosByWidth.y(), false));
                         }
                     }
                     mSyncAspectRatio = SyncAspectRatio.SYNCED;
@@ -532,7 +532,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     }
 
     private List<Component> getUrlTexts() {
-        var lastLog = mSlideUpdatePacket.lastOperationLog;
+        var lastLog = mInitSlide.lastOperationLog;
         var components = new ArrayList<Component>();
         components.add(URL_TEXT);
         if (lastLog != null) {
@@ -575,47 +575,50 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         gui.drawString(renderer, string.getVisualOrderText(), (88 - renderer.width(string) / 2.0F), y, 0x404040, false);
     }
 
-    private static float parseFloat(String text) {
-        return (float) new ExpressionBuilder(text).implicitMultiplication(false).build().evaluate();
+    private static int toMicros(float value) {
+        return (int) Math.rint(value * 1E6);
+    }
+
+    private static int toMicros(String text) {
+        return (int) Math.rint(new ExpressionBuilder(text).implicitMultiplication(false).build().evaluate() * 1E6);
     }
 
     private static String toImageUrl(@Nullable ProjectorURL imgUrl) {
         return imgUrl == null ? "" : imgUrl.toUrl().toString();
     }
 
-    private static String toOptionalSignedString(float f) {
-        return Float.toString(Math.round(f * 1.0E3F) / 1.0E3F);
+    private static float fromMicros(int micros) {
+        return (float) (micros / 1E6);
     }
 
-    private static String toSignedString(float f) {
-        return Float.isNaN(f) ? String.valueOf(f) : Math.copySign(1.0F, f) <= 0 ?
-                "-" + Math.round(0.0F - f * 1.0E3F) / 1.0E3F : "+" + Math.round(f * 1.0E3F) / 1.0E3F;
+    private static String fromMicros(int micros, boolean positiveSigned) {
+        return (micros < 0 ? "-" : micros > 0 && positiveSigned ? "+" : "") + Math.abs(micros / 1E6);
     }
 
-    private static Vector3f relativeToAbsolute(Vector3f relatedOffset, Vector2f size,
-                                               ProjectorBlock.InternalRotation rotation) {
-        var center = new Vector4f(0.5F * size.x, 0.0F, 0.5F * size.y, 1.0F);
+    private static Vector3d fromRelativeOffsetMicros(Vector3i relOffsetMicros,
+                                                     Vector2i sizeMicros, ProjectorBlock.InternalRotation rotation) {
+        var center = new Vector4d(sizeMicros.x() / 2.0, 0.0, sizeMicros.y() / 2.0, 1.0);
         // matrix 6: offset for slide (center[new] = center[old] + offset)
-        center.mul(new Matrix4f().translate(relatedOffset.x(), -relatedOffset.z(), relatedOffset.y()));
+        center.mul(new Matrix4d().translate(relOffsetMicros.x(), -relOffsetMicros.z(), relOffsetMicros.y()));
         // matrix 5: translation for slide
-        center.mul(new Matrix4f().translate(-0.5F, 0.0F, 0.5F - size.y()));
+        center.mul(new Matrix4d().translate(-5E5, 0.0, 5E5 - sizeMicros.y()));
         // matrix 4: internal rotation
         rotation.transform(center);
         // ok, that's enough
-        return new Vector3f(center.x() / center.w(), center.y() / center.w(), center.z() / center.w());
+        return new Vector3d(center.x() / center.w(), center.y() / center.w(), center.z() / center.w());
     }
 
-    private static Vector3f absoluteToRelative(Vector3f absoluteOffset, Vector2f size,
-                                               ProjectorBlock.InternalRotation rotation) {
-        var center = new Vector4f(absoluteOffset, 1.0F);
+    private static Vector3i fromAbsoluteOffsetMicros(Vector3d absOffsetMicros,
+                                                     Vector2i sizeMicros, ProjectorBlock.InternalRotation rotation) {
+        var center = new Vector4d(absOffsetMicros, 1.0);
         // inverse matrix 4: internal rotation
         rotation.invert().transform(center);
         // inverse matrix 5: translation for slide
-        center.mul(new Matrix4f().translate(0.5F, 0.0F, -0.5F + size.y()));
+        center.mul(new Matrix4d().translate(5E5, 0.0, -5E5 + sizeMicros.y()));
         // subtract (offset = center[new] - center[old])
-        center.mul(new Matrix4f().translate(-0.5F * size.x, 0.0F, -0.5F * size.y));
+        center.mul(new Matrix4d().translate(sizeMicros.x() / -2.0, 0.0, sizeMicros.y() / -2.0));
         // ok, that's enough (remember it is (a, -c, b) => (a, b, c))
-        return new Vector3f(center.x() / center.w(), center.z() / center.w(), -center.y() / center.w());
+        return new Vector3i(center.x() / center.w(), center.z() / center.w(), -center.y() / center.w(), HALF_EVEN);
     }
 
     private static class Button extends AbstractButton {
