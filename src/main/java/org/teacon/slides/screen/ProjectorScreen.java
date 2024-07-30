@@ -34,6 +34,7 @@ import org.teacon.slides.url.ProjectorURL;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.lang.Math;
+import java.text.DecimalFormat;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -66,6 +67,10 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     private static final int
             URL_MAX_LENGTH = 1 << 9,
             COLOR_MAX_LENGTH = 1 << 3;
+
+    private static final DecimalFormat
+            WITHOUT_PLUS_SIGN = new DecimalFormat("0.0###"),
+            WITH_PLUS_SIGN = new DecimalFormat("+0.0###;-0.0###");
 
     private final LazyWidget<EditBox> mURLInput;
     private final LazyWidget<EditBox> mColorInput;
@@ -106,8 +111,8 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
     public ProjectorScreen(ProjectorContainerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
-        imageWidth = 176;
-        imageHeight = 217;
+        imageWidth = 248;
+        imageHeight = 215;
         // initialize variables
         var packet = menu.slideUpdatePacket;
         mInitSlide = packet;
@@ -117,7 +122,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         mSyncAspectRatio = packet.keepAspectRatio ? SyncAspectRatio.SYNC_WIDTH_WITH_HEIGHT : SyncAspectRatio.SYNCED;
         // url input
         mURLInput = LazyWidget.of(toImageUrl(mInitSlide.imgUrl), EditBox::getValue, value -> {
-            var input = new EditBox(font, leftPos + 30, topPos + 29, 136, 16, URL_TEXT);
+            var input = new EditBox(font, leftPos + 30, topPos + 29, 209, 16, URL_TEXT);
             input.setMaxLength(URL_MAX_LENGTH);
             input.setResponder(text -> {
                 try {
@@ -144,7 +149,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         });
         // color input
         mColorInput = LazyWidget.of(String.format("%08X", mInitSlide.color), EditBox::getValue, value -> {
-            var input = new EditBox(font, leftPos + 55, topPos + 155, 56, 16, COLOR_TEXT);
+            var input = new EditBox(font, leftPos + 55, topPos + 155, 57, 16, COLOR_TEXT);
             input.setMaxLength(COLOR_MAX_LENGTH);
             input.setResponder(text -> {
                 try {
@@ -160,7 +165,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         });
         // width input
         mWidthInput = LazyWidget.of(fromMicros(toMicros(mInitSlide.dimensionX), false), EditBox::getValue, value -> {
-            var input = new EditBox(font, leftPos + 30, topPos + 51, 46, 16, WIDTH_TEXT);
+            var input = new EditBox(font, leftPos + 30, topPos + 51, 81, 16, WIDTH_TEXT);
             input.setResponder(text -> {
                 try {
                     var newSizeMicros = new Vector2i(toMicros(text), mImageSizeMicros.y);
@@ -179,7 +184,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         });
         // height input
         mHeightInput = LazyWidget.of(fromMicros(toMicros(mInitSlide.dimensionY), false), EditBox::getValue, value -> {
-            var input = new EditBox(font, leftPos + 100, topPos + 51, 46, 16, HEIGHT_TEXT);
+            var input = new EditBox(font, leftPos + 136, topPos + 51, 81, 16, HEIGHT_TEXT);
             input.setResponder(text -> {
                 try {
                     var newSizeMicros = new Vector2i(mImageSizeMicros.x, toMicros(text));
@@ -198,7 +203,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         });
         // offset x input
         mOffsetXInput = LazyWidget.of(fromMicros(toMicros(mInitSlide.slideOffsetX), true), EditBox::getValue, value -> {
-            var input = new EditBox(font, leftPos + 30, topPos + 103, 29, 16, OFFSET_X_TEXT);
+            var input = new EditBox(font, leftPos + 30, topPos + 103, 53, 16, OFFSET_X_TEXT);
             input.setResponder(text -> {
                 try {
                     mImageOffsetMicros = new Vector3i(toMicros(text), mImageOffsetMicros.y(), mImageOffsetMicros.z());
@@ -213,7 +218,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         });
         // offset y input
         mOffsetYInput = LazyWidget.of(fromMicros(toMicros(mInitSlide.slideOffsetY), true), EditBox::getValue, value -> {
-            var input = new EditBox(font, leftPos + 84, topPos + 103, 29, 16, OFFSET_Y_TEXT);
+            var input = new EditBox(font, leftPos + 108, topPos + 103, 53, 16, OFFSET_Y_TEXT);
             input.setResponder(text -> {
                 try {
                     mImageOffsetMicros = new Vector3i(mImageOffsetMicros.x(), toMicros(text), mImageOffsetMicros.z());
@@ -228,7 +233,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         });
         // offset z input
         mOffsetZInput = LazyWidget.of(fromMicros(toMicros(mInitSlide.slideOffsetZ), true), EditBox::getValue, value -> {
-            var input = new EditBox(font, leftPos + 138, topPos + 103, 29, 16, OFFSET_Z_TEXT);
+            var input = new EditBox(font, leftPos + 186, topPos + 103, 53, 16, OFFSET_Z_TEXT);
             input.setResponder(text -> {
                 try {
                     mImageOffsetMicros = new Vector3i(mImageOffsetMicros.x(), mImageOffsetMicros.y(), toMicros(text));
@@ -243,7 +248,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         });
         // internal rotation buttons
         mFlipRotation = LazyWidget.of(true, b -> b.visible, value -> {
-            var button = new Button(leftPos + 117, topPos + 153, 179, 153, 18, 19, FLIP_TEXT, () -> {
+            var button = new Button(leftPos + 165, topPos + 153, 79, 236, 18, 19, FLIP_TEXT, () -> {
                 var newRotation = mRotation.flip();
                 updateOffsetByRotation(newRotation);
             });
@@ -251,7 +256,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return button;
         });
         mCycleRotation = LazyWidget.of(true, b -> b.visible, value -> {
-            var button = new Button(leftPos + 142, topPos + 153, 179, 173, 18, 19, ROTATE_TEXT, () -> {
+            var button = new Button(leftPos + 190, topPos + 153, 98, 236, 18, 19, ROTATE_TEXT, () -> {
                 var newRotation = mRotation.compose(Rotation.CLOCKWISE_90);
                 updateOffsetByRotation(newRotation);
             });
@@ -260,7 +265,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         });
         // single sided / double sided
         mSwitchSingleSided = LazyWidget.of(mDoubleSided, b -> b.visible, value -> {
-            var button = new Button(leftPos + 9, topPos + 153, 179, 113, 18, 19, SINGLE_DOUBLE_SIDED_TEXT, () -> {
+            var button = new Button(leftPos + 9, topPos + 153, 41, 236, 18, 19, SINGLE_DOUBLE_SIDED_TEXT, () -> {
                 if (mDoubleSided) {
                     updateDoubleSided(false);
                 }
@@ -269,7 +274,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return button;
         });
         mSwitchDoubleSided = LazyWidget.of(!mDoubleSided, b -> b.visible, value -> {
-            var button = new Button(leftPos + 9, topPos + 153, 179, 133, 18, 19, SINGLE_DOUBLE_SIDED_TEXT, () -> {
+            var button = new Button(leftPos + 9, topPos + 153, 60, 236, 18, 19, SINGLE_DOUBLE_SIDED_TEXT, () -> {
                 if (!mDoubleSided) {
                     updateDoubleSided(true);
                 }
@@ -278,7 +283,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return button;
         });
         mKeepAspectChecked = LazyWidget.of(mKeepAspectRatio, b -> b.visible, value -> {
-            var button = new Button(leftPos + 149, topPos + 49, 179, 93, 18, 19, KEEP_ASPECT_RATIO_TEXT, () -> {
+            var button = new Button(leftPos + 221, topPos + 49, 22, 236, 18, 19, KEEP_ASPECT_RATIO_TEXT, () -> {
                 if (mKeepAspectRatio) {
                     updateKeepAspectRatio(false);
                 }
@@ -287,7 +292,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             return button;
         });
         mKeepAspectUnchecked = LazyWidget.of(!mKeepAspectRatio, b -> b.visible, value -> {
-            var button = new Button(leftPos + 149, topPos + 49, 179, 73, 18, 19, KEEP_ASPECT_RATIO_TEXT, () -> {
+            var button = new Button(leftPos + 221, topPos + 49, 22, 236, 18, 19, KEEP_ASPECT_RATIO_TEXT, () -> {
                 if (!mKeepAspectRatio) {
                     updateKeepAspectRatio(true);
                 }
@@ -450,7 +455,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         RenderSystem.setShaderTexture(0, GUI_TEXTURE);
         gui.blit(GUI_TEXTURE, leftPos, topPos, 0, 0, imageWidth, imageHeight);
         if (mImageUrlStatus == ImageUrlStatus.INVALID || mImageUrlStatus == ImageUrlStatus.BLOCKED) {
-            gui.blit(GUI_TEXTURE, leftPos + 9, topPos + 27, 179, 53, 18, 19);
+            gui.blit(GUI_TEXTURE, leftPos + 9, topPos + 27, 3, 236, 18, 19);
         }
     }
 
@@ -464,12 +469,12 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         if (alpha > 0) {
             int red = (mImageColor >> 16) & 255, green = (mImageColor >> COLOR_MAX_LENGTH) & 255, blue = mImageColor & 255;
             RenderSystem.setShaderColor(red / 255.0F, green / 255.0F, blue / 255.0F, alpha / 255.0F);
-            gui.blit(GUI_TEXTURE, 38, 157, 180, 194, 10, 10);
-            gui.blit(GUI_TEXTURE, 82, 185, 180, 194, 17, 17);
+            gui.blit(GUI_TEXTURE, 38, 157, 118, 237, 10, 10);
+            gui.blit(GUI_TEXTURE, 106, 183, 118, 237, 17, 17);
         }
 
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-        gui.blit(GUI_TEXTURE, 82, 185, 202, 194 - mRotation.ordinal() * 20, 17, 17);
+        gui.blit(GUI_TEXTURE, 106, 183, 158 - mRotation.ordinal() * 22, 217, 17, 17);
 
         drawCenteredStringWithoutShadow(gui, font, IMAGE_TEXT, 12);
         drawCenteredStringWithoutShadow(gui, font, OFFSET_TEXT, 86);
@@ -482,19 +487,19 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             gui.renderTooltip(font, COLOR_TEXT, offsetX, offsetY);
         } else if (offsetX >= 9 && offsetY >= 49 && offsetX < 27 && offsetY < 68) {
             gui.renderTooltip(font, WIDTH_TEXT, offsetX, offsetY);
-        } else if (offsetX >= 79 && offsetY >= 49 && offsetX < 97 && offsetY < 68) {
+        } else if (offsetX >= 115 && offsetY >= 49 && offsetX < 133 && offsetY < 68) {
             gui.renderTooltip(font, HEIGHT_TEXT, offsetX, offsetY);
-        } else if (offsetX >= 149 && offsetY >= 49 && offsetX < 167 && offsetY < 68) {
+        } else if (offsetX >= 221 && offsetY >= 49 && offsetX < 239 && offsetY < 68) {
             gui.renderTooltip(font, KEEP_ASPECT_RATIO_TEXT, offsetX, offsetY);
         } else if (offsetX >= 9 && offsetY >= 101 && offsetX < 27 && offsetY < 120) {
             gui.renderTooltip(font, OFFSET_X_TEXT, offsetX, offsetY);
-        } else if (offsetX >= 63 && offsetY >= 101 && offsetX < 81 && offsetY < 120) {
+        } else if (offsetX >= 87 && offsetY >= 101 && offsetX < 105 && offsetY < 120) {
             gui.renderTooltip(font, OFFSET_Y_TEXT, offsetX, offsetY);
-        } else if (offsetX >= 117 && offsetY >= 101 && offsetX < 135 && offsetY < 120) {
+        } else if (offsetX >= 165 && offsetY >= 101 && offsetX < 183 && offsetY < 120) {
             gui.renderTooltip(font, OFFSET_Z_TEXT, offsetX, offsetY);
-        } else if (offsetX >= 117 && offsetY >= 153 && offsetX < 135 && offsetY < 172) {
+        } else if (offsetX >= 165 && offsetY >= 153 && offsetX < 183 && offsetY < 172) {
             gui.renderTooltip(font, FLIP_TEXT, offsetX, offsetY);
-        } else if (offsetX >= 142 && offsetY >= 153 && offsetX < 160 && offsetY < 172) {
+        } else if (offsetX >= 190 && offsetY >= 153 && offsetX < 208 && offsetY < 172) {
             gui.renderTooltip(font, ROTATE_TEXT, offsetX, offsetY);
         } else if (offsetX >= 9 && offsetY >= 153 && offsetX < 27 && offsetY < 172) {
             gui.renderTooltip(font, SINGLE_DOUBLE_SIDED_TEXT, offsetX, offsetY);
@@ -572,7 +577,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     }
 
     private static void drawCenteredStringWithoutShadow(GuiGraphics gui, Font renderer, Component string, int y) {
-        gui.drawString(renderer, string.getVisualOrderText(), (88 - renderer.width(string) / 2.0F), y, 0x404040, false);
+        gui.drawString(renderer, string.getVisualOrderText(), (124 - renderer.width(string) / 2.0F), y, 0x404040, false);
     }
 
     private static int toMicros(float value) {
@@ -592,7 +597,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     }
 
     private static String fromMicros(int micros, boolean positiveSigned) {
-        return (micros < 0 ? "-" : micros > 0 && positiveSigned ? "+" : "") + Math.abs(micros / 1E6);
+        return micros == 0 ? "0.0" : (positiveSigned ? WITH_PLUS_SIGN : WITHOUT_PLUS_SIGN).format(micros / 1E6);
     }
 
     private static Vector3d fromRelativeOffsetMicros(Vector3i relOffsetMicros,
