@@ -1,24 +1,19 @@
 package org.teacon.slides.projector;
 
 import com.mojang.datafixers.DSL;
-import com.mojang.datafixers.util.Either;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
-import net.minecraft.nbt.StringTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -29,7 +24,6 @@ import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.admin.SlidePermission;
 import org.teacon.slides.network.SlideUpdatePacket;
-import org.teacon.slides.url.ProjectorURL;
 import org.teacon.slides.url.ProjectorURLSavedData;
 
 import javax.annotation.Nullable;
@@ -61,7 +55,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     private boolean mHideFailedSlideIcon = false;
     private boolean mHideBlockedSlideIcon = false;
     private boolean mHideLoadingSlideIcon = false;
-    private Either<UUID, String> mImageLocation = Either.left(UUID.randomUUID());
+    private UUID mImageLocation = UUID.randomUUID();
 
     private ProjectorBlockEntity(BlockPos blockPos, BlockState blockState) {
         super(ModRegistries.BLOCK_ENTITY.get(), blockPos, blockState);
@@ -103,11 +97,11 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     }
 
     public UUID getImageLocation() {
-        return mImageLocation.left().orElseGet(UUID::randomUUID);
+        return mImageLocation;
     }
 
     public void setImageLocation(UUID imageLocation) {
-        mImageLocation = Either.left(imageLocation);
+        mImageLocation = imageLocation;
         SlideShow.requestUrlPrefetch(this);
     }
 
@@ -149,12 +143,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         mHideFailedSlideIcon = tag.getBoolean("HideFailedSlide");
         mHideBlockedSlideIcon = tag.getBoolean("HideBlockedSlide");
         mHideLoadingSlideIcon = tag.getBoolean("HideLoadingSlide");
-        if (tag.hasUUID("ImageLocation")) {
-            mImageLocation = Either.left(tag.getUUID("ImageLocation"));
-            SlideShow.requestUrlPrefetch(this);
-        } else {
-            mImageLocation = Either.right(tag.getString("ImageLocation"));
-        }
+        mImageLocation = tag.hasUUID("ImageLocation") ? tag.getUUID("ImageLocation") : UUID.randomUUID();
     }
 
     @Override
@@ -171,31 +160,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         tag.putBoolean("HideFailedSlide", mHideFailedSlideIcon);
         tag.putBoolean("HideBlockedSlide", mHideBlockedSlideIcon);
         tag.putBoolean("HideLoadingSlide", mHideLoadingSlideIcon);
-        tag.put("ImageLocation", mImageLocation.map(NbtUtils::createUUID, StringTag::valueOf));
-    }
-
-    @Override
-    public void setLevel(Level level) {
-        super.setLevel(level);
-        mImageLocation.ifRight(urlString -> {
-            // if there is string image location, upgrade it to uuid
-            if (level instanceof ServerLevel serverLevel) {
-                try {
-                    var url = new ProjectorURL(urlString);
-                    var data = ProjectorURLSavedData.get(serverLevel.getServer());
-                    var css = level.getServer().createCommandSourceStack();
-                    mImageLocation = Either.left(data.getOrCreateIdByCommand(url, css));
-                } catch (IllegalArgumentException e) {
-                    mImageLocation = Either.left(UUID.randomUUID());
-                }
-                this.setChanged();
-                var pos = this.getBlockPos();
-                var state = this.getBlockState();
-                serverLevel.sendBlockUpdated(pos, state, state, Block.UPDATE_CLIENTS);
-            } else {
-                mImageLocation = Either.left(UUID.randomUUID());
-            }
-        });
+        tag.put("ImageLocation", NbtUtils.createUUID(mImageLocation));
     }
 
     @Override
