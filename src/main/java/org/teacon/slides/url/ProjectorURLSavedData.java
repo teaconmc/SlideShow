@@ -35,8 +35,8 @@ import net.neoforged.neoforge.network.event.RegisterConfigurationTasksEvent;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.item.SlideItem;
-import org.teacon.slides.network.SlideURLPrefetchPacket;
 import org.teacon.slides.network.SlideSummaryPacket;
+import org.teacon.slides.network.SlideURLPrefetchPacket;
 import org.teacon.urlpattern.URLPattern;
 
 import javax.annotation.Nullable;
