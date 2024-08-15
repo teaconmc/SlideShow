@@ -7,8 +7,8 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
-import org.joml.Vector2f;
 import org.teacon.slides.SlideShow;
+import org.teacon.slides.calc.CalcMicros;
 import org.teacon.slides.renderer.SlideRenderType;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -20,15 +20,15 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public enum IconSlide implements Slide {
-    DEFAULT_EMPTY(ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "textures/gui/slide_icon_empty.png")),
-    DEFAULT_FAILED(ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "textures/gui/slide_icon_failed.png")),
-    DEFAULT_BLOCKED(ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "textures/gui/slide_icon_blocked.png")),
-    DEFAULT_LOADING(ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "textures/gui/slide_icon_loading.png"));
+    DEFAULT_EMPTY(SlideShow.id("textures/gui/slide_icon_empty.png")),
+    DEFAULT_FAILED(SlideShow.id("textures/gui/slide_icon_failed.png")),
+    DEFAULT_BLOCKED(SlideShow.id("textures/gui/slide_icon_blocked.png")),
+    DEFAULT_LOADING(SlideShow.id("textures/gui/slide_icon_loading.png"));
 
     private static final RenderType BACKGROUND_RENDER_TYPE;
 
     static {
-        var background = ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "textures/gui/slide_default.png");
+        var background = SlideShow.id("textures/gui/slide_default.png");
         BACKGROUND_RENDER_TYPE = new SlideRenderType(background);
     }
 
@@ -43,11 +43,11 @@ public enum IconSlide implements Slide {
     }
 
     @Override
-    public void render(MultiBufferSource source, PoseStack.Pose pose, Vector2f dimension,
+    public void render(MultiBufferSource source, PoseStack.Pose pose, int widthMicros, int heightMicros,
                        int color, int light, int overlay, boolean front, boolean back, long tick, float partialTick) {
         var alpha = color >>> 24;
-        var width = dimension.x();
-        var height = dimension.y();
+        var width = CalcMicros.toNumber(widthMicros);
+        var height = CalcMicros.toNumber(heightMicros);
         var factor = getFactor(width, height);
         var xSize = Math.round(width / factor);
         var ySize = Math.round(height / factor);

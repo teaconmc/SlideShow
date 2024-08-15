@@ -3,7 +3,9 @@ package org.teacon.slides.url;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.*;
 import com.mojang.authlib.GameProfile;
+import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.ints.IntObjectPair;
+import net.minecraft.ChatFormatting;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
@@ -14,11 +16,15 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -28,16 +34,20 @@ import net.neoforged.neoforge.network.configuration.ICustomConfigurationTask;
 import net.neoforged.neoforge.network.event.RegisterConfigurationTasksEvent;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.teacon.slides.SlideShow;
+import org.teacon.slides.item.SlideItem;
 import org.teacon.slides.network.SlideURLPrefetchPacket;
-import org.teacon.slides.network.SlideURLSummaryPacket;
+import org.teacon.slides.network.SlideSummaryPacket;
 import org.teacon.urlpattern.URLPattern;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.net.URI;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -58,7 +68,7 @@ public final class ProjectorURLSavedData extends SavedData {
         event.register(new ConfigurationTask(event));
     }
 
-    private @Nullable SlideURLSummaryPacket cachedSummaryPacket;
+    private @Nullable SlideSummaryPacket cachedSummaryPacket;
     private final TreeMultimap<ProjectorURL, Log> urlStrToLogs;
     private final BiMap<UUID, ProjectorURL> idToUrlStr;
     private final Set<UUID> blockedIdCollection;
@@ -88,7 +98,7 @@ public final class ProjectorURLSavedData extends SavedData {
         return this.blockedIdCollection.contains(id);
     }
 
-    public Optional<Log> getLatestLog(ProjectorURL url, GlobalPos filterProjectorPos, Collection<LogType> filterTypes) {
+    public Optional<Log> getLatestLog(ProjectorURL url, Predicate<GlobalPos> filterProjectorPos, Collection<LogType> filterTypes) {
         var iterator = this.urlStrToLogs.get(url).descendingIterator();
         while (iterator.hasNext()) {
             var log = iterator.next();
@@ -96,7 +106,7 @@ public final class ProjectorURLSavedData extends SavedData {
                 if (log.projector().isEmpty()) {
                     return Optional.of(log);
                 }
-                if (log.projector().get().equals(filterProjectorPos)) {
+                if (filterProjectorPos.test(log.projector().get())) {
                     return Optional.of(log);
                 }
             }
@@ -116,6 +126,18 @@ public final class ProjectorURLSavedData extends SavedData {
         return result;
     }
 
+    public UUID getOrCreateIdByItem(ProjectorURL url, Player creator) {
+        var result = this.idToUrlStr.inverse().get(url);
+        if (result == null) {
+            result = UUID.randomUUID();
+            this.logWithoutPos(LogType.CREATE, url, creator.getGameProfile());
+            Preconditions.checkArgument(this.idToUrlStr.put(result, url) == null);
+            this.refreshAndSendSummaryToPlayers();
+            this.setDirty();
+        }
+        return result;
+    }
+
     public UUID getOrCreateIdByProjector(ProjectorURL url, Player creator, GlobalPos projectorPos) {
         var result = this.idToUrlStr.inverse().get(url);
         if (result == null) {
@@ -126,6 +148,25 @@ public final class ProjectorURLSavedData extends SavedData {
             this.setDirty();
         }
         return result;
+    }
+
+    public void applyIdChangeByItem(SlideItem.Entry oldEntry, SlideItem.Entry newEntry, Player creator) {
+        var oldId = oldEntry.id();
+        var newId = newEntry.id();
+        if (!oldId.equals(newId)) {
+            var oldUrl = this.idToUrlStr.get(oldId);
+            if (oldUrl != null) {
+                this.logWithoutPos(LogType.DETACH_ITEM, oldUrl, creator.getGameProfile());
+                this.refreshAndSendSummaryToPlayers();
+                this.setDirty();
+            }
+            var newUrl = this.idToUrlStr.get(newId);
+            if (newUrl != null) {
+                this.logWithoutPos(LogType.ATTACH_ITEM, newUrl, creator.getGameProfile());
+                this.refreshAndSendSummaryToPlayers();
+                this.setDirty();
+            }
+        }
     }
 
     public void applyIdChangeByProjector(UUID oldId, UUID newId, Player creator, GlobalPos projectorPos) {
@@ -223,7 +264,7 @@ public final class ProjectorURLSavedData extends SavedData {
     }
 
     private void refreshAndSendSummaryToPlayers() {
-        var packet = new SlideURLSummaryPacket(this.idToUrlStr, this.blockedIdCollection);
+        var packet = new SlideSummaryPacket(this.idToUrlStr, this.blockedIdCollection);
         PacketDistributor.sendToAllPlayers(packet);
         this.cachedSummaryPacket = packet;
     }
@@ -259,7 +300,9 @@ public final class ProjectorURLSavedData extends SavedData {
         ERASE(SlideShow.ID, "erase_url"),
         UNBLOCK(SlideShow.ID, "unblock_url"),
         ATTACH(SlideShow.ID, "attach_url_to_projector"),
-        DETACH(SlideShow.ID, "detach_url_from_projector");
+        ATTACH_ITEM(SlideShow.ID, "attach_url_to_item"),
+        DETACH(SlideShow.ID, "detach_url_from_projector"),
+        DETACH_ITEM(SlideShow.ID, "detach_url_from_item");
 
         private final ResourceLocation id;
 
@@ -284,6 +327,45 @@ public final class ProjectorURLSavedData extends SavedData {
 
     public record Log(URI url, Instant time, LogType type,
                       Optional<GameProfile> operator, Optional<GlobalPos> projector) {
+        public static final StreamCodec<ByteBuf, Optional<Log>> OPTIONAL_STREAM_CODEC;
+
+        static {
+            OPTIONAL_STREAM_CODEC = ByteBufCodecs.OPTIONAL_COMPOUND_TAG
+                    .map(opt -> opt.map(c -> readTag(c).getValue()), opt -> opt.map(Log::writeTag));
+        }
+
+        public void addToTooltip(@Nullable ResourceKey<Level> dimension, List<Component> list) {
+            var time = this.time.atZone(ZoneId.systemDefault());
+            var pos = this.projector.map(GlobalPos::pos).orElse(BlockPos.ZERO);
+            if (this.projector.isEmpty()) {
+                var path = this.type.id().getPath();
+                var namespace = this.type.id().getNamespace();
+                var key = String.format("gui.slide_show.log_message.%s.%s", namespace, path);
+                list.add(Component.translatable(key).withStyle(ChatFormatting.GRAY));
+            } else if (!this.projector.get().dimension().equals(dimension)) {
+                var path = this.type.id().getPath();
+                var namespace = this.type.id().getNamespace();
+                var key = String.format("gui.slide_show.log_message.%s.%s.in_another_level", namespace, path);
+                list.add(Component.translatable(key).withStyle(ChatFormatting.GRAY));
+            } else {
+                var path = this.type.id().getPath();
+                var namespace = this.type.id().getNamespace();
+                var posText = Component.translatable("chat.coordinates", pos.getX(), pos.getY(), pos.getZ());
+                var key = String.format("gui.slide_show.log_message.%s.%s.in_current_level", namespace, path);
+                list.add(Component.translatable(key, posText).withStyle(ChatFormatting.GRAY));
+            }
+            var timeString = DateTimeFormatter.RFC_1123_DATE_TIME.format(time.toOffsetDateTime());
+            var timeText = Component.literal(timeString);
+            if (this.operator.isPresent()) {
+                var key = "gui.slide_show.log_comment";
+                var nameText = this.operator.get().getName();
+                list.add(Component.translatable(key, timeText, nameText).withStyle(ChatFormatting.GRAY));
+            } else {
+                var key = "gui.slide_show.log_comment_nobody";
+                list.add(Component.translatable(key, timeText).withStyle(ChatFormatting.GRAY));
+            }
+        }
+
         public CompoundTag writeTag() {
             var result = new CompoundTag();
             result.putString("URL", this.url.toString());
@@ -333,14 +415,14 @@ public final class ProjectorURLSavedData extends SavedData {
     }
 
     private record ConfigurationTask(RegisterConfigurationTasksEvent event) implements ICustomConfigurationTask {
-        private static final Type TYPE = new Type(ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "url_summaries"));
+        private static final Type TYPE = new Type(SlideShow.id("url_summaries"));
 
         @Override
         public void run(Consumer<CustomPacketPayload> consumer) {
             var data = get(ServerLifecycleHooks.getCurrentServer());
             var packet = data.cachedSummaryPacket;
             if (packet == null) {
-                packet = new SlideURLSummaryPacket(data.idToUrlStr, data.blockedIdCollection);
+                packet = new SlideSummaryPacket(data.idToUrlStr, data.blockedIdCollection);
                 data.cachedSummaryPacket = packet;
             }
             consumer.accept(packet);

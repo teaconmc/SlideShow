@@ -26,6 +26,7 @@ import java.util.UUID;
 @EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
 public final class SlidePermission {
     private static @Nullable PermissionNode<Boolean> INTERACT_CREATE_PERM;
+    private static @Nullable PermissionNode<Boolean> INTERACT_EDIT_PERM;
     private static @Nullable PermissionNode<Boolean> INTERACT_PERM;
     private static @Nullable PermissionNode<Boolean> LIST_PERM;
     private static @Nullable PermissionNode<Boolean> BLOCK_PERM;
@@ -38,6 +39,8 @@ public final class SlidePermission {
                 "interact.projector", PermissionTypes.BOOLEAN, SlidePermission::everyone));
         event.addNodes(INTERACT_CREATE_PERM = new PermissionNode<>(SlideShow.ID,
                 "interact.projector.create_url", PermissionTypes.BOOLEAN, SlidePermission::everyone));
+        event.addNodes(INTERACT_EDIT_PERM = new PermissionNode<>(SlideShow.ID,
+                "interact.projector.edit_slide", PermissionTypes.BOOLEAN, SlidePermission::everyone));
         event.addNodes(LIST_PERM = new PermissionNode<>(SlideShow.ID,
                 "interact_url.list", PermissionTypes.BOOLEAN, SlidePermission::operator));
         event.addNodes(BLOCK_PERM = new PermissionNode<>(SlideShow.ID,
@@ -56,6 +59,13 @@ public final class SlidePermission {
     public static boolean canInteractCreateUrl(@Nullable CommandSource source) {
         if (source instanceof ServerPlayer serverPlayer) {
             return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(INTERACT_CREATE_PERM));
+        }
+        return false;
+    }
+
+    public static boolean canInteractEditSlide(@Nullable CommandSource source) {
+        if (source instanceof ServerPlayer serverPlayer) {
+            return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(INTERACT_EDIT_PERM));
         }
         return false;
     }

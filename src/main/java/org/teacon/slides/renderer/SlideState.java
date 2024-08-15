@@ -20,7 +20,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.cache.ImageCache;
 import org.teacon.slides.network.SlideURLRequestPacket;
-import org.teacon.slides.projector.ProjectorBlockEntity;
+import org.teacon.slides.block.ProjectorBlockEntity;
 import org.teacon.slides.slide.Slide;
 import org.teacon.slides.texture.AnimatedTextureProvider;
 import org.teacon.slides.texture.GIFDecoder;
@@ -36,7 +36,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 
 /**
  * @author BloCamLimb
@@ -211,7 +210,7 @@ public final class SlideState {
                             mState = State.FAILURE;
                             mSlide = Slide.failed();
                         }
-                        if (textureProvider != null) {
+                            if (textureProvider != null) {
                             mSlide.close();
                             mState = State.SUCCESS;
                             mSlide = Slide.make(textureProvider);

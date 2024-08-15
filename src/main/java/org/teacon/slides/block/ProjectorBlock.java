@@ -1,9 +1,10 @@
-package org.teacon.slides.projector;
+package org.teacon.slides.block;
 
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.util.ByIdMap;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
@@ -27,11 +28,13 @@ import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 import org.joml.Vector4d;
 import org.teacon.slides.ModRegistries;
+import org.teacon.slides.inventory.ProjectorContainerMenu;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.function.IntFunction;
 
 import static net.minecraft.world.level.block.state.properties.BlockStateProperties.FACING;
 import static net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED;
@@ -46,9 +49,13 @@ public final class ProjectorBlock extends Block implements EntityBlock {
             ROTATION = EnumProperty.create("rotation", InternalRotation.class);
     public static final EnumProperty<Direction>
             BASE = EnumProperty.create("base", Direction.class, Direction.Plane.VERTICAL);
+    public static final int
+            SLIDE_ITEM_HANDLER_CAPACITY = 12 * 6;
 
-    private static final VoxelShape SHAPE_WITH_BASE_UP = Block.box(0.0, 4.0, 0.0, 16.0, 16.0, 16.0);
-    private static final VoxelShape SHAPE_WITH_BASE_DOWN = Block.box(0.0, 0.0, 0.0, 16.0, 12.0, 16.0);
+    private static final VoxelShape
+            SHAPE_WITH_BASE_UP = Block.box(0.0, 4.0, 0.0, 16.0, 16.0, 16.0);
+    private static final VoxelShape
+            SHAPE_WITH_BASE_DOWN = Block.box(0.0, 0.0, 0.0, 16.0, 12.0, 16.0);
 
     public ProjectorBlock() {
         super(Block.Properties.of() // TODO 1.20 material
@@ -61,7 +68,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
                 .setValue(POWERED, Boolean.FALSE)
                 .setValue(ROTATION, InternalRotation.NONE));
     }
-    
+
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return switch (state.getValue(BASE)) {
@@ -87,8 +94,8 @@ public final class ProjectorBlock extends Block implements EntityBlock {
                 .filter(Direction.Plane.VERTICAL)
                 .findFirst()
                 .orElse(Direction.DOWN);
-        var rotation = InternalRotation
-                .VALUES[4 + Math.floorMod(facing.getStepY() * horizontalFacing.get2DDataValue(), 4)];
+        var rotation = InternalRotation.BY_ID
+                .apply(4 + Math.floorMod(facing.getStepY() * horizontalFacing.get2DDataValue(), 4));
         return defaultBlockState()
                 .setValue(BASE, base)
                 .setValue(FACING, facing)
@@ -136,7 +143,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
 
     @Override
     public BlockEntity newBlockEntity(BlockPos blockPos, BlockState blockState) {
-        return Objects.requireNonNull(ModRegistries.BLOCK_ENTITY.get().create(blockPos, blockState));
+        return Objects.requireNonNull(ModRegistries.PROJECTOR_BLOCK_ENTITY.get().create(blockPos, blockState));
     }
 
     @Override
@@ -162,7 +169,8 @@ public final class ProjectorBlock extends Block implements EntityBlock {
         VERTICAL_FLIPPED(1F, 0F, 0F, 0F, 0F, -1F, 0F, 0F, 0F, 0F, -1F, 0F),
         ANTI_DIAGONAL_FLIPPED(0F, 0F, 1F, 0F, 0F, -1F, 0F, 0F, 1F, 0F, 0F, 0F);
 
-        public static final InternalRotation[] VALUES = values();
+        public static final IntFunction<InternalRotation>
+                BY_ID = ByIdMap.continuous(InternalRotation::ordinal, values(), ByIdMap.OutOfBoundsStrategy.WRAP);
 
         private static final int[]
                 INV_INDICES = {0, 3, 2, 1, 4, 5, 6, 7},
@@ -187,15 +195,15 @@ public final class ProjectorBlock extends Block implements EntityBlock {
         }
 
         public InternalRotation compose(Rotation rotation) {
-            return VALUES[ROTATION_INDICES[rotation.ordinal()][ordinal()]];
+            return BY_ID.apply(ROTATION_INDICES[rotation.ordinal()][ordinal()]);
         }
 
         public InternalRotation flip() {
-            return VALUES[FLIP_INDICES[ordinal()]];
+            return BY_ID.apply(FLIP_INDICES[ordinal()]);
         }
 
         public InternalRotation invert() {
-            return VALUES[INV_INDICES[ordinal()]];
+            return BY_ID.apply(INV_INDICES[ordinal()]);
         }
 
         public boolean isFlipped() {

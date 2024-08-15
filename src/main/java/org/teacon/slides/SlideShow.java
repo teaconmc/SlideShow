@@ -1,11 +1,13 @@
 package org.teacon.slides;
 
+import com.mojang.datafixers.util.Either;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.teacon.slides.projector.ProjectorBlockEntity;
+import org.teacon.slides.block.ProjectorBlockEntity;
 import org.teacon.slides.url.ProjectorURL;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -27,7 +29,7 @@ public final class SlideShow {
 
     private static volatile Consumer<ProjectorBlockEntity> requestUrlPrefetch = Objects::hash;
     private static volatile BiConsumer<Set<UUID>, Map<UUID, ProjectorURL>> applyPrefetch = Objects::hash;
-    private static volatile Function<ProjectorURL, ProjectorURL.Status> checkBlock = url -> ProjectorURL.Status.UNKNOWN;
+    private static volatile Function<Either<UUID, ProjectorURL>, ProjectorURL.Status> checkBlock = url -> ProjectorURL.Status.UNKNOWN;
 
     public static void setRequestUrlPrefetch(Consumer<ProjectorBlockEntity> requestUrlPrefetch) {
         SlideShow.requestUrlPrefetch = requestUrlPrefetch;
@@ -45,11 +47,19 @@ public final class SlideShow {
         applyPrefetch.accept(nonExistent, existent);
     }
 
-    public static void setCheckBlock(Function<ProjectorURL, ProjectorURL.Status> checkBlock) {
+    public static void setCheckBlock(Function<Either<UUID, ProjectorURL>, ProjectorURL.Status> checkBlock) {
         SlideShow.checkBlock = checkBlock;
     }
 
+    public static ProjectorURL.Status checkBlock(UUID uuid) {
+        return checkBlock.apply(Either.left(uuid));
+    }
+
     public static ProjectorURL.Status checkBlock(ProjectorURL url) {
-        return checkBlock.apply(url);
+        return checkBlock.apply(Either.right(url));
+    }
+
+    public static ResourceLocation id(String path) {
+        return ResourceLocation.fromNamespaceAndPath(SlideShow.ID, path);
     }
 }

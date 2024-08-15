@@ -7,7 +7,6 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.url.ProjectorURL;
@@ -25,7 +24,7 @@ public final class SlideURLPrefetchPacket implements CustomPacketPayload {
     public static final StreamCodec<RegistryFriendlyByteBuf, SlideURLPrefetchPacket> CODEC;
 
     static {
-        TYPE = new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "url_prefetch"));
+        TYPE = new CustomPacketPayload.Type<>(SlideShow.id("url_prefetch"));
         CODEC = StreamCodec.ofMember(SlideURLPrefetchPacket::write, SlideURLPrefetchPacket::new);
     }
 

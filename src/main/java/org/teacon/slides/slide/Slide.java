@@ -23,7 +23,7 @@ import java.util.Optional;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public sealed interface Slide extends AutoCloseable permits IconSlide, ImageSlide {
-    void render(MultiBufferSource source, PoseStack.Pose pose, Vector2f dimension,
+    void render(MultiBufferSource source, PoseStack.Pose pose, int widthMicros, int heightMicros,
                 int color, int light, int overlay, boolean front, boolean back, long tick, float partialTick);
 
     @Override

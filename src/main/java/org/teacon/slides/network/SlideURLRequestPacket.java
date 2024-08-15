@@ -7,12 +7,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.teacon.slides.SlideShow;
-import org.teacon.slides.projector.ProjectorBlockEntity;
+import org.teacon.slides.block.ProjectorBlockEntity;
 import org.teacon.slides.url.ProjectorURLSavedData;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -27,7 +26,7 @@ public final class SlideURLRequestPacket implements CustomPacketPayload {
     public static final StreamCodec<RegistryFriendlyByteBuf, SlideURLRequestPacket> CODEC;
 
     static {
-        TYPE = new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "url_request"));
+        TYPE = new CustomPacketPayload.Type<>(SlideShow.id("url_request"));
         CODEC = StreamCodec.ofMember(SlideURLRequestPacket::write, SlideURLRequestPacket::new);
     }
 
@@ -65,7 +64,8 @@ public final class SlideURLRequestPacket implements CustomPacketPayload {
                 for (var pos : this.requestedPosSet) {
                     // prevent remote chunk loading
                     if (level.isLoaded(pos) && level.getBlockEntity(pos) instanceof ProjectorBlockEntity tile) {
-                        imageLocations.add(tile.getImageLocation());
+                        tile.getNextCurrentEntries().getLeft().ifPresent(entry -> imageLocations.add(entry.id()));
+                        tile.getNextCurrentEntries().getRight().ifPresent(entry -> imageLocations.add(entry.id()));
                     }
                 }
                 var data = ProjectorURLSavedData.get(serverPlayer.getServer());

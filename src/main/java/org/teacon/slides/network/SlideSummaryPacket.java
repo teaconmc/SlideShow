@@ -3,19 +3,21 @@ package org.teacon.slides.network;
 import com.google.common.collect.BiMap;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
-import it.unimi.dsi.fastutil.objects.Object2BooleanArrayMap;
+import com.mojang.datafixers.util.Either;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
 import it.unimi.dsi.fastutil.objects.Object2BooleanMaps;
+import it.unimi.dsi.fastutil.objects.Object2BooleanRBTreeMap;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Crypt;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.url.ProjectorURL;
+import org.teacon.slides.url.ProjectorURL.Status;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.nio.ByteBuffer;
@@ -30,70 +32,72 @@ import static com.google.common.base.Preconditions.checkArgument;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class SlideURLSummaryPacket implements Function<ProjectorURL, ProjectorURL.Status>, CustomPacketPayload {
-    public static final CustomPacketPayload.Type<SlideURLSummaryPacket> TYPE;
-    public static final StreamCodec<FriendlyByteBuf, SlideURLSummaryPacket> CODEC;
+public final class SlideSummaryPacket implements Function<Either<UUID, ProjectorURL>, Status>, CustomPacketPayload {
+    public static final CustomPacketPayload.Type<SlideSummaryPacket> TYPE;
+    public static final StreamCodec<FriendlyByteBuf, SlideSummaryPacket> CODEC;
 
     static {
-        TYPE = new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(SlideShow.ID, "url_summary"));
-        CODEC = StreamCodec.ofMember(SlideURLSummaryPacket::write, SlideURLSummaryPacket::new);
+        TYPE = new CustomPacketPayload.Type<>(SlideShow.id("url_summary"));
+        CODEC = StreamCodec.ofMember(SlideSummaryPacket::write, SlideSummaryPacket::new);
     }
 
     private final Bits256 hmacNonce;
     private final HashFunction hmacNonceFunction;
-    private final Object2BooleanMap<Bits256> hmacUrlToBlockStatus;
+    private final Object2BooleanMap<Bits256> hmacToBlockStatus;
 
-    public SlideURLSummaryPacket(BiMap<UUID, ProjectorURL> idToUrl, Set<UUID> blockedIdSet) {
+    public SlideSummaryPacket(BiMap<UUID, ProjectorURL> idToUrl, Set<UUID> blockedIdSet) {
         var hmacNonce = Bits256.random();
         var hmacNonceFunction = Hashing.hmacSha256(hmacNonce.toBytes());
-        var hmacUrlToBlockStatus = new Object2BooleanArrayMap<Bits256>(idToUrl.size());
+        var hmacUrlToBlockStatus = new Object2BooleanRBTreeMap<Bits256>();
         for (var entry : idToUrl.entrySet()) {
-            var hmac = hmacNonceFunction.hashString(entry.getValue().toString(), StandardCharsets.US_ASCII);
-            hmacUrlToBlockStatus.put(Bits256.fromBytes(hmac.asBytes()), blockedIdSet.contains(entry.getKey()));
+            var hmacKey = hmacNonceFunction.hashBytes(UUIDUtil.uuidToByteArray(entry.getKey()));
+            var hmacValue = hmacNonceFunction.hashString(entry.getValue().toString(), StandardCharsets.US_ASCII);
+            hmacUrlToBlockStatus.put(Bits256.fromBytes(hmacKey.asBytes()), blockedIdSet.contains(entry.getKey()));
+            hmacUrlToBlockStatus.put(Bits256.fromBytes(hmacValue.asBytes()), blockedIdSet.contains(entry.getKey()));
         }
         this.hmacNonce = hmacNonce;
         this.hmacNonceFunction = hmacNonceFunction;
-        this.hmacUrlToBlockStatus = Object2BooleanMaps.unmodifiable(hmacUrlToBlockStatus);
+        this.hmacToBlockStatus = Object2BooleanMaps.unmodifiable(hmacUrlToBlockStatus);
     }
 
-    public SlideURLSummaryPacket(FriendlyByteBuf buf) {
-        var defaultCapacity = 16;
+    public SlideSummaryPacket(FriendlyByteBuf buf) {
         var nonce = Bits256.read(buf);
-        var hmacUrlToBlockStatus = new Object2BooleanArrayMap<Bits256>(defaultCapacity);
+        var hmacToBlockStatus = new Object2BooleanRBTreeMap<Bits256>();
         while (true) {
-            switch (buf.readEnum(ProjectorURL.Status.class)) {
+            switch (buf.readEnum(Status.class)) {
                 case UNKNOWN -> {
                     this.hmacNonce = nonce;
                     this.hmacNonceFunction = Hashing.hmacSha256(nonce.toBytes());
-                    this.hmacUrlToBlockStatus = Object2BooleanMaps.unmodifiable(hmacUrlToBlockStatus);
+                    this.hmacToBlockStatus = Object2BooleanMaps.unmodifiable(hmacToBlockStatus);
                     return;
                 }
-                case BLOCKED -> hmacUrlToBlockStatus.put(Bits256.read(buf), true);
-                case ALLOWED -> hmacUrlToBlockStatus.put(Bits256.read(buf), false);
+                case BLOCKED -> hmacToBlockStatus.put(Bits256.read(buf), true);
+                case ALLOWED -> hmacToBlockStatus.put(Bits256.read(buf), false);
             }
         }
     }
 
     public void write(FriendlyByteBuf buf) {
         this.hmacNonce.write(buf);
-        for (var entry : this.hmacUrlToBlockStatus.object2BooleanEntrySet()) {
-            buf.writeEnum(entry.getBooleanValue() ? ProjectorURL.Status.BLOCKED : ProjectorURL.Status.ALLOWED);
+        for (var entry : this.hmacToBlockStatus.object2BooleanEntrySet()) {
+            buf.writeEnum(entry.getBooleanValue() ? Status.BLOCKED : Status.ALLOWED);
             entry.getKey().write(buf);
         }
-        buf.writeEnum(ProjectorURL.Status.UNKNOWN);
+        buf.writeEnum(Status.UNKNOWN);
     }
 
     @Override
-    public ProjectorURL.Status apply(ProjectorURL url) {
-        var hmacBytes = this.hmacNonceFunction.hashString(url.toString(), StandardCharsets.US_ASCII);
-        var hmac = Bits256.fromBytes(hmacBytes.asBytes());
-        if (this.hmacUrlToBlockStatus.containsKey(hmac)) {
-            return this.hmacUrlToBlockStatus.getBoolean(hmac) ? ProjectorURL.Status.BLOCKED : ProjectorURL.Status.ALLOWED;
+    public Status apply(Either<UUID, ProjectorURL> either) {
+        var hmac = Bits256.fromBytes(either.map(
+                uuid -> this.hmacNonceFunction.hashBytes(UUIDUtil.uuidToByteArray(uuid)),
+                url -> this.hmacNonceFunction.hashString(url.toString(), StandardCharsets.US_ASCII)).asBytes());
+        if (this.hmacToBlockStatus.containsKey(hmac)) {
+            return this.hmacToBlockStatus.getBoolean(hmac) ? Status.BLOCKED : Status.ALLOWED;
         }
-        return ProjectorURL.Status.UNKNOWN;
+        return Status.UNKNOWN;
     }
 
-    public void handle(IPayloadContext context) {
+    public void handle(IPayloadContext ignored) {
         // thread safe
         SlideShow.setCheckBlock(this);
     }

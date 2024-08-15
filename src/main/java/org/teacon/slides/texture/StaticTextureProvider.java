@@ -26,12 +26,6 @@ import static org.lwjgl.opengl.GL30C.glGenerateMipmap;
 @ParametersAreNonnullByDefault
 public final class StaticTextureProvider implements TextureProvider {
 
-    private static final Field IMAGE_PIXELS;
-
-    static {
-        IMAGE_PIXELS = ObfuscationReflectionHelper.findField(NativeImage.class, "f_84964_"); // pixels
-    }
-
     private int mTexture;
     private final SlideRenderType mRenderType;
     private final int mWidth, mHeight;
@@ -76,8 +70,7 @@ public final class StaticTextureProvider implements TextureProvider {
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
             try (image) {
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mWidth, mHeight,
-                        GL_RGBA, GL_UNSIGNED_BYTE, IMAGE_PIXELS.getLong(image));
+                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mWidth, mHeight, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
             }
 
             // auto generate mipmap

@@ -1,6 +1,7 @@
 package org.teacon.slides.admin;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
@@ -10,6 +11,8 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentUtils;
@@ -20,6 +23,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.apache.commons.lang3.StringUtils;
 import org.teacon.slides.SlideShow;
+import org.teacon.slides.block.ProjectorBlockEntity;
 import org.teacon.slides.network.SlideURLPrefetchPacket;
 import org.teacon.slides.url.ProjectorURL;
 import org.teacon.slides.url.ProjectorURLArgument;
@@ -59,6 +63,28 @@ public final class SlideCommand {
                         .executes(context -> list(context.getSource(),
                                 new URLPattern(Map.of(URLPattern.ComponentType.PROTOCOL, "http(s?)")),
                                 ProjectorURLSavedData.get(context.getSource().getServer()))))
+                .then(literal("scroll")
+                        .then(argument("pos", BlockPosArgument.blockPos())
+                                .then(literal("up")
+                                        .then(argument("count", IntegerArgumentType.integer(1))
+                                                .executes(context -> scrollUp(context.getSource(),
+                                                        IntegerArgumentType.getInteger(context, "count"),
+                                                        BlockPosArgument.getLoadedBlockPos(context, "pos"))))
+                                        .executes(context -> scrollUp(context.getSource(), 1,
+                                                BlockPosArgument.getLoadedBlockPos(context, "pos"))))
+                                .then(literal("down")
+                                        .then(argument("count", IntegerArgumentType.integer(1))
+                                                .executes(context -> scrollDown(context.getSource(),
+                                                        IntegerArgumentType.getInteger(context, "count"),
+                                                        BlockPosArgument.getLoadedBlockPos(context, "pos"))))
+                                        .executes(context -> scrollDown(context.getSource(), 1,
+                                                BlockPosArgument.getLoadedBlockPos(context, "pos"))))
+                                .then(literal("current")
+                                        .executes(context -> scrollCurrent(context.getSource(),
+                                                BlockPosArgument.getLoadedBlockPos(context, "pos"))))
+                                .then(literal("amount")
+                                        .executes(context -> scrollAmount(context.getSource(),
+                                                BlockPosArgument.getLoadedBlockPos(context, "pos"))))))
                 .then(literal("prefetch")
                         .then(argument("url", new ProjectorURLArgument())
                                 .executes(context -> prefetch(context.getSource(),
@@ -74,6 +100,49 @@ public final class SlideCommand {
                                 .executes(context -> unblock(context.getSource(),
                                         ProjectorURLArgument.getUrl(context, "url"),
                                         ProjectorURLSavedData.get(context.getSource().getServer())))));
+    }
+
+    private static int scrollUp(CommandSourceStack source, int count, BlockPos pos) {
+        var blockEntity = source.getLevel().getBlockEntity(pos);
+        var moveCount = blockEntity instanceof ProjectorBlockEntity projector ? -projector.moveSlideItems(-count) : 0;
+        if (moveCount > 0) {
+            var msg = Component.translatable("command.slide_show.scroll_up.success", moveCount);
+            source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
+        } else {
+            var msg = Component.translatable("command.slide_show.scroll_up.not_enough");
+            source.sendSuccess(() -> msg, true);
+        }
+        return moveCount;
+    }
+
+    private static int scrollDown(CommandSourceStack source, int count, BlockPos pos) {
+        var blockEntity = source.getLevel().getBlockEntity(pos);
+        var moveCount = blockEntity instanceof ProjectorBlockEntity projector ? projector.moveSlideItems(count) : 0;
+        if (moveCount > 0) {
+            var msg = Component.translatable("command.slide_show.scroll_down.success", moveCount);
+            source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
+        } else {
+            var msg = Component.translatable("command.slide_show.scroll_down.not_enough");
+            source.sendSuccess(() -> msg, true);
+        }
+        return moveCount;
+    }
+
+    private static int scrollCurrent(CommandSourceStack source, BlockPos pos) {
+        var blockEntity = source.getLevel().getBlockEntity(pos);
+        var current = blockEntity instanceof ProjectorBlockEntity projector ? projector.getItemsDisplayedCount() : 0;
+        var msg = Component.translatable("command.slide_show.scroll_current.success", current);
+        source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
+        return current;
+    }
+
+    private static int scrollAmount(CommandSourceStack source, BlockPos pos) {
+        var blockEntity = source.getLevel().getBlockEntity(pos);
+        var current = blockEntity instanceof ProjectorBlockEntity projector ? projector.getItemsDisplayedCount() : 0;
+        var waiting = blockEntity instanceof ProjectorBlockEntity projector ? projector.getItemsToDisplayCount() : 0;
+        var msg = Component.translatable("command.slide_show.scroll_amount.success", current + waiting);
+        source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
+        return current + waiting;
     }
 
     private static int prefetch(CommandSourceStack source,

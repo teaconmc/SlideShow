@@ -1,0 +1,6 @@
+{
+    "parent": "minecraft:item/generated",
+    "textures": {
+        "layer0": "slide_show:item/slide_item_blocked"
+    }
+}

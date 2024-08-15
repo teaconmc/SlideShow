@@ -150,11 +150,9 @@ configurations {
 dependencies {
     // Modified by TeaCon
     jarJar implementation('org.teacon:urlpattern:1.0.1')
-    jarJar implementation('net.objecthunter:exp4j:0.4.8')
     jarJar implementation('org.apache.httpcomponents:httpclient-cache:4.5.13')
     // Modified by TeaCon
     additionalRuntimeClasspath 'org.teacon:urlpattern:1.0.1'
-    additionalRuntimeClasspath 'net.objecthunter:exp4j:0.4.8'
     additionalRuntimeClasspath 'org.apache.httpcomponents:httpclient-cache:4.5.13'
 }
 

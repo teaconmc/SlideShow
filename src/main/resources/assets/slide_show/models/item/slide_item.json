@@ -1,0 +1,13 @@
+{
+    "parent": "minecraft:item/generated",
+    "textures": {
+        "layer0": "slide_show:item/slide_item"
+    },
+    "overrides": [{
+        "predicate": { "slide_show:url_status": 0.5 },
+        "model": "slide_show:item/slide_item_blocked"
+    }, {
+        "predicate": { "slide_show:url_status": 1.0 },
+        "model": "slide_show:item/slide_item_allowed"
+    }]
+}
