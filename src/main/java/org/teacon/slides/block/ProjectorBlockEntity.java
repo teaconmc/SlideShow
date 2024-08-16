@@ -333,7 +333,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
             if (source == ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY) {
                 break;
             }
-            var target = this.findIndex(mItemsDisplayed, -1, false) + 1;
+            var target = Math.max(source, this.findIndex(mItemsDisplayed, -1, false) + 1);
             if (target == ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY) {
                 var move = this.findIndex(mItemsDisplayed, -1, true);
                 if (move == -1) {
@@ -353,7 +353,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
             if (source == -1) {
                 break;
             }
-            var target = mItemsToDisplay.getStackInSlot(0).isEmpty() ? 0 : -1;
+            var target = Math.min(source, this.findIndex(mItemsToDisplay, 1, false) - 1);
             if (target == -1) {
                 var move = this.findIndex(mItemsToDisplay, 1, true);
                 if (move == ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY) {
