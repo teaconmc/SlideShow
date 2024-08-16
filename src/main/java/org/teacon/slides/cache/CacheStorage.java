@@ -187,8 +187,6 @@ final class CacheStorage implements HttpCacheStorage {
         this.keyFilePath = this.parentPath.resolve("storage-keys.json");
         if (Files.exists(this.keyFilePath)) {
             this.load();
-        } else if (LegacyStorage.loadLegacy(parentPath, this.entries)) {
-            this.save();
         }
         this.referenceQueue = new ReferenceQueue<>();
         this.resourceReferenceHolder = Sets.newConcurrentHashSet();
