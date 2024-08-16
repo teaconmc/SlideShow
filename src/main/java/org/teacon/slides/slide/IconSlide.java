@@ -8,7 +8,6 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import org.teacon.slides.SlideShow;
-import org.teacon.slides.calc.CalcMicros;
 import org.teacon.slides.renderer.SlideRenderType;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -43,57 +42,67 @@ public enum IconSlide implements Slide {
     }
 
     @Override
-    public void render(MultiBufferSource source, PoseStack.Pose pose, int widthMicros, int heightMicros,
+    public void render(MultiBufferSource source, PoseStack.Pose pose,
+                       int widthMicros, int heightMicros, double scaleWidthMicros, double scaleHeightMicros,
                        int color, int light, int overlay, boolean front, boolean back, long tick, float partialTick) {
         var alpha = color >>> 24;
-        var width = CalcMicros.toNumber(widthMicros);
-        var height = CalcMicros.toNumber(heightMicros);
-        var factor = getFactor(width, height);
-        var xSize = Math.round(width / factor);
-        var ySize = Math.round(height / factor);
-        renderIcon(source, pose, alpha, light, xSize, ySize, front, back);
-        renderBackground(source, pose, alpha, light, xSize, ySize, front, back);
+        var realWidthMicros = (float) Math.min(widthMicros, scaleWidthMicros);
+        var realHeightMicros = (float) Math.min(heightMicros, scaleHeightMicros);
+        var realPaddingWidth = (widthMicros - realWidthMicros) / 2F;
+        var realPaddingHeight = (heightMicros - realHeightMicros) / 2F;
+        var factor = getFactor(realWidthMicros, realHeightMicros);
+        var xSize = Math.round(realWidthMicros / factor);
+        var ySize = Math.round(realHeightMicros / factor);
+        renderIcon(source, pose,
+                realWidthMicros, realHeightMicros,
+                realPaddingWidth, realPaddingHeight,
+                alpha, light, xSize, ySize, front, back);
+        renderBackground(source, pose,
+                realWidthMicros, realHeightMicros,
+                realPaddingWidth, realPaddingHeight,
+                alpha, light, xSize, ySize, front, back);
     }
 
     private void renderIcon(MultiBufferSource source, PoseStack.Pose pose,
+                            float widthMicros, float heightMicros, float x0, float y0,
                             int alpha, int light, int xSize, int ySize, boolean front, boolean back) {
         var consumer = source.getBuffer(iconRenderType);
-        var x1 = (1F - 19F / xSize) / 2F;
-        var y1 = (1F - 16F / ySize) / 2F;
-        var x2 = 1F - x1;
-        var y2 = 1F - y1;
+        var x1 = x0 + widthMicros * (1F - 19F / xSize) / 2F;
+        var y1 = y0 + heightMicros * (1F - 16F / ySize) / 2F;
+        var x2 = x0 + widthMicros - widthMicros * x1;
+        var y2 = y0 + heightMicros - heightMicros * y1;
         if (front) {
-            consumer.addVertex(pose, x1, 1F / 128F, y2)
+            consumer.addVertex(pose, x1, 8192F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, 1F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 128F, y2)
+            consumer.addVertex(pose, x2, 8192F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, 1F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 128F, y1)
+            consumer.addVertex(pose, x2, 8192F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, 0F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x1, 1F / 128F, y1)
+            consumer.addVertex(pose, x1, 8192F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, 0F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
         }
         if (back) {
-            consumer.addVertex(pose, x1, -1F / 128F, y1)
+            consumer.addVertex(pose, x1, -8192F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, 0F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 128F, y1)
+            consumer.addVertex(pose, x2, -8192F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, 0F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 128F, y2)
+            consumer.addVertex(pose, x2, -8192F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, 1F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x1, -1F / 128F, y2)
+            consumer.addVertex(pose, x1, -8192F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, 1F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
@@ -101,20 +110,23 @@ public enum IconSlide implements Slide {
     }
 
     private void renderBackground(MultiBufferSource source, PoseStack.Pose pose,
+                                  float widthMicros, float heightMicros, float x0, float y0,
                                   int alpha, int light, int xSize, int ySize, boolean front, boolean back) {
         var consumer = source.getBuffer(BACKGROUND_RENDER_TYPE);
-        var x1 = 9F / xSize;
-        var y1 = 9F / ySize;
+        var x1 = x0 + widthMicros * 9F / xSize;
+        var y1 = y0 + heightMicros * 9F / ySize;
+        var x2 = x0 + widthMicros - widthMicros * x1;
+        var y2 = y0 + heightMicros - heightMicros * y1;
+        var x3 = x0 + widthMicros;
+        var y3 = y0 + heightMicros;
         var u1 = 9F / 19F;
-        var x2 = 1F - x1;
-        var y2 = 1F - y1;
         var u2 = 1F - u1;
         // below is the generation code
         /*
          * #!/usr/bin/python3
          *
-         * xs = [('0F', '0F'), ('x1', 'u1'), ('x2', 'u2'), ('1F', '1F')]
-         * ys = [('0F', '0F'), ('y1', 'u1'), ('y2', 'u2'), ('1F', '1F')]
+         * xs = [('x0', '0F'), ('x1', 'u1'), ('x2', 'u2'), ('x3', '1F')]
+         * ys = [('y0', '0F'), ('y1', 'u1'), ('y2', 'u2'), ('y3', '1F')]
          *
          * fmt = '\n'.join([
          *     '    consumer.addVertex(pose, {}, {}, {})',
@@ -140,293 +152,293 @@ public enum IconSlide implements Slide {
          * print('}')
          */
         if (front) {
-            consumer.addVertex(pose, 0F, 1F / 256F, y1)
+            consumer.addVertex(pose, x0, 6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, u1).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x1, 1F / 256F, y1)
+            consumer.addVertex(pose, x1, 6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u1).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x1, 1F / 256F, 0F)
+            consumer.addVertex(pose, x1, 6144F, y0)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, 0F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, 0F, 1F / 256F, 0F)
+            consumer.addVertex(pose, x0, 6144F, y0)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, 0F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, 0F, 1F / 256F, y2)
+            consumer.addVertex(pose, x0, 6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, u2).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x1, 1F / 256F, y2)
+            consumer.addVertex(pose, x1, 6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u2).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x1, 1F / 256F, y1)
+            consumer.addVertex(pose, x1, 6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u1).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, 0F, 1F / 256F, y1)
+            consumer.addVertex(pose, x0, 6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, u1).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, 0F, 1F / 256F, 1F)
+            consumer.addVertex(pose, x0, 6144F, y3)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, 1F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x1, 1F / 256F, 1F)
+            consumer.addVertex(pose, x1, 6144F, y3)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, 1F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x1, 1F / 256F, y2)
+            consumer.addVertex(pose, x1, 6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u2).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, 0F, 1F / 256F, y2)
+            consumer.addVertex(pose, x0, 6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, u2).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x1, 1F / 256F, y1)
+            consumer.addVertex(pose, x1, 6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u1).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 256F, y1)
+            consumer.addVertex(pose, x2, 6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u1).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 256F, 0F)
+            consumer.addVertex(pose, x2, 6144F, y0)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, 0F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x1, 1F / 256F, 0F)
+            consumer.addVertex(pose, x1, 6144F, y0)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, 0F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x1, 1F / 256F, y2)
+            consumer.addVertex(pose, x1, 6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u2).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 256F, y2)
+            consumer.addVertex(pose, x2, 6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u2).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 256F, y1)
+            consumer.addVertex(pose, x2, 6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u1).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x1, 1F / 256F, y1)
+            consumer.addVertex(pose, x1, 6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u1).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x1, 1F / 256F, 1F)
+            consumer.addVertex(pose, x1, 6144F, y3)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, 1F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 256F, 1F)
+            consumer.addVertex(pose, x2, 6144F, y3)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, 1F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 256F, y2)
+            consumer.addVertex(pose, x2, 6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u2).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x1, 1F / 256F, y2)
+            consumer.addVertex(pose, x1, 6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u2).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 256F, y1)
+            consumer.addVertex(pose, x2, 6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u1).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, 1F, 1F / 256F, y1)
+            consumer.addVertex(pose, x3, 6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, u1).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, 1F, 1F / 256F, 0F)
+            consumer.addVertex(pose, x3, 6144F, y0)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, 0F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 256F, 0F)
+            consumer.addVertex(pose, x2, 6144F, y0)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, 0F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 256F, y2)
+            consumer.addVertex(pose, x2, 6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u2).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, 1F, 1F / 256F, y2)
+            consumer.addVertex(pose, x3, 6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, u2).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, 1F, 1F / 256F, y1)
+            consumer.addVertex(pose, x3, 6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, u1).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 256F, y1)
+            consumer.addVertex(pose, x2, 6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u1).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 256F, 1F)
+            consumer.addVertex(pose, x2, 6144F, y3)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, 1F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, 1F, 1F / 256F, 1F)
+            consumer.addVertex(pose, x3, 6144F, y3)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, 1F).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, 1F, 1F / 256F, y2)
+            consumer.addVertex(pose, x3, 6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, u2).setLight(light)
                     .setNormal(pose, 0, 1, 0);
-            consumer.addVertex(pose, x2, 1F / 256F, y2)
+            consumer.addVertex(pose, x2, 6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u2).setLight(light)
                     .setNormal(pose, 0, 1, 0);
         }
         if (back) {
-            consumer.addVertex(pose, 0F, -1F / 256F, 0F)
+            consumer.addVertex(pose, x0, -6144F, y0)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, 0F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x1, -1F / 256F, 0F)
+            consumer.addVertex(pose, x1, -6144F, y0)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, 0F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x1, -1F / 256F, y1)
+            consumer.addVertex(pose, x1, -6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u1).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, 0F, -1F / 256F, y1)
+            consumer.addVertex(pose, x0, -6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, u1).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, 0F, -1F / 256F, y1)
+            consumer.addVertex(pose, x0, -6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, u1).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x1, -1F / 256F, y1)
+            consumer.addVertex(pose, x1, -6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u1).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x1, -1F / 256F, y2)
+            consumer.addVertex(pose, x1, -6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u2).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, 0F, -1F / 256F, y2)
+            consumer.addVertex(pose, x0, -6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, u2).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, 0F, -1F / 256F, y2)
+            consumer.addVertex(pose, x0, -6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, u2).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x1, -1F / 256F, y2)
+            consumer.addVertex(pose, x1, -6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u2).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x1, -1F / 256F, 1F)
+            consumer.addVertex(pose, x1, -6144F, y3)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, 1F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, 0F, -1F / 256F, 1F)
+            consumer.addVertex(pose, x0, -6144F, y3)
                     .setColor(255, 255, 255, alpha)
                     .setUv(0F, 1F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x1, -1F / 256F, 0F)
+            consumer.addVertex(pose, x1, -6144F, y0)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, 0F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 256F, 0F)
+            consumer.addVertex(pose, x2, -6144F, y0)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, 0F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 256F, y1)
+            consumer.addVertex(pose, x2, -6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u1).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x1, -1F / 256F, y1)
+            consumer.addVertex(pose, x1, -6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u1).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x1, -1F / 256F, y1)
+            consumer.addVertex(pose, x1, -6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u1).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 256F, y1)
+            consumer.addVertex(pose, x2, -6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u1).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 256F, y2)
+            consumer.addVertex(pose, x2, -6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u2).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x1, -1F / 256F, y2)
+            consumer.addVertex(pose, x1, -6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u2).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x1, -1F / 256F, y2)
+            consumer.addVertex(pose, x1, -6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, u2).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 256F, y2)
+            consumer.addVertex(pose, x2, -6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u2).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 256F, 1F)
+            consumer.addVertex(pose, x2, -6144F, y3)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, 1F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x1, -1F / 256F, 1F)
+            consumer.addVertex(pose, x1, -6144F, y3)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u1, 1F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 256F, 0F)
+            consumer.addVertex(pose, x2, -6144F, y0)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, 0F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, 1F, -1F / 256F, 0F)
+            consumer.addVertex(pose, x3, -6144F, y0)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, 0F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, 1F, -1F / 256F, y1)
+            consumer.addVertex(pose, x3, -6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, u1).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 256F, y1)
+            consumer.addVertex(pose, x2, -6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u1).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 256F, y1)
+            consumer.addVertex(pose, x2, -6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u1).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, 1F, -1F / 256F, y1)
+            consumer.addVertex(pose, x3, -6144F, y1)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, u1).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, 1F, -1F / 256F, y2)
+            consumer.addVertex(pose, x3, -6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, u2).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 256F, y2)
+            consumer.addVertex(pose, x2, -6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u2).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 256F, y2)
+            consumer.addVertex(pose, x2, -6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, u2).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, 1F, -1F / 256F, y2)
+            consumer.addVertex(pose, x3, -6144F, y2)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, u2).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, 1F, -1F / 256F, 1F)
+            consumer.addVertex(pose, x3, -6144F, y3)
                     .setColor(255, 255, 255, alpha)
                     .setUv(1F, 1F).setLight(light)
                     .setNormal(pose, 0, -1, 0);
-            consumer.addVertex(pose, x2, -1F / 256F, 1F)
+            consumer.addVertex(pose, x2, -6144F, y3)
                     .setColor(255, 255, 255, alpha)
                     .setUv(u2, 1F).setLight(light)
                     .setNormal(pose, 0, -1, 0);

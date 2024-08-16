@@ -16,9 +16,11 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.client.model.data.ModelData;
+import org.joml.Vector2d;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.block.ProjectorBlock;
 import org.teacon.slides.block.ProjectorBlockEntity;
+import org.teacon.slides.item.SlideItem;
 import org.teacon.slides.slide.IconSlide;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -39,12 +41,13 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
                        MultiBufferSource src, int packedLight, int packedOverlay) {
         var tileState = tile.getBlockState();
         // always update slide state whether the projector should be hidden or not
-        var slide = tile.getNextCurrentEntries().right.map(entry -> SlideState.getSlide(entry.id()));
-        if (slide.isPresent()) {
+        var currentEntry = tile.getNextCurrentEntries().right;
+        if (currentEntry.isPresent()) {
             pStack.pushPose();
             var tileColorTransform = tile.getColorTransform();
             var tilePowered = tileState.getValue(BlockStateProperties.POWERED);
-            var tileIconHidden = slide.get() instanceof IconSlide iconSlide && switch (iconSlide) {
+            var tileCurrentSlide = SlideState.getSlide(currentEntry.get().id());
+            var tileIconHidden = tileCurrentSlide instanceof IconSlide iconSlide && switch (iconSlide) {
                 case DEFAULT_EMPTY -> tileColorTransform.hideEmptySlideIcon;
                 case DEFAULT_FAILED -> tileColorTransform.hideFailedSlideIcon;
                 case DEFAULT_BLOCKED -> tileColorTransform.hideBlockedSlideIcon;
@@ -53,16 +56,48 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
             var tileColorTransparent = (tileColorTransform.color & 0xFF000000) == 0;
             if (!tileColorTransparent && !tilePowered && !tileIconHidden) {
                 var last = pStack.last();
-                tile.transformToSlideSpace(last.pose(), last.normal());
+                tile.transformToSlideSpaceMicros(last.pose(), last.normal());
                 var flipped = tileState.getValue(ProjectorBlock.ROTATION).isFlipped();
-                slide.get().render(src, last,
-                        tile.getSizeMicros().x,
-                        tile.getSizeMicros().y,
-                        tileColorTransform.color,
-                        LightTexture.FULL_BRIGHT,
-                        OverlayTexture.NO_OVERLAY,
-                        flipped || tileColorTransform.doubleSided,
-                        !flipped || tileColorTransform.doubleSided,
+                var sizeMicros = tile.getSizeMicros();
+                var scaleSizeMicros = new Vector2d(sizeMicros);
+                switch (currentEntry.get().size()) {
+                    case SlideItem.KeywordSize.COVER -> tileCurrentSlide.getDimension().ifPresent(dim -> {
+                        var scale = Math.max((double) sizeMicros.x / dim.x, (double) sizeMicros.y / dim.y);
+                        scaleSizeMicros.set(scale * dim.x, scale * dim.y);
+                    });
+                    case SlideItem.KeywordSize.CONTAIN,
+                         SlideItem.KeywordSize.AUTO,
+                         SlideItem.KeywordSize.AUTO_AUTO -> tileCurrentSlide.getDimension().ifPresent(dim -> {
+                        var scale = Math.min((double) sizeMicros.x / dim.x, (double) sizeMicros.y / dim.y);
+                        scaleSizeMicros.set(scale * dim.x, scale * dim.y);
+                    });
+                    case SlideItem.AutoValueSize(var value) -> {
+                        var scale = value.getPercentage() / 100D;
+                        scaleSizeMicros.y = scale * sizeMicros.y;
+                        var tileCurrentSlideDim = tileCurrentSlide.getDimension();
+                        tileCurrentSlideDim.ifPresent(dim -> scaleSizeMicros.x = scale * sizeMicros.y * dim.x / dim.y);
+                    }
+                    case SlideItem.ValueAutoSize(var value) -> {
+                        var scale = value.getPercentage() / 100D;
+                        scaleSizeMicros.x = scale * sizeMicros.x;
+                        var tileCurrentSlideDim = tileCurrentSlide.getDimension();
+                        tileCurrentSlideDim.ifPresent(dim -> scaleSizeMicros.y = scale * sizeMicros.x * dim.y / dim.x);
+                    }
+                    case SlideItem.ValueSize(var value) -> {
+                        var scale = value.getPercentage() / 100D;
+                        scaleSizeMicros.x = scale * sizeMicros.x;
+                        var tileCurrentSlideDim = tileCurrentSlide.getDimension();
+                        tileCurrentSlideDim.ifPresent(dim -> scaleSizeMicros.y = scale * sizeMicros.x * dim.y / dim.x);
+                    }
+                    case SlideItem.ValueValueSize(var first, var second) -> {
+                        scaleSizeMicros.x = first.getPercentage() / 100D * sizeMicros.x;
+                        scaleSizeMicros.y = second.getPercentage() / 100D * sizeMicros.y;
+                    }
+                }
+                tileCurrentSlide.render(src, last,
+                        sizeMicros.x, sizeMicros.y, scaleSizeMicros.x, scaleSizeMicros.y,
+                        tileColorTransform.color, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
+                        flipped || tileColorTransform.doubleSided, !flipped || tileColorTransform.doubleSided,
                         SlideState.getAnimationTick(), partialTick);
             }
             pStack.popPose();

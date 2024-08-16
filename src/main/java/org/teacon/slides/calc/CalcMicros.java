@@ -48,11 +48,11 @@ public final class CalcMicros {
 
     public static Vector3d fromRelToAbs(Vector3i relOffsetMicros, Vector2i sizeMicros, InternalRotation rotation) {
         var center = new Vector4d(sizeMicros.x() / 2D, 0D, sizeMicros.y() / 2D, 1D);
-        // matrix 6: offset for slide (center[new] = center[old] + offset)
+        // matrix 7: offset for slide (center[new] = center[old] + offset)
         center.mul(new Matrix4d().translate(relOffsetMicros.x(), -relOffsetMicros.z(), relOffsetMicros.y()));
-        // matrix 5: translation for slide
+        // matrix 6: translation for slide
         center.mul(new Matrix4d().translate(-5E5, 0D, 5E5 - sizeMicros.y()));
-        // matrix 4: internal rotation
+        // matrix 5: internal rotation
         rotation.transform(center);
         // ok, that's enough
         return new Vector3d(center.x() / center.w(), center.y() / center.w(), center.z() / center.w());
@@ -60,9 +60,9 @@ public final class CalcMicros {
 
     public static Vector3i fromAbsToRel(Vector3d absOffsetMicros, Vector2i sizeMicros, InternalRotation rotation) {
         var center = new Vector4d(absOffsetMicros, 1D);
-        // inverse matrix 4: internal rotation
+        // inverse matrix 5: internal rotation
         rotation.invert().transform(center);
-        // inverse matrix 5: translation for slide
+        // inverse matrix 6: translation for slide
         center.mul(new Matrix4d().translate(5E5, 0D, -5E5 + sizeMicros.y()));
         // subtract (offset = center[new] - center[old])
         center.mul(new Matrix4d().translate(sizeMicros.x() / -2D, 0D, sizeMicros.y() / -2D));

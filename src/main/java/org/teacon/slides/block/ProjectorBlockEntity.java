@@ -287,19 +287,19 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     public AABB getRenderBoundingBox() {
         var pose = new Matrix4f();
         var normal = new Matrix3f();
-        this.transformToSlideSpace(pose, normal);
+        this.transformToSlideSpaceMicros(pose, normal);
 
         var v00 = new Vector4f(0F, 0F, 0F, 1F).mul(pose);
-        var v01 = new Vector4f(1F, 0F, 1F, 1F).mul(pose);
-        var nHalf = new Vector3f(0F, 1F / 2F, 0F).mul(normal);
+        var v01 = new Vector4f(1E6F, 0F, 1E6F, 1F).mul(pose);
         var base = new AABB(v00.x(), v00.y(), v00.z(), v01.x(), v01.y(), v01.z());
 
+        var nHalf = new Vector3f(0F, 5E5F, 0F).mul(normal);
         var projectorAABB = new AABB(0, 0, 0, 1, 1, 1).inflate(0.5);
         var slideAABB = base.inflate(nHalf.x(), nHalf.y(), nHalf.z());
         return projectorAABB.minmax(slideAABB).move(this.getBlockPos());
     }
 
-    public void transformToSlideSpace(Matrix4f pose, Matrix3f normal) {
+    public void transformToSlideSpaceMicros(Matrix4f pose, Matrix3f normal) {
         var state = getBlockState();
         // get direction
         var direction = state.getValue(BlockStateProperties.FACING);
@@ -312,18 +312,15 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         normal.rotate(direction.getRotation());
         // matrix 3: translation to block surface
         pose.translate(0F, 1F / 2F, 0F);
-        // matrix 4: internal rotation
+        // matrix 4: float to micros
+        pose.scale(1E-6F, 1E-6F, 1E-6F);
+        // matrix 5: internal rotation
         rotation.transform(pose);
         rotation.transform(normal);
-        // matrix 5: translation for slide
-        pose.translate(-1F / 2F, 0F, 1F / 2F - CalcMicros.toNumber(mSizeMicros.y));
-        // matrix 6: offset for slide
-        pose.translate(
-                CalcMicros.toNumber(mSlideOffsetMicros.x),
-                -CalcMicros.toNumber(mSlideOffsetMicros.z),
-                CalcMicros.toNumber(mSlideOffsetMicros.y));
-        // matrix 7: scaling
-        pose.scale(CalcMicros.toNumber(mSizeMicros.x), 1F, CalcMicros.toNumber(mSizeMicros.y));
+        // matrix 6: translation for slide
+        pose.translate(-5E5F, 0F, 5E5F - mSizeMicros.y);
+        // matrix 7: offset for slide
+        pose.translate(mSlideOffsetMicros.x, -mSlideOffsetMicros.z, mSlideOffsetMicros.y);
     }
 
     public int moveSlideItems(int offset) {
