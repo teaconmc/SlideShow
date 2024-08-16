@@ -6,7 +6,7 @@
     "item.slide_show.slide_item": "幻灯片",
     "item.slide_show.slide_item.blocked": "幻灯片（URL 已被屏蔽）",
     "item.slide_show.slide_item.allowed": "幻灯片（已设置 URL）",
-    "item.slide_show.slide_item.hint": "右键编辑该幻灯片的 URL 等相关信息",
+    "item.slide_show.slide_item.hint": "放在手上并使用右键可编辑该幻灯片的 URL 等相关信息",
 
     "command.slide_show.scroll_up.success": "已成功向上滚动 %s 个幻灯片",
     "command.slide_show.scroll_up.not_enough": "没有可供向上滚动的幻灯片了",

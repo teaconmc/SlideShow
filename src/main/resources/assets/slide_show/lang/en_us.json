@@ -6,7 +6,7 @@
     "item.slide_show.slide_item": "Slide Item",
     "item.slide_show.slide_item.blocked": "Slide Item (URL Having Been Blocked)",
     "item.slide_show.slide_item.allowed": "Slide Item (URL Having Been Set)",
-    "item.slide_show.slide_item.hint": "Right click to edit the URL and related information of this slide",
+    "item.slide_show.slide_item.hint": "Hold it on your hand and right click to edit the URL and related information of this slide",
 
     "command.slide_show.scroll_up.success": "Successfully scrolled up %s slide item(s)",
     "command.slide_show.scroll_up.not_enough": "There are no more slide items to scroll up",
