@@ -117,7 +117,7 @@ public final class SlideItem extends Item {
     public sealed interface Size permits KeywordSize, ValueSize, AutoValueSize, ValueAutoSize, ValueValueSize {
         Codec<Size> CODEC = Codec.STRING.xmap(Size::parse, Size::toString);
         StreamCodec<ByteBuf, Size> STREAM_CODEC = ByteBufCodecs.STRING_UTF8.map(Size::parse, Size::toString);
-        ValueValueSize DEFAULT = new ValueValueSize(new CalcBasic(100D, Map.of()), new CalcBasic(100D, Map.of()));
+        ValueValueSize DEFAULT = new ValueValueSize(new CalcBasic(100D), new CalcBasic(100D));
 
         static Size parse(String input) {
             var builder = new StringBuilder(input);
@@ -150,7 +150,7 @@ public final class SlideItem extends Item {
             if (!matcher.find()) {
                 var calc = new CalcBasic(builder);
                 checkArgument(calc.getLengthUnits().isEmpty(), "only percentage allowed");
-                return Either.right(calc);
+                return calc.hasPercentage() ? Either.right(calc) : Either.right(new CalcBasic(0D));
             }
             var keyword = switch (StringUtils.toRootLowerCase(matcher.group("k"))) {
                 case "auto" -> KeywordSize.AUTO;

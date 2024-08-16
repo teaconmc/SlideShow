@@ -1,5 +1,6 @@
 package org.teacon.slides.calc;
 
+import it.unimi.dsi.fastutil.objects.*;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import org.apache.commons.lang3.StringUtils;
@@ -17,13 +18,25 @@ import java.util.regex.Pattern;
 @ParametersAreNonnullByDefault
 public final class CalcBasic {
     private final double percentage;
-    private final List<String> units;
-    private final double[] lengthValues;
+    private final boolean emptyPercentage;
+    private final Object2DoubleMap<String> lengths;
 
-    public CalcBasic(double percentage, Map<String, Double> lengths) {
+    public CalcBasic(double percentage, Object2DoubleMap<String> lengths) {
         this.percentage = percentage;
-        this.units = lengths.keySet().stream().sorted().toList();
-        this.lengthValues = this.units.stream().mapToDouble(lengths::get).toArray();
+        this.emptyPercentage = false;
+        this.lengths = normalizeAndCopy(true, lengths);
+    }
+
+    public CalcBasic(Object2DoubleMap<String> lengths) {
+        this.percentage = 0D;
+        this.emptyPercentage = true;
+        this.lengths = normalizeAndCopy(false, lengths);
+    }
+
+    public CalcBasic(double percentage) {
+        this.percentage = percentage;
+        this.emptyPercentage = false;
+        this.lengths = Object2DoubleMaps.emptyMap();
     }
 
     public CalcBasic(StringBuilder builder) {
@@ -32,12 +45,16 @@ public final class CalcBasic {
         // noinspection ConstantValue
         if (parseValue(tokens) instanceof Parsed<Value>(var cal, var rem) && rem.isEmpty()) {
             this.percentage = cal.percentage().orElse(0D);
-            this.units = cal.lengths().keySet().stream().sorted().toList();
-            this.lengthValues = this.units.stream().mapToDouble(cal.lengths()::get).toArray();
+            this.emptyPercentage = cal.percentage().isEmpty();
+            this.lengths = normalizeAndCopy(cal.percentage().isPresent(), cal.lengths());
             builder.delete(0, readCount);
             return;
         }
         throw new IllegalArgumentException("Cannot calculate " + builder);
+    }
+
+    public boolean hasPercentage() {
+        return !this.emptyPercentage;
     }
 
     public double getPercentage() {
@@ -45,43 +62,41 @@ public final class CalcBasic {
     }
 
     public Collection<String> getLengthUnits() {
-        return this.units;
+        return this.lengths.keySet();
     }
 
     public double getLengthValue(String unit) {
-        var index = Collections.binarySearch(this.units, unit);
-        return index < this.units.size() && this.units.get(index).equals(unit) ? this.lengthValues[index] : 0D;
+        return this.lengths.getOrDefault(unit, 0D);
     }
 
     @Override
     public String toString() {
         var builder = new StringBuilder();
-        var zeroPercentage = this.percentage == 0D;
-        if (this.units.isEmpty()) {
+        var lengthIterator = this.lengths.object2DoubleEntrySet().iterator();
+        if (!lengthIterator.hasNext()) {
             if (Double.isFinite(this.percentage)) {
-                return zeroPercentage ? "0.0" : appendPercentageString(this.percentage, builder).toString();
+                return this.emptyPercentage ? "0.0" : appendPercentageString(this.percentage, builder).toString();
             }
             return appendPercentageString(this.percentage, builder.append("calc(")).append(")").toString();
         }
-        var index = 0;
-        var unit = this.units.get(index);
-        if (zeroPercentage && this.units.size() > 1 && Double.isFinite(this.lengthValues[0])) {
-            return appendLengthString(unit, this.lengthValues[index], builder).toString();
+        var lengthEntry = lengthIterator.next();
+        if (this.emptyPercentage && this.lengths.size() > 1 && Double.isFinite(lengthEntry.getDoubleValue())) {
+            return appendLengthString(lengthEntry.getKey(), lengthEntry.getDoubleValue(), builder).toString();
         }
         builder.append("calc(");
-        if (zeroPercentage) {
-            appendLengthString(unit, this.lengthValues[index], builder);
+        if (this.emptyPercentage) {
+            appendLengthString(lengthEntry.getKey(), lengthEntry.getDoubleValue(), builder);
         } else {
-            var value = this.lengthValues[index];
+            var value = lengthEntry.getDoubleValue();
             appendPercentageString(this.percentage, builder);
             var sign = Math.copySign(1.0, value) < 0 ? " - " : " + ";
-            appendLengthString(unit, Math.abs(value), builder.append(sign));
+            appendLengthString(lengthEntry.getKey(), Math.abs(value), builder.append(sign));
         }
-        while (++index < this.units.size()) {
-            unit = this.units.get(index);
-            var value = this.lengthValues[index];
+        while (lengthIterator.hasNext()) {
+            lengthEntry = lengthIterator.next();
+            var value = lengthEntry.getDoubleValue();
             var sign = Math.copySign(1.0, value) < 0 ? " - " : " + ";
-            appendLengthString(unit, Math.abs(value), builder.append(sign));
+            appendLengthString(lengthEntry.getKey(), Math.abs(value), builder.append(sign));
         }
         return builder.append(")").toString();
     }
@@ -89,14 +104,13 @@ public final class CalcBasic {
     @Override
     public boolean equals(Object obj) {
         return obj instanceof CalcBasic that
-               && Objects.equals(this.units, that.units)
-               && Arrays.equals(this.lengthValues, that.lengthValues)
-               && Double.compare(this.percentage, that.percentage) == 0;
+                && this.lengths.equals(that.lengths)
+                && Double.compare(this.percentage, that.percentage) == 0;
     }
 
     @Override
     public int hashCode() {
-        return this.units.hashCode() + Arrays.hashCode(this.lengthValues) + Double.hashCode(this.percentage);
+        return this.lengths.hashCode() + Double.hashCode(this.percentage);
     }
 
     private static final Pattern TOKEN;
@@ -116,7 +130,7 @@ public final class CalcBasic {
     private sealed interface Value extends Token permits Number, Dimension {
         OptionalDouble percentage();
 
-        Map<String, Double> lengths();
+        Object2DoubleMap<String> lengths();
     }
 
     private enum Delimiter implements Token {
@@ -127,7 +141,7 @@ public final class CalcBasic {
         MUL, DIV, ADD, SUB
     }
 
-    private record Dimension(OptionalDouble percentage, Map<String, Double> lengths) implements Value {
+    private record Dimension(OptionalDouble percentage, Object2DoubleMap<String> lengths) implements Value {
         // nothing inside
     }
 
@@ -138,25 +152,25 @@ public final class CalcBasic {
         }
 
         @Override
-        public Map<String, Double> lengths() {
-            return Map.of("", this.value);
+        public Object2DoubleMap<String> lengths() {
+            return Object2DoubleMaps.singleton("", this.value);
         }
     }
 
     private static UnaryOperator<Value> map(DoubleUnaryOperator op) {
         return input -> {
             var inputLengths = input.lengths();
-            var lengths = new HashMap<String, Double>(inputLengths.size());
+            var lengths = new Object2DoubleArrayMap<String>(inputLengths.size());
             inputLengths.forEach((k, v) -> {
                 var d = op.applyAsDouble(v);
                 lengths.put(k, d);
             });
             var inputPercentage = input.percentage();
             if (inputPercentage.isEmpty()) {
-                return new Dimension(OptionalDouble.empty(), Map.copyOf(lengths));
+                return new Dimension(OptionalDouble.empty(), Object2DoubleMaps.unmodifiable(lengths));
             }
             var percentage = op.applyAsDouble(inputPercentage.getAsDouble());
-            return new Dimension(OptionalDouble.of(percentage), Map.copyOf(lengths));
+            return new Dimension(OptionalDouble.of(percentage), Object2DoubleMaps.unmodifiable(lengths));
         };
     }
 
@@ -164,7 +178,7 @@ public final class CalcBasic {
         return (left, right) -> {
             var leftLengths = left.lengths();
             var rightLengths = right.lengths();
-            var lengths = new HashMap<String, Double>(leftLengths.size() + rightLengths.size());
+            var lengths = new Object2DoubleArrayMap<String>(leftLengths.size() + rightLengths.size());
             leftLengths.forEach((k, v) -> {
                 var d = op.applyAsDouble(v, rightLengths.getOrDefault(k, 0D));
                 lengths.put(k, d);
@@ -178,10 +192,10 @@ public final class CalcBasic {
             var leftPercentage = left.percentage();
             var rightPercentage = right.percentage();
             if (leftPercentage.isEmpty() && rightPercentage.isEmpty()) {
-                return new Dimension(OptionalDouble.empty(), Map.copyOf(lengths));
+                return new Dimension(OptionalDouble.empty(), Object2DoubleMaps.unmodifiable(lengths));
             }
             var percentage = op.applyAsDouble(leftPercentage.orElse(0D), rightPercentage.orElse(0D));
-            return new Dimension(OptionalDouble.of(percentage), Map.copyOf(lengths));
+            return new Dimension(OptionalDouble.of(percentage), Object2DoubleMaps.unmodifiable(lengths));
         };
     }
 
@@ -204,12 +218,12 @@ public final class CalcBasic {
                 case "pi" -> new Number(Math.PI);
                 case "e" -> new Number(Math.E);
                 case String s when l != null -> {
-                    var lengths = Map.of(l.toLowerCase(Locale.ROOT), Double.parseDouble(s));
+                    var lengths = Object2DoubleMaps.singleton(l.toLowerCase(Locale.ROOT), Double.parseDouble(s));
                     yield new Dimension(OptionalDouble.empty(), lengths);
                 }
                 case String s when p != null -> {
                     var percentage = OptionalDouble.of(Double.parseDouble(s));
-                    yield new Dimension(percentage, Map.of());
+                    yield new Dimension(percentage, Object2DoubleMaps.emptyMap());
                 }
                 case String s -> {
                     var value = Double.parseDouble(s);
@@ -360,5 +374,25 @@ public final class CalcBasic {
             return sb.append(v < 0 ? "-infinity * 1" : "infinity * 1").append(u);
         }
         return sb.append(v).append(u);
+    }
+
+    private static Object2DoubleMap<String> normalizeAndCopy(boolean hasPercentage, Object2DoubleMap<String> map) {
+        return switch (map.size()) {
+            case 0 -> Object2DoubleMaps.emptyMap();
+            case 1 -> {
+                var entry = map.object2DoubleEntrySet().iterator().next();
+                if (hasPercentage || !entry.getKey().isEmpty() || Double.compare(entry.getDoubleValue(), 0D) != 0) {
+                    yield Object2DoubleMaps.singleton(entry.getKey().toLowerCase(Locale.ROOT), entry.getDoubleValue());
+                }
+                yield Object2DoubleMaps.emptyMap();
+            }
+            default -> {
+                var result = new Object2DoubleAVLTreeMap<String>();
+                for (var entry : map.object2DoubleEntrySet()) {
+                    result.put(entry.getKey().toLowerCase(Locale.ROOT), entry.getDoubleValue());
+                }
+                yield Object2DoubleMaps.unmodifiable(result);
+            }
+        };
     }
 }
