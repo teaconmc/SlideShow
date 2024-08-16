@@ -3,18 +3,23 @@
     "pools": [
         {
             "rolls": 1,
+            "bonus_rolls": 0.0,
             "entries": [
                 {
                     "type": "minecraft:item",
                     "name": "slide_show:projector",
                     "functions": [
                         {
-                            "function": "minecraft:copy_name",
+                            "function": "minecraft:copy_components",
+                            "include": [
+                                "minecraft:container"
+                            ],
                             "source": "block_entity"
                         }
                     ]
                 }
             ]
         }
-    ]
+    ],
+    "random_sequence": "slide_show:blocks/projector"
 }

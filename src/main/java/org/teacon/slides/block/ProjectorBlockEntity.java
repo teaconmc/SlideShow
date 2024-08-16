@@ -7,6 +7,9 @@ import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.NonNullList;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
@@ -18,6 +21,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -90,6 +94,36 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     public boolean hasCustomOutlineRendering(Player player) {
         var handItems = List.of(player.getMainHandItem().getItem(), player.getOffhandItem().getItem());
         return handItems.contains(ModRegistries.PROJECTOR_BLOCK.get().asItem());
+    }
+
+    @Override
+    protected void applyImplicitComponents(BlockEntity.DataComponentInput componentInput) {
+        super.applyImplicitComponents(componentInput);
+        var container = componentInput.getOrDefault(DataComponents.CONTAINER, ItemContainerContents.EMPTY);
+        var count = container.getSlots();
+        for (var i = 0; i < ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY; ++i) {
+            var j = i + ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY;
+            this.mItemsDisplayed.setStackInSlot(i, i < count ? container.getStackInSlot(i) : ItemStack.EMPTY);
+            this.mItemsToDisplay.setStackInSlot(i, j < count ? container.getStackInSlot(j) : ItemStack.EMPTY);
+        }
+    }
+
+    @Override
+    protected void collectImplicitComponents(DataComponentMap.Builder components) {
+        super.collectImplicitComponents(components);
+        var containerItems = NonNullList.withSize(ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY * 2, ItemStack.EMPTY);
+        for (var i = 0; i < ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY; ++i) {
+            var j = i + ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY;
+            containerItems.set(i, this.mItemsDisplayed.getStackInSlot(i));
+            containerItems.set(j, this.mItemsToDisplay.getStackInSlot(i));
+        }
+        components.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(containerItems));
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public void removeComponentsFromTag(CompoundTag tag) {
+        tag.remove("Items");
     }
 
     @Override

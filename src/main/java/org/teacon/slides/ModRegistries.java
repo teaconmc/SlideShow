@@ -64,8 +64,8 @@ public final class ModRegistries {
     public static final DeferredHolder<MenuType<?>, MenuType<SlideItemContainerMenu>> SLIDE_ITEM_MENU;
 
     static {
-        PROJECTOR_BLOCK = DeferredHolder.create(BuiltInRegistries.BLOCK.key(), PROJECTOR_ID);
         SLIDE_ITEM = DeferredHolder.create(BuiltInRegistries.ITEM.key(), SLIDE_ITEM_ID);
+        PROJECTOR_BLOCK = DeferredHolder.create(BuiltInRegistries.BLOCK.key(), PROJECTOR_ID);
         SLIDE_ENTRY = DeferredHolder.create(BuiltInRegistries.DATA_COMPONENT_TYPE.key(), SLIDE_ENTRY_ID);
         PROJECTOR_BLOCK_ENTITY = DeferredHolder.create(BuiltInRegistries.BLOCK_ENTITY_TYPE.key(), PROJECTOR_ID);
         PROJECTOR_MENU = DeferredHolder.create(BuiltInRegistries.MENU.key(), PROJECTOR_ID);
@@ -74,9 +74,9 @@ public final class ModRegistries {
 
     @SubscribeEvent
     public static void register(final RegisterEvent event) {
+        event.register(BuiltInRegistries.ITEM.key(), SLIDE_ITEM_ID, SlideItem::new);
         event.register(BuiltInRegistries.BLOCK.key(), PROJECTOR_ID, ProjectorBlock::new);
         event.register(BuiltInRegistries.ITEM.key(), PROJECTOR_ID, ProjectorItem::new);
-        event.register(BuiltInRegistries.ITEM.key(), SLIDE_ITEM_ID, SlideItem::new);
         event.register(BuiltInRegistries.DATA_COMPONENT_TYPE.key(), SLIDE_ENTRY_ID, SlideItem.Entry::createComponentType);
         event.register(BuiltInRegistries.BLOCK_ENTITY_TYPE.key(), PROJECTOR_ID, ProjectorBlockEntity::create);
         event.register(BuiltInRegistries.MENU.key(), PROJECTOR_ID, ProjectorContainerMenu::create);
