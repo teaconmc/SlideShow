@@ -1,6 +1,7 @@
 package org.teacon.slides.screen;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.ChatFormatting;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.gui.GuiGraphics;
@@ -37,7 +38,29 @@ public final class SlideItemScreen extends AbstractContainerScreen<SlideItemCont
     private static final Component
             IMAGE_TEXT = Component.translatable("gui.slide_show.section.image"),
             URL_TEXT = Component.translatable("gui.slide_show.url"),
-            SIZE_TEXT = Component.translatable("gui.slide_show.size");
+            SIZE_TEXT = Component.translatable("gui.slide_show.size"),
+            SIZE_HINT_1 = Component.translatable("gui.slide_show.size_hint.two",
+                            Component.literal("contain").withStyle(ChatFormatting.AQUA),
+                            Component.literal("cover").withStyle(ChatFormatting.AQUA))
+                    .withStyle(ChatFormatting.GRAY),
+            SIZE_HINT_2 = Component.translatable("gui.slide_show.size_hint.contain_or_cover")
+                    .withStyle(ChatFormatting.GRAY),
+            SIZE_HINT_3 = Component.translatable("gui.slide_show.size_hint.two",
+                            Component.literal("<width>% auto").withStyle(ChatFormatting.AQUA),
+                            Component.literal("<width>%").withStyle(ChatFormatting.AQUA))
+                    .withStyle(ChatFormatting.GRAY),
+            SIZE_HINT_4 = Component.translatable("gui.slide_show.size_hint.height_auto")
+                    .withStyle(ChatFormatting.GRAY),
+            SIZE_HINT_5 = Component.translatable("gui.slide_show.size_hint.one",
+                            Component.literal("auto <height>%").withStyle(ChatFormatting.AQUA))
+                    .withStyle(ChatFormatting.GRAY),
+            SIZE_HINT_6 = Component.translatable("gui.slide_show.size_hint.width_auto")
+                    .withStyle(ChatFormatting.GRAY),
+            SIZE_HINT_7 = Component.translatable("gui.slide_show.size_hint.one",
+                            Component.literal("<width>% <height>%").withStyle(ChatFormatting.AQUA))
+                    .withStyle(ChatFormatting.GRAY),
+            SIZE_HINT_8 = Component.translatable("gui.slide_show.size_hint.both")
+                    .withStyle(ChatFormatting.GRAY);
 
     private static final int
             URL_MAX_LENGTH = 1 << 9,
@@ -180,7 +203,11 @@ public final class SlideItemScreen extends AbstractContainerScreen<SlideItemCont
         if (offsetX >= 7 && offsetY >= 35 && offsetX < 25 && offsetY < 54) {
             gui.renderComponentTooltip(font, this.getUrlTexts(), mouseX, mouseY);
         } else if (offsetX >= 7 && offsetY >= 57 && offsetX < 25 && offsetY < 76) {
-            gui.renderTooltip(font, SIZE_TEXT, mouseX, mouseY);
+            gui.renderComponentTooltip(font, List.of(SIZE_TEXT,
+                    Component.literal(""), SIZE_HINT_1, SIZE_HINT_2,
+                    Component.literal(""), SIZE_HINT_3, SIZE_HINT_4,
+                    Component.literal(""), SIZE_HINT_5, SIZE_HINT_6,
+                    Component.literal(""), SIZE_HINT_7, SIZE_HINT_8), mouseX, mouseY);
         }
     }
 

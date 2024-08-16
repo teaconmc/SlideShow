@@ -38,6 +38,13 @@
     "gui.slide_show.rotate": "Rotate Clockwise",
     "gui.slide_show.single_double_sided": "Switch Single-Sided / Double-Sided",
 
+    "gui.slide_show.size_hint.one": "%s",
+    "gui.slide_show.size_hint.two": "%s or %s",
+    "gui.slide_show.size_hint.contain_or_cover": "While preserving its aspect ratio, the image is rendered at the largest size contained within, or covering, the projection area defined by the projector",
+    "gui.slide_show.size_hint.height_auto": "The width will be stretched to the specified percentage while the height is computed using the image's corresponding aspect ratio",
+    "gui.slide_show.size_hint.width_auto": "The height will be stretched to the specified percentage while the width is computed using the image's corresponding aspect ratio",
+    "gui.slide_show.size_hint.both": "The width and the height will be stretched to the specified percentage of the projection area defined by the projector",
+
     "gui.slide_show.log_comment": "at %s by %s",
     "gui.slide_show.log_comment_nobody": "at %s",
     "gui.slide_show.log_message.slide_show.create_url": "The image was created in the server",

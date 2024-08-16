@@ -38,6 +38,13 @@
     "gui.slide_show.rotate": "顺时针旋转",
     "gui.slide_show.single_double_sided": "切换单面/双面",
 
+    "gui.slide_show.size_hint.one": "%s",
+    "gui.slide_show.size_hint.two": "%s 或 %s",
+    "gui.slide_show.size_hint.contain_or_cover": "缩放图片以完全覆盖（cover）或最大包含（contain）投影仪定义的投影区域",
+    "gui.slide_show.size_hint.height_auto": "宽度使用指定百分比，未指定的高度依图片固有长宽比例计算",
+    "gui.slide_show.size_hint.width_auto": "高度使用指定百分比，未指定的宽度依图片固有长宽比例计算",
+    "gui.slide_show.size_hint.both": "宽度和高度将拉伸至投影仪定义的投影区域的指定百分比",
+
     "gui.slide_show.log_comment": "%s（操作者：%s）",
     "gui.slide_show.log_comment_nobody": "%s",
     "gui.slide_show.log_message.slide_show.create_url": "该图片在服务器的创建时间：",
