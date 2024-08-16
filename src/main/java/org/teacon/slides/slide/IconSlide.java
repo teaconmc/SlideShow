@@ -140,7 +140,7 @@ public enum IconSlide implements Slide {
          *     for j in range(3):
          *         a, b, c, d = xs[i], xs[i + 1], ys[j], ys[j + 1]
          *         for k, l in [(a, d), (b, d), (b, c), (a, c)]:
-         *             print(fmt.format(k[0], '1F / 256F', l[0], k[1], l[1], 1))
+         *             print(fmt.format(k[0], '6144F', l[0], k[1], l[1], 1))
          * print('}')
          *
          * print('if (back) {')
@@ -148,7 +148,7 @@ public enum IconSlide implements Slide {
          *     for j in range(3):
          *         a, b, c, d = xs[i], xs[i + 1], ys[j], ys[j + 1]
          *         for k, l in [(a, c), (b, c), (b, d), (a, d)]:
-         *             print(fmt.format(k[0], '-1F / 256F', l[0], k[1], l[1], -1))
+         *             print(fmt.format(k[0], '-6144F', l[0], k[1], l[1], -1))
          * print('}')
          */
         if (front) {
