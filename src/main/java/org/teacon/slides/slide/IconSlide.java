@@ -38,7 +38,7 @@ public enum IconSlide implements Slide {
     }
 
     private static float getFactor(float width, float height) {
-        return Math.min(width, height) / (24 + Mth.fastInvCubeRoot(0.00390625F / (width * width + height * height)));
+        return Math.min(width, height) / (24 + Mth.fastInvCubeRoot(390625E4F / (width * width + height * height)));
     }
 
     @Override
@@ -69,8 +69,8 @@ public enum IconSlide implements Slide {
         var consumer = source.getBuffer(iconRenderType);
         var x1 = x0 + widthMicros * (1F - 19F / xSize) / 2F;
         var y1 = y0 + heightMicros * (1F - 16F / ySize) / 2F;
-        var x2 = x0 + widthMicros - widthMicros * x1;
-        var y2 = y0 + heightMicros - heightMicros * y1;
+        var x2 = x0 + widthMicros * (1F + 19F / xSize) / 2F;
+        var y2 = y0 + heightMicros * (1F + 16F / ySize) / 2F;
         if (front) {
             consumer.addVertex(pose, x1, 8192F, y2)
                     .setColor(255, 255, 255, alpha)
@@ -115,8 +115,8 @@ public enum IconSlide implements Slide {
         var consumer = source.getBuffer(BACKGROUND_RENDER_TYPE);
         var x1 = x0 + widthMicros * 9F / xSize;
         var y1 = y0 + heightMicros * 9F / ySize;
-        var x2 = x0 + widthMicros - widthMicros * x1;
-        var y2 = y0 + heightMicros - heightMicros * y1;
+        var x2 = x0 + widthMicros * (1F - 9F / xSize);
+        var y2 = y0 + heightMicros * (1F - 9F / ySize);
         var x3 = x0 + widthMicros;
         var y3 = y0 + heightMicros;
         var u1 = 9F / 19F;
