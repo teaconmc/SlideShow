@@ -105,11 +105,27 @@ public final class ProjectorBlock extends Block implements EntityBlock {
     }
 
     @Override
-    public void neighborChanged(BlockState state, Level worldIn,
-                                BlockPos pos, Block blockIn, BlockPos fromPos, boolean isMoving) {
-        var powered = worldIn.hasNeighborSignal(pos);
-        if (powered != state.getValue(POWERED)) {
-            worldIn.setBlock(pos, state.setValue(POWERED, powered), Block.UPDATE_ALL);
+    public void neighborChanged(BlockState state, Level level,
+                                BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
+        var newPowered = level.hasNeighborSignal(pos);
+        var oldPowered = state.getValue(POWERED);
+        if (newPowered && !oldPowered) {
+            level.setBlock(pos, state.setValue(POWERED, true), Block.UPDATE_ALL);
+            if (!level.isClientSide && level.getBlockEntity(pos) instanceof ProjectorBlockEntity projector) {
+                var moved = projector.moveSlideItems(1) > 0;
+                if (!moved) {
+                    projector.moveSlideItems(-SLIDE_ITEM_HANDLER_CAPACITY);
+                }
+            }
+        }
+        if (!newPowered && oldPowered) {
+            level.setBlock(pos, state.setValue(POWERED, false), Block.UPDATE_ALL);
+            if (!level.isClientSide && level.getBlockEntity(pos) instanceof ProjectorBlockEntity projector) {
+                var initial = projector.getItemsDisplayedCount() == 0;
+                if (initial) {
+                    projector.moveSlideItems(1);
+                }
+            }
         }
     }
 

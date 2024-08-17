@@ -13,7 +13,6 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import org.joml.Vector2d;
@@ -45,7 +44,6 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
         if (currentEntry.isPresent()) {
             pStack.pushPose();
             var tileColorTransform = tile.getColorTransform();
-            var tilePowered = tileState.getValue(BlockStateProperties.POWERED);
             var tileCurrentSlide = SlideState.getSlide(currentEntry.get().id());
             var tileIconHidden = tileCurrentSlide instanceof IconSlide iconSlide && switch (iconSlide) {
                 case DEFAULT_EMPTY -> tileColorTransform.hideEmptySlideIcon;
@@ -54,7 +52,7 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
                 case DEFAULT_LOADING -> tileColorTransform.hideLoadingSlideIcon;
             };
             var tileColorTransparent = (tileColorTransform.color & 0xFF000000) == 0;
-            if (!tileColorTransparent && !tilePowered && !tileIconHidden) {
+            if (!tileColorTransparent && !tileIconHidden) {
                 var last = pStack.last();
                 tile.transformToSlideSpaceMicros(last.pose(), last.normal());
                 var flipped = tileState.getValue(ProjectorBlock.ROTATION).isFlipped();
