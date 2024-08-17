@@ -143,7 +143,28 @@ public final class ProjectorContainerMenu extends AbstractContainerMenu {
 
     @Override
     public ItemStack quickMoveStack(Player player, int index) {
-        return ItemStack.EMPTY;
+        var projectHalfCapacity = ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY;
+        var resultStack = ItemStack.EMPTY;
+        var slot = this.slots.get(index);
+        // noinspection ConstantValue
+        if (slot != null && slot.hasItem()) {
+            var slotStack = slot.getItem();
+            resultStack = slotStack.copy();
+            if (index < projectHalfCapacity * 2) {
+                if (!this.moveItemStackTo(slotStack, projectHalfCapacity * 2, this.slots.size(), true)) {
+                    return ItemStack.EMPTY;
+                }
+            } else if (!this.moveItemStackTo(slotStack, 0, projectHalfCapacity, false) &&
+                    !this.moveItemStackTo(slotStack, projectHalfCapacity, projectHalfCapacity * 2, true)) {
+                return ItemStack.EMPTY;
+            }
+            if (slotStack.isEmpty()) {
+                slot.setByPlayer(ItemStack.EMPTY);
+            } else {
+                slot.setChanged();
+            }
+        }
+        return resultStack;
     }
 
     @Override
