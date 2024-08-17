@@ -8,6 +8,7 @@ import net.minecraft.util.ByIdMap;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -121,6 +122,22 @@ public final class ProjectorBlock extends Block implements EntityBlock {
                 worldIn.setBlock(pos, state.setValue(POWERED, powered), Block.UPDATE_ALL);
             }
         }
+    }
+
+    @Override
+    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+        if (!level.isClientSide && player.isCreative()) {
+            if (level.getBlockEntity(pos) instanceof ProjectorBlockEntity projector) {
+                var item = this.asItem().getDefaultInstance();
+                item.applyComponents(projector.collectComponents());
+                if (!ItemStack.isSameItemSameComponents(item, this.asItem().getDefaultInstance())) {
+                    var itemEntity = new ItemEntity(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, item);
+                    itemEntity.setDefaultPickUpDelay();
+                    level.addFreshEntity(itemEntity);
+                }
+            }
+        }
+        return super.playerWillDestroy(level, pos, state, player);
     }
 
     @Override
