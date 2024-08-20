@@ -245,6 +245,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     private void onItemsToDisplayErased() {
         mNextCurrentEntries.setLeft(Optional.empty());
         if (this.level != null && !this.level.isClientSide) {
+            this.setChanged();
             var state = this.getBlockState();
             this.level.sendBlockUpdated(this.getBlockPos(), state, state, Block.UPDATE_ALL);
         }
@@ -253,6 +254,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     private void onItemsDisplayedErased() {
         mNextCurrentEntries.setRight(Optional.empty());
         if (this.level != null && !this.level.isClientSide) {
+            this.setChanged();
             var state = this.getBlockState();
             this.level.sendBlockUpdated(this.getBlockPos(), state, state, Block.UPDATE_ALL);
         }
@@ -261,6 +263,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     private void onItemsToDisplayChanged(SlideItem.Entry first, SlideItem.Entry last) {
         mNextCurrentEntries.setLeft(Optional.of(first));
         if (this.level != null && !this.level.isClientSide) {
+            this.setChanged();
             var state = this.getBlockState();
             this.level.sendBlockUpdated(this.getBlockPos(), state, state, Block.UPDATE_ALL);
         }
@@ -269,6 +272,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     private void onItemsDisplayedChanged(SlideItem.Entry first, SlideItem.Entry last) {
         mNextCurrentEntries.setRight(Optional.of(last));
         if (this.level != null && !this.level.isClientSide) {
+            this.setChanged();
             var state = this.getBlockState();
             this.level.sendBlockUpdated(this.getBlockPos(), state, state, Block.UPDATE_ALL);
         }
