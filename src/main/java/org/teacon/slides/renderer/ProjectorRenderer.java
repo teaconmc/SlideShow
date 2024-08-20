@@ -39,12 +39,19 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
     public void render(ProjectorBlockEntity tile, float partialTick, PoseStack pStack,
                        MultiBufferSource src, int packedLight, int packedOverlay) {
         var tileState = tile.getBlockState();
-        // always update slide state whether the projector should be hidden or not
-        var currentEntry = tile.getNextCurrentEntries().right;
+        // always update slide state of current and next slide
+        var nextCurrentEntries = tile.getNextCurrentEntries();
+        var nextEntry = nextCurrentEntries.left;
+        if (nextEntry.isPresent()) {
+            var tileNextEntryUUID = nextEntry.get().id();
+            SlideState.getSlide(tileNextEntryUUID);
+        }
+        var currentEntry = nextCurrentEntries.right;
         if (currentEntry.isPresent()) {
             pStack.pushPose();
             var tileColorTransform = tile.getColorTransform();
-            var tileCurrentSlide = SlideState.getSlide(currentEntry.get().id());
+            var tileCurrentEntryUUID = currentEntry.get().id();
+            var tileCurrentSlide = SlideState.getSlide(tileCurrentEntryUUID);
             var tileIconHidden = tileCurrentSlide instanceof IconSlide iconSlide && switch (iconSlide) {
                 case DEFAULT_EMPTY -> tileColorTransform.hideEmptySlideIcon;
                 case DEFAULT_FAILED -> tileColorTransform.hideFailedSlideIcon;
