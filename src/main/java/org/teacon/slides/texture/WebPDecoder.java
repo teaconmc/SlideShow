@@ -42,6 +42,7 @@ public final class WebPDecoder {
                     var colorModelType = image.getColorModel().getClass();
                     throw new IOException("unrecognized color model type: " + colorModelType.getName());
                 }
+                var bigEndian = ByteOrder.nativeOrder() == ByteOrder.BIG_ENDIAN;
                 for (var i = 0; i < rgbaSwizzle.length; ++i) {
                     var mask = switch (i) {
                         case 0 -> imageColorModel.getRedMask();
@@ -51,11 +52,11 @@ public final class WebPDecoder {
                         default -> 0x00000000;
                     };
                     rgbaSwizzle[i] = switch (mask) {
-                        case 0xFF000000 -> GL_RED;
-                        case 0x00FF0000 -> GL_GREEN;
-                        case 0x0000FF00 -> GL_BLUE;
-                        case 0x000000FF -> GL_ALPHA;
                         case 0x00000000 -> GL_ZERO;
+                        case 0xFF000000 -> bigEndian ? GL_RED : GL_ALPHA;
+                        case 0x00FF0000 -> bigEndian ? GL_GREEN : GL_BLUE;
+                        case 0x0000FF00 -> bigEndian ? GL_BLUE : GL_GREEN;
+                        case 0x000000FF -> bigEndian ? GL_ALPHA : GL_RED;
                         default -> throw new IOException("unrecognized rgba mask[%d]: 0x%08X".formatted(i, mask));
                     };
                 }
@@ -64,9 +65,8 @@ public final class WebPDecoder {
                     throw new IOException("unrecognized data buffer type: " + bufferType.getName());
                 }
                 var nativeImage = new NativeImage(image.getWidth(), image.getHeight(), false);
-                var nativeBuffer = MemoryUtil.memByteBufferSafe(nativeImage.pixels, Math.toIntExact(nativeImage.size));
-                var nativeIntBuffer = Objects.requireNonNull(nativeBuffer).order(ByteOrder.BIG_ENDIAN).asIntBuffer();
-                nativeIntBuffer.put(imageDataBuffer.getData());
+                var nativeBuffer = MemoryUtil.memByteBuffer(nativeImage.pixels, Math.toIntExact(nativeImage.size));
+                Objects.requireNonNull(nativeBuffer).asIntBuffer().put(imageDataBuffer.getData());
                 return nativeImage;
             }
         }
