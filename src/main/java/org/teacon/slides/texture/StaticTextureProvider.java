@@ -18,6 +18,7 @@ import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.opengl.GL12C.*;
 import static org.lwjgl.opengl.GL14C.GL_TEXTURE_LOD_BIAS;
 import static org.lwjgl.opengl.GL30C.glGenerateMipmap;
+import static org.lwjgl.opengl.GL33C.GL_TEXTURE_SWIZZLE_RGBA;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -29,12 +30,13 @@ public final class StaticTextureProvider implements TextureProvider {
     private final int mWidth, mHeight;
 
     public StaticTextureProvider(@Nonnull byte[] data) {
-        // copy to native memory
-        ByteBuffer buffer = MemoryUtil.memAlloc(data.length)
-                .put(data)
-                .rewind();
+        boolean isWebP = WebPDecoder.checkMagic(data);
+        // color swizzle for web usage
+        int[] rgbaSwizzle = new int[]{GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA};
+        // copy to native memory if it is not webp
+        ByteBuffer buffer = isWebP ? MemoryUtil.memAlloc(0) : MemoryUtil.memAlloc(data.length).put(data).rewind();
         // convert to RGBA
-        try (NativeImage image = NativeImage.read(buffer)) {
+        try (NativeImage image = isWebP ? WebPDecoder.toNativeImage(data, rgbaSwizzle) : NativeImage.read(buffer)) {
             mWidth = image.getWidth();
             mHeight = image.getHeight();
             if (mWidth > MAX_TEXTURE_SIZE || mHeight > MAX_TEXTURE_SIZE) {
@@ -51,7 +53,8 @@ public final class StaticTextureProvider implements TextureProvider {
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, 0.0F);
 
             for (int level = 0; level <= maxLevel; ++level) {
-                glTexImage2D(GL_TEXTURE_2D, level, GL_RGBA8, mWidth >> level, mHeight >> level,
+                glTexImage2D(GL_TEXTURE_2D, level,
+                        GL_RGBA8, mWidth >> level, mHeight >> level,
                         0, GL_RED, GL_UNSIGNED_BYTE, (IntBuffer) null);
             }
 
@@ -69,6 +72,10 @@ public final class StaticTextureProvider implements TextureProvider {
 
             try (image) {
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mWidth, mHeight, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
+                if (isWebP) {
+                    // rearrange argb / 0rgb to rgba
+                    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, rgbaSwizzle);
+                }
             }
 
             // auto generate mipmap

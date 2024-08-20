@@ -150,9 +150,11 @@ configurations {
 dependencies {
     // Modified by TeaCon
     jarJar implementation('org.teacon:urlpattern:1.0.1')
+    jarJar implementation('io.github.darkxanter:webp-imageio:0.3.2')
     jarJar implementation('org.apache.httpcomponents:httpclient-cache:4.5.13')
     // Modified by TeaCon
     additionalRuntimeClasspath 'org.teacon:urlpattern:1.0.1'
+    additionalRuntimeClasspath 'io.github.darkxanter:webp-imageio:0.3.2'
     additionalRuntimeClasspath 'org.apache.httpcomponents:httpclient-cache:4.5.13'
 }
 
