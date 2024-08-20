@@ -4,7 +4,9 @@ import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.ByIdMap;
+import net.minecraft.util.RandomSource;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.ItemInteractionResult;
@@ -43,7 +45,6 @@ import static net.minecraft.world.level.block.state.properties.BlockStatePropert
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@SuppressWarnings("deprecation")
 public final class ProjectorBlock extends Block implements EntityBlock {
 
     public static final EnumProperty<InternalRotation>
@@ -105,27 +106,35 @@ public final class ProjectorBlock extends Block implements EntityBlock {
     }
 
     @Override
-    public void neighborChanged(BlockState state, Level level,
-                                BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         var newPowered = level.hasNeighborSignal(pos);
         var oldPowered = state.getValue(POWERED);
-        if (newPowered && !oldPowered) {
-            level.setBlock(pos, state.setValue(POWERED, true), Block.UPDATE_ALL);
-            if (!level.isClientSide && level.getBlockEntity(pos) instanceof ProjectorBlockEntity projector) {
+        if (newPowered != oldPowered) {
+            level.setBlock(pos, state.setValue(POWERED, newPowered), Block.UPDATE_CLIENTS);
+        }
+        if (level.getBlockEntity(pos) instanceof ProjectorBlockEntity projector) {
+            if (!oldPowered) {
                 var moved = projector.moveSlideItems(1) > 0;
                 if (!moved) {
                     projector.moveSlideItems(-SLIDE_ITEM_HANDLER_CAPACITY);
                 }
             }
-        }
-        if (!newPowered && oldPowered) {
-            level.setBlock(pos, state.setValue(POWERED, false), Block.UPDATE_ALL);
-            if (!level.isClientSide && level.getBlockEntity(pos) instanceof ProjectorBlockEntity projector) {
-                var initial = projector.getItemsDisplayedCount() == 0;
-                if (initial) {
+            if (!newPowered) {
+                var displaying = projector.getItemsDisplayedCount() > 0;
+                if (!displaying) {
                     projector.moveSlideItems(1);
                 }
             }
+        }
+    }
+
+    @Override
+    public void neighborChanged(BlockState state, Level level,
+                                BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
+        var newPowered = level.hasNeighborSignal(pos);
+        var oldPowered = state.getValue(POWERED);
+        if (newPowered != oldPowered) {
+            level.scheduleTick(pos, this, 2);
         }
     }
 
