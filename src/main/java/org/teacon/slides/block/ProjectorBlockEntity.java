@@ -15,12 +15,14 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.BlockItemStateProperties;
 import net.minecraft.world.item.component.ItemContainerContents;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -106,6 +108,15 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
             this.mItemsDisplayed.setStackInSlot(i, i < count ? container.getStackInSlot(i) : ItemStack.EMPTY);
             this.mItemsToDisplay.setStackInSlot(i, j < count ? container.getStackInSlot(j) : ItemStack.EMPTY);
         }
+        var rotation = componentInput.getOrDefault(DataComponents.BLOCK_STATE, BlockItemStateProperties.EMPTY);
+        if (this.level instanceof ServerLevel serverLevel && serverLevel.isLoaded(this.getBlockPos())) {
+            var state = rotation.apply(this.getBlockState());
+            // update states
+            if (!serverLevel.setBlock(this.getBlockPos(), state, Block.UPDATE_ALL)) {
+                // state is unchanged, but re-render it
+                serverLevel.sendBlockUpdated(this.getBlockPos(), state, state, Block.UPDATE_CLIENTS);
+            }
+        }
     }
 
     @Override
@@ -118,6 +129,8 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
             containerItems.set(j, this.mItemsToDisplay.getStackInSlot(i));
         }
         components.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(containerItems));
+        var rotation = BlockItemStateProperties.EMPTY.with(ProjectorBlock.ROTATION, this.getBlockState());
+        components.set(DataComponents.BLOCK_STATE, rotation);
     }
 
     @Override

@@ -4,6 +4,7 @@ import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.ByIdMap;
 import net.minecraft.util.RandomSource;
@@ -155,7 +156,9 @@ public final class ProjectorBlock extends Block implements EntityBlock {
             if (level.getBlockEntity(pos) instanceof ProjectorBlockEntity projector) {
                 var item = this.asItem().getDefaultInstance();
                 item.applyComponents(projector.collectComponents());
-                if (!ItemStack.isSameItemSameComponents(item, this.asItem().getDefaultInstance())) {
+                var compareItem = this.asItem().getDefaultInstance();
+                compareItem.set(DataComponents.BLOCK_STATE, item.get(DataComponents.BLOCK_STATE));
+                if (!ItemStack.isSameItemSameComponents(item, compareItem)) {
                     var itemEntity = new ItemEntity(level, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, item);
                     itemEntity.setDefaultPickUpDelay();
                     level.addFreshEntity(itemEntity);
