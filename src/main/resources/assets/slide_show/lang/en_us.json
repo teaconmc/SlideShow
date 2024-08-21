@@ -2,10 +2,8 @@
     "argument.slide_show.projector_url.error": "Input %s is not a valid url",
     "argument.slide_show.projector_url_pattern.error": "Input %s is not a valid url pattern",
 
-    "block.slide_show.projector": "Slide Show Projector",
     "item.slide_show.slide_item": "Slide Item",
-    "item.slide_show.slide_item.blocked": "Slide Item (URL Having Been Blocked)",
-    "item.slide_show.slide_item.allowed": "Slide Item (URL Having Been Set)",
+    "block.slide_show.projector": "Slide Show Projector",
     "item.slide_show.slide_item.hint": "Hold it on your hand and right click to edit the URL and related information of this slide",
 
     "command.slide_show.scroll_up.success": "Successfully scrolled up %s slide item(s)",

@@ -2,6 +2,9 @@ package org.teacon.slides.renderer;
 
 import com.google.common.collect.ImmutableSet;
 import com.mojang.blaze3d.systems.RenderSystem;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.ints.IntLists;
 import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
@@ -10,6 +13,7 @@ import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -17,19 +21,18 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.CustomizeGuiOverlayEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.block.ProjectorBlockEntity;
 import org.teacon.slides.cache.ImageCache;
 import org.teacon.slides.network.SlideURLRequestPacket;
 import org.teacon.slides.slide.Slide;
-import org.teacon.slides.texture.AnimatedTextureProvider;
-import org.teacon.slides.texture.GIFDecoder;
-import org.teacon.slides.texture.StaticTextureProvider;
-import org.teacon.slides.texture.TextureProvider;
+import org.teacon.slides.texture.*;
 import org.teacon.slides.url.ProjectorURL;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -48,6 +51,7 @@ public final class SlideState {
     private static final Executor RENDER_EXECUTOR = r -> RenderSystem.recordRenderCall(r::run);
 
     private static final int PENDING_TIMEOUT_SECONDS = 360; // 6min
+    private static final Map<UUID, IntList> sOpeningSlotIds = new LinkedHashMap<>();
     private static final Object2IntMap<BlockPos> sBlockPending = new Object2IntLinkedOpenHashMap<>();
     private static final Object2ObjectMap<UUID, ProjectorURL> sIdWithImage = new Object2ObjectOpenHashMap<>();
 
@@ -68,7 +72,7 @@ public final class SlideState {
     public static void onTick(ClientTickEvent.Pre event) {
         var minecraft = Minecraft.getInstance();
         if (minecraft.player != null) {
-            SlideState.tick(minecraft.isPaused());
+            SlideState.tick(minecraft.player.containerMenu, minecraft.isPaused());
         }
     }
 
@@ -84,24 +88,14 @@ public final class SlideState {
         }
     }
 
-    private static void tick(boolean paused) {
-        var blockPosBuilder = ImmutableSet.<BlockPos>builderWithExpectedSize(sBlockPending.size());
-        // pending request and timeout (which should not have been occurred)
-        sBlockPending.object2IntEntrySet().removeIf(e -> {
-            var timeout = e.setValue(e.getIntValue() - 1);
-            if (timeout <= 0) {
-                SlideShow.LOGGER.warn("Pending block position timeout: {}", e.getKey());
-                return true;
-            }
-            if (timeout == PENDING_TIMEOUT_SECONDS * 20) {
-                blockPosBuilder.add(e.getKey());
-            }
-            return false;
-        });
-        var blockPosSet = blockPosBuilder.build();
-        if (!blockPosSet.isEmpty()) {
-            SlideShow.LOGGER.debug("Requesting project urls for {} block position(s)", blockPosSet.size());
-            PacketDistributor.sendToServer(new SlideURLRequestPacket(blockPosSet));
+    private static void tick(AbstractContainerMenu opening, boolean paused) {
+        // send url requests
+        var blockPosSet = tickBlockPosRequests();
+        var slotIdList = tickContainerChanges(opening);
+        if (!blockPosSet.isEmpty() || !slotIdList.isEmpty()) {
+            PacketDistributor.sendToServer(new SlideURLRequestPacket(blockPosSet, slotIdList));
+            var msg = "Requesting project urls for {} block position(s) and {} slot id(s)";
+            SlideShow.LOGGER.debug(msg, blockPosSet.size(), slotIdList.size());
         }
         // update cache
         if (!paused && ++sAnimationTick % 20 == 0) {
@@ -117,6 +111,43 @@ public final class SlideState {
                 sCleanerTimer = 0;
             }
         }
+    }
+
+    private static ImmutableSet<BlockPos> tickBlockPosRequests() {
+        var blockPosBuilder = ImmutableSet.<BlockPos>builderWithExpectedSize(sBlockPending.size());
+        sBlockPending.object2IntEntrySet().removeIf(e -> {
+            // pending request and timeout (which should not have been occurred)
+            var timeout = e.setValue(e.getIntValue() - 1);
+            if (timeout <= 0) {
+                SlideShow.LOGGER.warn("Pending block position timeout: {}", e.getKey());
+                return true;
+            }
+            if (timeout == PENDING_TIMEOUT_SECONDS * 20) {
+                blockPosBuilder.add(e.getKey());
+            }
+            return false;
+        });
+        return blockPosBuilder.build();
+    }
+
+    private static IntArrayList tickContainerChanges(AbstractContainerMenu playerContainer) {
+        var openingSlotIds =  new LinkedHashMap<UUID, IntList>();
+        var carriedEntry = playerContainer.getCarried().get(ModRegistries.SLIDE_ENTRY);
+        if (carriedEntry != null) {
+            openingSlotIds.computeIfAbsent(carriedEntry.id(), k -> new IntArrayList(1)).add(-1);
+        }
+        var slotSize = playerContainer.slots.size();
+        for (var i = 0; i < slotSize; ++i) {
+            var slotEntry = playerContainer.slots.get(i).getItem().get(ModRegistries.SLIDE_ENTRY);
+            if (slotEntry != null) {
+                openingSlotIds.computeIfAbsent(slotEntry.id(), k -> new IntArrayList(1)).add(i);
+            }
+        }
+        var slotIdList = new IntArrayList(openingSlotIds.size());
+        openingSlotIds.forEach((k, v) -> slotIdList.addAll(sOpeningSlotIds.containsKey(k) ? IntLists.EMPTY_LIST : v));
+        sOpeningSlotIds.clear();
+        sOpeningSlotIds.putAll(openingSlotIds);
+        return slotIdList;
     }
 
     private static void clear() {
@@ -210,7 +241,7 @@ public final class SlideState {
                             mState = State.FAILURE;
                             mSlide = Slide.failed();
                         }
-                            if (textureProvider != null) {
+                        if (textureProvider != null) {
                             mSlide.close();
                             mState = State.SUCCESS;
                             mSlide = Slide.make(textureProvider);
@@ -273,11 +304,15 @@ public final class SlideState {
     /**
      * Decode image and create texture.
      *
-     * @param data compressed image data
+     * @param nameDataEntry image file name & compressed image data
      * @return texture
      */
-    private static TextureProvider createTexture(byte[] data) {
-        return GIFDecoder.checkMagic(data) ? new AnimatedTextureProvider(data) : new StaticTextureProvider(data);
+    private static TextureProvider createTexture(Map.Entry<String, byte[]> nameDataEntry) {
+        var name = nameDataEntry.getKey();
+        var data = nameDataEntry.getValue();
+        var isGif = name.endsWith(".gif") || GIFDecoder.checkMagic(data);
+        var isWebP = name.endsWith(".webp") || WebPDecoder.checkMagic(data);
+        return isGif ? new AnimatedTextureProvider(name, data) : new StaticTextureProvider(name, data, isWebP);
     }
 
     public enum State {

@@ -97,6 +97,11 @@ public final class ImageSlide implements Slide {
     }
 
     @Override
+    public String getRecommendedName() {
+        return mTexture.getRecommendedName();
+    }
+
+    @Override
     public int getCPUMemorySize() {
         return mTexture.getCPUMemorySize();
     }

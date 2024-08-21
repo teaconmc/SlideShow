@@ -46,7 +46,8 @@ public final class ModRegistries {
     // Last Update: Tue, 18 Jan 2022 20:00:00 +0800 (1 => 2)
     // Last Update: Sun, 26 Mar 2023 22:00:00 +0800 (2 => 3)
     // Last Update: Mon, 29 Jul 2024 21:00:00 +0800 (3 => 4)
-    public static final String NETWORK_VERSION = "4";
+    // Last Update: Thu, 22 Aug 2024 02:00:00 +0800 (4 => 5)
+    public static final String NETWORK_VERSION = "5";
 
     public static final ResourceLocation PROJECTOR_URL_PATTERN_ID = SlideShow.id("projector_url_pattern");
     public static final ResourceLocation PROJECTOR_URL_ID = SlideShow.id("projector_url");

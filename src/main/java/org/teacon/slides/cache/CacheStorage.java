@@ -3,7 +3,6 @@ package org.teacon.slides.cache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
-import com.google.common.hash.Hashing;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -14,10 +13,13 @@ import net.minecraft.Util;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.Header;
+import org.apache.http.HttpHeaders;
+import org.apache.http.ParseException;
 import org.apache.http.client.cache.HttpCacheEntry;
 import org.apache.http.client.cache.HttpCacheStorage;
 import org.apache.http.client.cache.HttpCacheUpdateCallback;
 import org.apache.http.client.utils.DateUtils;
+import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.cache.FileResource;
 import org.apache.http.message.BasicLineParser;
 import org.apache.logging.log4j.LogManager;
@@ -28,17 +30,15 @@ import org.teacon.slides.SlideShow;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import javax.imageio.ImageIO;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.lang.ref.ReferenceQueue;
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.UnsupportedCharsetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -67,28 +67,20 @@ final class CacheStorage implements HttpCacheStorage {
 
     private static Pair<Path, HttpCacheEntry> normalize(Path parentPath, HttpCacheEntry entry) throws IOException {
         var bytes = IOUtils.toByteArray(entry.getResource().getInputStream());
+        var type = (ContentType) null;
+        try {
+            var contentTypeHeader = entry.getFirstHeader(HttpHeaders.CONTENT_TYPE);
+            if (contentTypeHeader != null) {
+                type = ContentType.parse(contentTypeHeader.getValue());
+            }
+        } catch (ParseException | UnsupportedCharsetException ignored) {
+            // do nothing`
+        }
         var tmp = Files.write(Files.createTempFile("slideshow-", ".tmp"), bytes);
-        var path = Files.move(tmp, parentPath.resolve(allocateImageName(bytes)), StandardCopyOption.REPLACE_EXISTING);
+        var path = Files.move(tmp, parentPath.resolve(
+                FilenameAllocation.allocateSha1HashName(bytes, type)), StandardCopyOption.REPLACE_EXISTING);
         return Pair.of(path, new HttpCacheEntry(entry.getRequestDate(), entry.getResponseDate(),
                 entry.getStatusLine(), entry.getAllHeaders(), new FileResource(path.toFile()), entry.getVariantMap()));
-    }
-
-    private static String allocateImageName(byte[] bytes) {
-        @SuppressWarnings("deprecation") var hashString = Hashing.sha1().hashBytes(bytes).toString();
-        try (var stream = new ByteArrayInputStream(bytes)) {
-            try (var imageStream = ImageIO.createImageInputStream(stream)) {
-                var readers = ImageIO.getImageReaders(imageStream);
-                if (readers.hasNext()) {
-                    var suffixes = readers.next().getOriginatingProvider().getFileSuffixes();
-                    if (suffixes.length > 0) {
-                        return hashString + "." + suffixes[0].toLowerCase(Locale.ENGLISH);
-                    }
-                }
-            }
-            return hashString;
-        } catch (IOException e) {
-            return hashString;
-        }
     }
 
     private static void saveJson(Map<String, Pair<Path, HttpCacheEntry>> entries, JsonObject root) {

@@ -33,10 +33,11 @@ public final class AnimatedTextureProvider implements TextureProvider {
 
     @Nullable
     private ByteBuffer mFrame;
+    private final String mRecommendedName;
 
     private final int mCPUMemorySize;
 
-    public AnimatedTextureProvider(byte[] data) {
+    public AnimatedTextureProvider(String name, byte[] data) {
         try {
             mDecoder = new GIFDecoder(ByteBuffer.wrap(data), gRenderThreadDecoder);
             final int width = mDecoder.getScreenWidth();
@@ -69,6 +70,7 @@ public final class AnimatedTextureProvider implements TextureProvider {
             // no mipmap generation
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, mFrame.rewind());
             mRenderType = new SlideRenderType(mTexture);
+            mRecommendedName = name;
         } catch (Throwable t) {
             close();
             throw new CompletionException(t);
@@ -122,6 +124,11 @@ public final class AnimatedTextureProvider implements TextureProvider {
     @Override
     public int getGPUMemorySize() {
         return getWidth() * getHeight() * 4;
+    }
+
+    @Override
+    public String getRecommendedName() {
+        return mRecommendedName;
     }
 
     @Override

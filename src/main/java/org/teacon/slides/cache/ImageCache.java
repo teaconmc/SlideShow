@@ -9,6 +9,7 @@ import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.cache.HttpCacheContext;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.cache.CacheConfig;
 import org.apache.http.impl.client.cache.CachingHttpClients;
@@ -27,6 +28,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
@@ -78,12 +80,14 @@ public final class ImageCache {
     }
 
     @Nonnull
-    public CompletableFuture<byte[]> getResource(@Nonnull URI location, boolean online) {
+    public CompletableFuture<Map.Entry<String, byte[]>> getResource(@Nonnull URI location, boolean online) {
         return CompletableFuture.supplyAsync(() -> {
             final HttpCacheContext context = HttpCacheContext.create();
             try (CloseableHttpResponse response = createResponse(location, context, online)) {
                 try {
-                    return IOUtils.toByteArray(response.getEntity().getContent());
+                    ContentType type = ContentType.getLenient(response.getEntity());
+                    byte[] bytes = IOUtils.toByteArray(response.getEntity().getContent());
+                    return Map.entry(FilenameAllocation.allocateHttpRespName(location, bytes, type), bytes);
                 } catch (IOException e) {
                     if (online) {
                         LOGGER.warn(MARKER, "Failed to read bytes from remote source.", e);

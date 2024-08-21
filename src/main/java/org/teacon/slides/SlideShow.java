@@ -5,6 +5,7 @@ import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.fml.common.Mod;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.teacon.slides.block.ProjectorBlockEntity;
@@ -29,6 +30,7 @@ public final class SlideShow {
 
     private static volatile Consumer<ProjectorBlockEntity> requestUrlPrefetch = Objects::hash;
     private static volatile BiConsumer<Set<UUID>, Map<UUID, ProjectorURL>> applyPrefetch = Objects::hash;
+    private static volatile Function<UUID, String> fetchSlideRecommendedName = uuid -> StringUtils.EMPTY;
     private static volatile Function<Either<UUID, ProjectorURL>, ProjectorURL.Status> checkBlock = url -> ProjectorURL.Status.UNKNOWN;
 
     public static void setRequestUrlPrefetch(Consumer<ProjectorBlockEntity> requestUrlPrefetch) {
@@ -45,6 +47,14 @@ public final class SlideShow {
 
     public static void applyPrefetch(Set<UUID> nonExistent, Map<UUID, ProjectorURL> existent) {
         applyPrefetch.accept(nonExistent, existent);
+    }
+
+    public static void setFetchSlideRecommendedName(Function<UUID, String> fetchSlideRecommendedName) {
+        SlideShow.fetchSlideRecommendedName = fetchSlideRecommendedName;
+    }
+
+    public static String fetchSlideRecommendedName(UUID uuid) {
+        return fetchSlideRecommendedName.apply(uuid);
     }
 
     public static void setCheckBlock(Function<Either<UUID, ProjectorURL>, ProjectorURL.Status> checkBlock) {

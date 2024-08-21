@@ -2,10 +2,8 @@
     "argument.slide_show.projector_url.error": "输入 %s 不是一个合法的 URL",
     "argument.slide_show.projector_url_pattern.error": "输入 %s 不是一个合法的 URL Pattern",
 
-    "block.slide_show.projector": "幻灯片投影仪",
     "item.slide_show.slide_item": "幻灯片",
-    "item.slide_show.slide_item.blocked": "幻灯片（URL 已被屏蔽）",
-    "item.slide_show.slide_item.allowed": "幻灯片（已设置 URL）",
+    "block.slide_show.projector": "幻灯片投影仪",
     "item.slide_show.slide_item.hint": "放在手上并使用右键可编辑该幻灯片的 URL 等相关信息",
 
     "command.slide_show.scroll_up.success": "已成功向上滚动 %s 个幻灯片",

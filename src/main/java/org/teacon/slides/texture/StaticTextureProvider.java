@@ -27,10 +27,10 @@ public final class StaticTextureProvider implements TextureProvider {
 
     private int mTexture;
     private final SlideRenderType mRenderType;
+    private final String mRecommendedName;
     private final int mWidth, mHeight;
 
-    public StaticTextureProvider(@Nonnull byte[] data) {
-        boolean isWebP = WebPDecoder.checkMagic(data);
+    public StaticTextureProvider(String name, byte[] data, boolean isWebP) {
         // color swizzle for web usage
         int[] rgbaSwizzle = new int[]{GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA};
         // copy to native memory if it is not webp
@@ -81,6 +81,7 @@ public final class StaticTextureProvider implements TextureProvider {
             // auto generate mipmap
             glGenerateMipmap(GL_TEXTURE_2D);
             mRenderType = new SlideRenderType(mTexture);
+            mRecommendedName = name;
         } catch (Throwable t) {
             close();
             throw new CompletionException(t);
@@ -113,6 +114,11 @@ public final class StaticTextureProvider implements TextureProvider {
     @Override
     public int getGPUMemorySize() {
         return mWidth * mHeight * 4 * 4 / 3;
+    }
+
+    @Override
+    public String getRecommendedName() {
+        return mRecommendedName;
     }
 
     @Override

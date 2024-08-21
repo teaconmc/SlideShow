@@ -31,6 +31,10 @@ public sealed interface Slide extends AutoCloseable permits IconSlide, ImageSlid
         return Optional.empty();
     }
 
+    default String getRecommendedName() {
+        return "";
+    }
+
     default int getCPUMemorySize() {
         return 0;
     }

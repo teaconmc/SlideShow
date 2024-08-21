@@ -41,6 +41,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.alwaysFalse;
+import static org.apache.commons.lang3.StringUtils.abbreviateMiddle;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -58,14 +59,10 @@ public final class SlideItem extends Item {
     }
 
     @Override
-    public String getDescriptionId(ItemStack stack) {
+    public Component getName(ItemStack stack) {
         var uuid = stack.getOrDefault(ModRegistries.SLIDE_ENTRY, SlideItem.ENTRY_DEF).id();
-        var status = SlideShow.checkBlock(uuid);
-        return switch (status) {
-            case UNKNOWN -> super.getDescriptionId();
-            case BLOCKED -> super.getDescriptionId() + ".blocked";
-            case ALLOWED -> super.getDescriptionId() + ".allowed";
-        };
+        var name = abbreviateMiddle("<" + SlideShow.fetchSlideRecommendedName(uuid) + ">", "...", 45);
+        return "<>".equals(name) ? Component.translatable(this.getDescriptionId(stack)) : Component.literal(name);
     }
 
     @Override

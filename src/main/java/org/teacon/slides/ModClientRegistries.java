@@ -1,5 +1,6 @@
 package org.teacon.slides;
 
+import com.google.common.base.Functions;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.item.ItemProperties;
@@ -14,6 +15,7 @@ import org.teacon.slides.renderer.ProjectorRenderer;
 import org.teacon.slides.renderer.SlideState;
 import org.teacon.slides.screen.ProjectorScreen;
 import org.teacon.slides.screen.SlideItemScreen;
+import org.teacon.slides.slide.Slide;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -44,6 +46,7 @@ public final class ModClientRegistries {
     public static void onClientSetup(final FMLClientSetupEvent event) {
         SlideShow.setRequestUrlPrefetch(SlideState::prefetch);
         SlideShow.setApplyPrefetch(SlideState::applyPrefetch);
+        SlideShow.setFetchSlideRecommendedName(Functions.compose(Slide::getRecommendedName, SlideState::getSlide));
         event.enqueueWork(() -> {
             var slideItem = ModRegistries.SLIDE_ITEM.get();
             ItemProperties.register(slideItem, SlideShow.id("url_status"), (stack, level, entity, seed) -> {
