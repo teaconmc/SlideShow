@@ -26,7 +26,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
-import org.teacon.slides.SlideShow;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -50,7 +49,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @ParametersAreNonnullByDefault
 final class CacheStorage implements HttpCacheStorage {
 
-    private static final Logger LOGGER = LogManager.getLogger(SlideShow.class);
+    private static final Logger LOGGER = LogManager.getLogger("SlideShow");
     private static final Marker MARKER = MarkerManager.getMarker("Downloader");
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
