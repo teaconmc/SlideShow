@@ -1,6 +1,7 @@
 package org.teacon.slides.renderer;
 
 import com.google.common.collect.ImmutableSet;
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -21,6 +22,7 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.CustomizeGuiOverlayEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.lwjgl.system.MemoryUtil;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.block.ProjectorBlockEntity;
@@ -32,13 +34,17 @@ import org.teacon.slides.url.ProjectorURL;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static org.lwjgl.opengl.GL11C.*;
 
 /**
  * @author BloCamLimb
@@ -131,7 +137,7 @@ public final class SlideState {
     }
 
     private static IntArrayList tickContainerChanges(AbstractContainerMenu playerContainer) {
-        var openingSlotIds =  new LinkedHashMap<UUID, IntList>();
+        var openingSlotIds = new LinkedHashMap<UUID, IntList>();
         var carriedEntry = playerContainer.getCarried().get(ModRegistries.SLIDE_ENTRY);
         if (carriedEntry != null) {
             openingSlotIds.computeIfAbsent(carriedEntry.id(), k -> new IntArrayList(1)).add(-1);
@@ -233,7 +239,7 @@ public final class SlideState {
         var requestCounter = mRequestCounter;
         ImageCache.getInstance()
                 .getResource(location.toUrl(), true)
-                .thenApplyAsync(SlideState::createTexture, RENDER_EXECUTOR)
+                .thenCompose(SlideState::createTexture)
                 .whenCompleteAsync((textureProvider, throwable) -> {
                     if (requestCounter == mRequestCounter) {
                         if (mState == State.INITIAL) {
@@ -252,7 +258,7 @@ public final class SlideState {
                 }, RENDER_EXECUTOR);
         ImageCache.getInstance()
                 .getResource(location.toUrl(), false)
-                .thenApplyAsync(SlideState::createTexture, RENDER_EXECUTOR)
+                .thenCompose(SlideState::createTexture)
                 .whenCompleteAsync((textureProvider, throwable) -> {
                     if (requestCounter == mRequestCounter) {
                         if (textureProvider != null) {
@@ -307,12 +313,47 @@ public final class SlideState {
      * @param nameDataEntry image file name & compressed image data
      * @return texture
      */
-    private static TextureProvider createTexture(Map.Entry<String, byte[]> nameDataEntry) {
+    private static CompletableFuture<TextureProvider> createTexture(Map.Entry<String, byte[]> nameDataEntry) {
         var name = nameDataEntry.getKey();
         var data = nameDataEntry.getValue();
+        var future = new CompletableFuture<TextureProvider>();
         var isGif = name.endsWith(".gif") || GIFDecoder.checkMagic(data);
         var isWebP = name.endsWith(".webp") || WebPDecoder.checkMagic(data);
-        return isGif ? new AnimatedTextureProvider(name, data) : new StaticTextureProvider(name, data, isWebP);
+        if (isGif) {
+            RenderSystem.recordRenderCall(() -> {
+                try {
+                    // TODO: decode GIFs asynchronously
+                    future.complete(new AnimatedTextureProvider(name, data));
+                } catch (IOException e) {
+                    future.completeExceptionally(e);
+                }
+            });
+        } else {
+            // color swizzle for web usage
+            var rgba = new int[]{GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA};
+            // copy to native memory if it is not webp
+            var buffer = isWebP ? MemoryUtil.memAlloc(0) : MemoryUtil.memAlloc(data.length).put(data).rewind();
+            try {
+                // convert to RGBA
+                // noinspection resource
+                var image = isWebP ? WebPDecoder.toNativeImage(data, rgba) : NativeImage.read(buffer);
+                RenderSystem.recordRenderCall(() -> {
+                    // noinspection TryFinallyCanBeTryWithResources
+                    try {
+                        future.complete(new StaticTextureProvider(name, image, rgba));
+                    } catch (Throwable e) {
+                        future.completeExceptionally(e);
+                    } finally {
+                        image.close();
+                    }
+                });
+            } catch (IOException e) {
+                future.completeExceptionally(e);
+            } finally {
+                MemoryUtil.memFree(buffer);
+            }
+        }
+        return future;
     }
 
     public enum State {

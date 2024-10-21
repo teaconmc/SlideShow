@@ -11,7 +11,6 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.concurrent.CompletionException;
 
 import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
@@ -37,7 +36,7 @@ public final class AnimatedTextureProvider implements TextureProvider {
 
     private final int mCPUMemorySize;
 
-    public AnimatedTextureProvider(String name, byte[] data) {
+    public AnimatedTextureProvider(String name, byte[] data) throws IOException {
         try {
             mDecoder = new GIFDecoder(ByteBuffer.wrap(data), gRenderThreadDecoder);
             final int width = mDecoder.getScreenWidth();
@@ -71,9 +70,9 @@ public final class AnimatedTextureProvider implements TextureProvider {
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, mFrame.rewind());
             mRenderType = new SlideRenderType(mTexture);
             mRecommendedName = name;
-        } catch (Throwable t) {
-            close();
-            throw new CompletionException(t);
+        } catch (IOException e) {
+            this.close();
+            throw e;
         }
     }
 

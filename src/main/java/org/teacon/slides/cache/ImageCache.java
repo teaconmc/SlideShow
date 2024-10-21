@@ -3,6 +3,7 @@ package org.teacon.slides.cache;
 import com.google.common.net.HttpHeaders;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.Util;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.Header;
 import org.apache.http.client.ClientProtocolException;
@@ -111,7 +112,7 @@ public final class ImageCache {
                 LOGGER.warn(MARKER, "Failed to establish connection.", connError);
                 throw new CompletionException(connError);
             }
-        });
+        }, Util.backgroundExecutor());
     }
 
     private CloseableHttpResponse createResponse(URI location, HttpCacheContext context, boolean online) throws IOException {

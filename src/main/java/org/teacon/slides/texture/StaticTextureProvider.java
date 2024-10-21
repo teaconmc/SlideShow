@@ -4,15 +4,13 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
-import org.lwjgl.system.MemoryUtil;
 import org.teacon.slides.renderer.SlideRenderType;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
-import java.util.concurrent.CompletionException;
 
 import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.opengl.GL12C.*;
@@ -30,13 +28,8 @@ public final class StaticTextureProvider implements TextureProvider {
     private final String mRecommendedName;
     private final int mWidth, mHeight;
 
-    public StaticTextureProvider(String name, byte[] data, boolean isWebP) {
-        // color swizzle for web usage
-        int[] rgbaSwizzle = new int[]{GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA};
-        // copy to native memory if it is not webp
-        ByteBuffer buffer = isWebP ? MemoryUtil.memAlloc(0) : MemoryUtil.memAlloc(data.length).put(data).rewind();
-        // convert to RGBA
-        try (NativeImage image = isWebP ? WebPDecoder.toNativeImage(data, rgbaSwizzle) : NativeImage.read(buffer)) {
+    public StaticTextureProvider(String name, NativeImage image, @Nullable int[] rgbaSwizzle) throws IOException {
+        try {
             mWidth = image.getWidth();
             mHeight = image.getHeight();
             if (mWidth > MAX_TEXTURE_SIZE || mHeight > MAX_TEXTURE_SIZE) {
@@ -72,7 +65,7 @@ public final class StaticTextureProvider implements TextureProvider {
 
             try (image) {
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mWidth, mHeight, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
-                if (isWebP) {
+                if (rgbaSwizzle != null) {
                     // rearrange argb / 0rgb to rgba
                     glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, rgbaSwizzle);
                 }
@@ -82,11 +75,9 @@ public final class StaticTextureProvider implements TextureProvider {
             glGenerateMipmap(GL_TEXTURE_2D);
             mRenderType = new SlideRenderType(mTexture);
             mRecommendedName = name;
-        } catch (Throwable t) {
-            close();
-            throw new CompletionException(t);
-        } finally {
-            MemoryUtil.memFree(buffer);
+        } catch (IOException e) {
+            this.close();
+            throw e;
         }
     }
 
