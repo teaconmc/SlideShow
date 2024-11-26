@@ -112,7 +112,7 @@ public final class ImageCache {
                 LOGGER.warn(MARKER, "Failed to establish connection.", connError);
                 throw new CompletionException(connError);
             }
-        }, Util.backgroundExecutor());
+        }, Util.nonCriticalIoPool());
     }
 
     private CloseableHttpResponse createResponse(URI location, HttpCacheContext context, boolean online) throws IOException {
