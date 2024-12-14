@@ -174,8 +174,6 @@ public final class SlideState {
     }
 
     public static void applyPrefetch(Set<UUID> nonExistent, Map<UUID, ProjectorURL> existent) {
-        // pending
-        sBlockPending.clear();
         // existent
         sIdWithImage.putAll(existent);
         // non-existent
@@ -185,6 +183,8 @@ public final class SlideState {
     }
 
     public static void prefetch(ProjectorBlockEntity blockEntity) {
+        System.out.println("Prefetch: " + blockEntity.getBlockPos());
+        new RuntimeException().printStackTrace(System.out);
         sBlockPending.add(blockEntity.getBlockPos());
     }
 
