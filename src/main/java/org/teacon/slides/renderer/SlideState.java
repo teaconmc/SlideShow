@@ -183,8 +183,6 @@ public final class SlideState {
     }
 
     public static void prefetch(ProjectorBlockEntity blockEntity) {
-        System.out.println("Prefetch: " + blockEntity.getBlockPos());
-        new RuntimeException().printStackTrace(System.out);
         sBlockPending.add(blockEntity.getBlockPos());
     }
 
