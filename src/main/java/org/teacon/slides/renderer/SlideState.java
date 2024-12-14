@@ -6,8 +6,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntLists;
-import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
-import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.FieldsAreNonnullByDefault;
@@ -35,10 +33,7 @@ import org.teacon.slides.url.ProjectorURL;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -56,9 +51,8 @@ import static org.lwjgl.opengl.GL11C.*;
 public final class SlideState {
     private static final Executor RENDER_EXECUTOR = r -> RenderSystem.recordRenderCall(r::run);
 
-    private static final int PENDING_TIMEOUT_SECONDS = 360; // 6min
+    private static final Set<BlockPos> sBlockPending = new LinkedHashSet<>();
     private static final Map<UUID, IntList> sOpeningSlotIds = new LinkedHashMap<>();
-    private static final Object2IntMap<BlockPos> sBlockPending = new Object2IntLinkedOpenHashMap<>();
     private static final Object2ObjectMap<UUID, ProjectorURL> sIdWithImage = new Object2ObjectOpenHashMap<>();
 
     private static final int RECYCLE_SECONDS = 120; // 2min
@@ -120,20 +114,9 @@ public final class SlideState {
     }
 
     private static ImmutableSet<BlockPos> tickBlockPosRequests() {
-        var blockPosBuilder = ImmutableSet.<BlockPos>builderWithExpectedSize(sBlockPending.size());
-        sBlockPending.object2IntEntrySet().removeIf(e -> {
-            // pending request and timeout (which should not have been occurred)
-            var timeout = e.setValue(e.getIntValue() - 1);
-            if (timeout <= 0) {
-                SlideShow.LOGGER.warn("Pending block position timeout: {}", e.getKey());
-                return true;
-            }
-            if (timeout == PENDING_TIMEOUT_SECONDS * 20) {
-                blockPosBuilder.add(e.getKey());
-            }
-            return false;
-        });
-        return blockPosBuilder.build();
+        var blockPosSet = ImmutableSet.copyOf(sBlockPending);
+        sBlockPending.clear();
+        return blockPosSet;
     }
 
     private static IntArrayList tickContainerChanges(AbstractContainerMenu playerContainer) {
@@ -202,7 +185,7 @@ public final class SlideState {
     }
 
     public static void prefetch(ProjectorBlockEntity blockEntity) {
-        sBlockPending.putIfAbsent(blockEntity.getBlockPos(), PENDING_TIMEOUT_SECONDS * 20);
+        sBlockPending.add(blockEntity.getBlockPos());
     }
 
     public static @Nullable Slide getSlide(UUID id) {
