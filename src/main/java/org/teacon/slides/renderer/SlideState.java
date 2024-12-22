@@ -20,6 +20,8 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.CustomizeGuiOverlayEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.lwjgl.stb.STBImage;
+import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
@@ -301,6 +303,7 @@ public final class SlideState {
         var isGif = name.endsWith(".gif") || GIFDecoder.checkMagic(data);
         var isWebP = name.endsWith(".webp") || WebPDecoder.checkMagic(data);
         if (isGif) {
+            // construct providers
             RenderSystem.recordRenderCall(() -> {
                 try {
                     // TODO: decode GIFs asynchronously
@@ -310,28 +313,48 @@ public final class SlideState {
                 }
             });
         } else {
+            var img = new NativeImage[1];
             // color swizzle for web usage
             var rgba = new int[]{GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA};
             // copy to native memory if it is not webp
             var buffer = isWebP ? MemoryUtil.memAlloc(0) : MemoryUtil.memAlloc(data.length).put(data).rewind();
+            // load images
             try {
-                // convert to RGBA
-                // noinspection resource
-                var image = isWebP ? WebPDecoder.toNativeImage(data, rgba) : NativeImage.read(buffer);
-                RenderSystem.recordRenderCall(() -> {
-                    // noinspection TryFinallyCanBeTryWithResources
-                    try {
-                        future.complete(new StaticTextureProvider(name, image, rgba));
-                    } catch (Throwable e) {
-                        future.completeExceptionally(e);
-                    } finally {
-                        image.close();
+                if (isWebP) {
+                    // convert to RGBA
+                    // noinspection resource
+                    img[0] = WebPDecoder.toNativeImage(data, rgba);
+                } else {
+                    try (var stack = MemoryStack.stackPush()) {
+                        var b1 = stack.mallocInt(1);
+                        var b2 = stack.mallocInt(1);
+                        var b3 = stack.mallocInt(1);
+                        var format = NativeImage.Format.RGBA;
+                        var loaded = STBImage.stbi_load_from_memory(buffer, b1, b2, b3, format.components());
+                        if (loaded == null) {
+                            throw new IOException("Could not load image: " + STBImage.stbi_failure_reason());
+                        } else {
+                            // noinspection resource
+                            img[0] = new NativeImage(format, b1.get(0), b2.get(0), true, MemoryUtil.memAddress(loaded));
+                        }
                     }
-                });
+                }
             } catch (IOException e) {
                 future.completeExceptionally(e);
             } finally {
                 MemoryUtil.memFree(buffer);
+            }
+            // construct providers
+            if (img[0] != null) {
+                RenderSystem.recordRenderCall(() -> {
+                    try {
+                        future.complete(new StaticTextureProvider(name, img[0], rgba));
+                    } catch (Throwable e) {
+                        future.completeExceptionally(e);
+                    } finally {
+                        img[0].close();
+                    }
+                });
             }
         }
         return future;
@@ -339,11 +362,11 @@ public final class SlideState {
 
     public enum State {
         /**
-         * INITIAL: a slide which has never been loaded yet.
-         * SUCCESS: a network resource is succeeded to retrieve.
-         * OFFLINE: a network resource is failed to retrieve but the offline resource is available.
-         * TIMEOUT: a slide which has been marked as timeout and a refresh task is executing.
-         * FAILURE: it is failed to retrieve either the network or the offline resource.
+         * <p>INITIAL: a slide which has never been loaded yet.</p>
+         * <p>SUCCESS: a network resource is succeeded to retrieve.</p>
+         * <p>OFFLINE: a network resource is failed to retrieve but the offline resource is available.</p>
+         * <p>TIMEOUT: a slide which has been marked as timeout and a refresh task is executing.</p>
+         * <p>FAILURE: it is failed to retrieve either the network or the offline resource.</p>
          */
         INITIAL, SUCCESS, OFFLINE, TIMEOUT, FAILURE
     }
