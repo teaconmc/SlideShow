@@ -54,32 +54,47 @@ final class CacheStorage implements HttpCacheStorage {
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
 
+    private static final ThreadLocal<Path> tempFilePath = ThreadLocal.withInitial(() -> {
+        var name = Thread.currentThread().getName();
+        try {
+            return Files.createTempFile("slideshow-", "-" + name + ".tmp");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    });
+
     private final Object keyLock;
     private final Path parentPath;
     private final Path keyFilePath;
 
     private final AtomicInteger markedDirty = new AtomicInteger();
     private final Map<String, Pair<Path, HttpCacheEntry>> entries = new LinkedHashMap<>();
-
     private final ReferenceQueue<HttpCacheEntry> referenceQueue;
     private final Set<ResourceReference> resourceReferenceHolder;
 
-    private static Pair<Path, HttpCacheEntry> normalize(Path parentPath, HttpCacheEntry entry) throws IOException {
-        var bytes = IOUtils.toByteArray(entry.getResource().getInputStream());
+    private static Pair<Path, HttpCacheEntry> normalize(Path parent, HttpCacheEntry ce) throws IOException {
+        var bytes = IOUtils.toByteArray(ce.getResource().getInputStream());
         var type = (ContentType) null;
         try {
-            var contentTypeHeader = entry.getFirstHeader(HttpHeaders.CONTENT_TYPE);
+            var contentTypeHeader = ce.getFirstHeader(HttpHeaders.CONTENT_TYPE);
             if (contentTypeHeader != null) {
                 type = ContentType.parse(contentTypeHeader.getValue());
             }
         } catch (ParseException | UnsupportedCharsetException ignored) {
-            // do nothing`
+            // do nothing
         }
-        var tmp = Files.write(Files.createTempFile("slideshow-", ".tmp"), bytes);
-        var path = Files.move(tmp, parentPath.resolve(
-                FilenameAllocation.allocateSha1HashName(bytes, type)), StandardCopyOption.REPLACE_EXISTING);
-        return Pair.of(path, new HttpCacheEntry(entry.getRequestDate(), entry.getResponseDate(),
-                entry.getStatusLine(), entry.getAllHeaders(), new FileResource(path.toFile()), entry.getVariantMap()));
+        var source = tempFilePath.get();
+        var targetName = FilenameAllocation.allocateSha1HashName(bytes, type);
+        try {
+            var target = Files.move(Files.write(source, bytes),
+                    parent.resolve(targetName), StandardCopyOption.REPLACE_EXISTING);
+            return Pair.of(target, new HttpCacheEntry(ce.getRequestDate(), ce.getResponseDate(),
+                    ce.getStatusLine(), ce.getAllHeaders(), new FileResource(target.toFile()), ce.getVariantMap()));
+        } finally {
+            if (Files.deleteIfExists(source)) {
+                LOGGER.warn(MARKER, "Failed to move temporary file {} to {}", source.getFileName(), targetName);
+            }
+        }
     }
 
     private static void saveJson(Map<String, Pair<Path, HttpCacheEntry>> entries, JsonObject root) {
