@@ -74,5 +74,9 @@
     "gui.slide_show.section.size": "Width & Height",
     "gui.slide_show.section.offset": "Offset",
     "gui.slide_show.section.others.first": "Colors &",
-    "gui.slide_show.section.others.second": "Transforms"
+    "gui.slide_show.section.others.second": "Transforms",
+    "gui.slide_show.section.container_hint": "Slides for Projection",
+    "gui.slide_show.section.container_hint_1": "Above are the slides waiting for projection, sorted by natural order",
+    "gui.slide_show.section.container_hint_2": "Below are the slides already been projected, sorted by natural order",
+    "gui.slide_show.section.container_hint_3": "Redstone signals can be used for controlling"
 }

@@ -1,6 +1,7 @@
 package org.teacon.slides.screen;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.ChatFormatting;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.gui.GuiGraphics;
@@ -29,6 +30,7 @@ import org.teacon.slides.network.ProjectorUpdatePacket.Category;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Objects;
 
 @FieldsAreNonnullByDefault
@@ -59,7 +61,11 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             MOVE_TO_END_TEXT = Component.translatable("gui.slide_show.move_to_end"),
             FLIP_TEXT = Component.translatable("gui.slide_show.flip"),
             ROTATE_TEXT = Component.translatable("gui.slide_show.rotate"),
-            SINGLE_DOUBLE_SIDED_TEXT = Component.translatable("gui.slide_show.single_double_sided");
+            SINGLE_DOUBLE_SIDED_TEXT = Component.translatable("gui.slide_show.single_double_sided"),
+            CONTAINER_HINT_TEXT = Component.translatable("gui.slide_show.section.container_hint"),
+            CONTAINER_HINT_1_TEXT = Component.translatable("gui.slide_show.section.container_hint_1").withStyle(ChatFormatting.GRAY),
+            CONTAINER_HINT_2_TEXT = Component.translatable("gui.slide_show.section.container_hint_2").withStyle(ChatFormatting.GRAY),
+            CONTAINER_HINT_3_TEXT = Component.translatable("gui.slide_show.section.container_hint_3").withStyle(ChatFormatting.GRAY);
 
     private final LazyWidget<EditBox> mColorInput;
     private final LazyWidget<EditBox> mWidthInput;
@@ -487,6 +493,12 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             gui.renderTooltip(font, ROTATE_TEXT, mouseX, mouseY);
         } else if (offsetX >= 322 && offsetY >= 46 && offsetX < 340 && offsetY < 65) {
             gui.renderTooltip(font, SINGLE_DOUBLE_SIDED_TEXT, mouseX, mouseY);
+        } else if (offsetX >= 7 && offsetY >= 115 && offsetX < 223 && offsetY < 156) {
+            gui.renderTooltip(font, List.of(
+                    CONTAINER_HINT_TEXT.getVisualOrderText(),
+                    CONTAINER_HINT_1_TEXT.getVisualOrderText(),
+                    CONTAINER_HINT_2_TEXT.getVisualOrderText(),
+                    CONTAINER_HINT_3_TEXT.getVisualOrderText()), mouseX, mouseY);
         }
     }
 

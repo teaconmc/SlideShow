@@ -74,5 +74,9 @@
     "gui.slide_show.section.size": "投影长宽",
     "gui.slide_show.section.offset": "投影平移量",
     "gui.slide_show.section.others.first": "投影颜色",
-    "gui.slide_show.section.others.second": "及投影变换"
+    "gui.slide_show.section.others.second": "及投影变换",
+    "gui.slide_show.section.container_hint": "用于播放的幻灯片",
+    "gui.slide_show.section.container_hint_1": "上方为等待播放的幻灯片，从前到后自然排序",
+    "gui.slide_show.section.container_hint_2": "下方为已经播放的幻灯片，从前到后自然排序",
+    "gui.slide_show.section.container_hint_3": "可使用红石信号控制播放"
 }
