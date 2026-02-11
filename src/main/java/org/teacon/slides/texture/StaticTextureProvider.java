@@ -6,8 +6,6 @@ import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import org.teacon.slides.renderer.SlideRenderType;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 import java.nio.IntBuffer;
@@ -16,7 +14,6 @@ import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.opengl.GL12C.*;
 import static org.lwjgl.opengl.GL14C.GL_TEXTURE_LOD_BIAS;
 import static org.lwjgl.opengl.GL30C.glGenerateMipmap;
-import static org.lwjgl.opengl.GL33C.GL_TEXTURE_SWIZZLE_RGBA;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -28,7 +25,7 @@ public final class StaticTextureProvider implements TextureProvider {
     private final String mRecommendedName;
     private final int mWidth, mHeight;
 
-    public StaticTextureProvider(String name, NativeImage image, @Nullable int[] rgbaSwizzle) throws IOException {
+    public StaticTextureProvider(String name, NativeImage image) throws IOException {
         try {
             mWidth = image.getWidth();
             mHeight = image.getHeight();
@@ -48,7 +45,7 @@ public final class StaticTextureProvider implements TextureProvider {
             for (int level = 0; level <= maxLevel; ++level) {
                 glTexImage2D(GL_TEXTURE_2D, level,
                         GL_RGBA8, mWidth >> level, mHeight >> level,
-                        0, GL_RED, GL_UNSIGNED_BYTE, (IntBuffer) null);
+                        0, GL_RGBA, GL_UNSIGNED_BYTE, (IntBuffer) null);
             }
 
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -65,10 +62,6 @@ public final class StaticTextureProvider implements TextureProvider {
 
             try (image) {
                 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mWidth, mHeight, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
-                if (rgbaSwizzle != null) {
-                    // rearrange argb / 0rgb to rgba
-                    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, rgbaSwizzle);
-                }
             }
 
             // auto generate mipmap
@@ -81,7 +74,6 @@ public final class StaticTextureProvider implements TextureProvider {
         }
     }
 
-    @Nonnull
     @Override
     public SlideRenderType updateAndGet(long tick, float partialTick) {
         return mRenderType;

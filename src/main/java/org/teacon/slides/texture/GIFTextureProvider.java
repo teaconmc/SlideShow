@@ -6,7 +6,6 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import org.lwjgl.system.MemoryUtil;
 import org.teacon.slides.renderer.SlideRenderType;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
@@ -18,7 +17,7 @@ import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class AnimatedTextureProvider implements TextureProvider {
+public final class GIFTextureProvider implements TextureProvider {
 
     private static final LZWDecoder gRenderThreadDecoder = new LZWDecoder();
 
@@ -36,7 +35,7 @@ public final class AnimatedTextureProvider implements TextureProvider {
 
     private final int mCPUMemorySize;
 
-    public AnimatedTextureProvider(String name, byte[] data) throws IOException {
+    public GIFTextureProvider(String name, byte[] data) throws IOException {
         try {
             mDecoder = new GIFDecoder(ByteBuffer.wrap(data), gRenderThreadDecoder);
             final int width = mDecoder.getScreenWidth();
@@ -76,7 +75,6 @@ public final class AnimatedTextureProvider implements TextureProvider {
         }
     }
 
-    @Nonnull
     @Override
     public SlideRenderType updateAndGet(long tick, float partialTick) {
         long timeMillis = (long) ((tick + partialTick) * 50);

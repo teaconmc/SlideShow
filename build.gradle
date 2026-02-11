@@ -44,6 +44,7 @@ group = mod_group_id
 repositories {
     mavenLocal()
     // Added by TeaCon
+    mavenCentral()
     maven {
         name "JitPack"
         url 'https://jitpack.io'
@@ -151,12 +152,12 @@ dependencies {
     // Modified by TeaCon
     jarJar implementation('org.teacon:urlpattern:1.0.1')
     jarJar implementation('org.teacon:content-disposition:1.0.0')
-    jarJar implementation('io.github.darkxanter:webp-imageio:0.3.2')
+    jarJar implementation('dev.matrixlab.webp4j:webp4j-core:2.1.0')
     jarJar implementation('org.apache.httpcomponents:httpclient-cache:4.5.13')
     // Modified by TeaCon
     additionalRuntimeClasspath 'org.teacon:urlpattern:1.0.1'
     additionalRuntimeClasspath 'org.teacon:content-disposition:1.0.0'
-    additionalRuntimeClasspath 'io.github.darkxanter:webp-imageio:0.3.2'
+    additionalRuntimeClasspath 'dev.matrixlab.webp4j:webp4j-core:2.1.0'
     additionalRuntimeClasspath 'org.apache.httpcomponents:httpclient-cache:4.5.13'
 }
 

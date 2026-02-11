@@ -3,6 +3,10 @@ package org.teacon.slides.renderer;
 import com.google.common.collect.ImmutableSet;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
+import dev.matrixlab.webp4j.internal.NativeWebP;
+import dev.matrixlab.webp4j.model.AnimatedWebPData;
+import dev.matrixlab.webp4j.model.VP8StatusCode;
+import dev.matrixlab.webp4j.model.WebPBitstreamFeatures;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntLists;
@@ -36,12 +40,11 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.lwjgl.opengl.GL11C.*;
 
 /**
  * @author BloCamLimb
@@ -220,37 +223,55 @@ public final class SlideState {
 
     private void refresh(ProjectorURL location) {
         var requestCounter = mRequestCounter;
-        ImageCache.getInstance()
-                .getResource(location.toUrl(), true)
-                .thenCompose(SlideState::createTexture)
-                .whenCompleteAsync((textureProvider, throwable) -> {
-                    if (requestCounter == mRequestCounter) {
-                        if (mState == State.INITIAL) {
-                            mSlide.close();
-                            mState = State.FAILURE;
-                            mSlide = Slide.failed();
-                        }
-                        if (textureProvider != null) {
-                            mSlide.close();
-                            mState = State.SUCCESS;
-                            mSlide = Slide.make(textureProvider);
-                            mRecycleCounter += RECYCLE_SECONDS - RETRY_INTERVAL_SECONDS;
-                        }
-                        mRequestCounter = requestCounter + 1;
-                    }
-                }, RENDER_EXECUTOR);
-        ImageCache.getInstance()
-                .getResource(location.toUrl(), false)
-                .thenCompose(SlideState::createTexture)
-                .whenCompleteAsync((textureProvider, throwable) -> {
-                    if (requestCounter == mRequestCounter) {
-                        if (textureProvider != null) {
-                            mSlide.close();
-                            mState = State.OFFLINE;
-                            mSlide = Slide.make(textureProvider);
-                        }
-                    }
-                }, RENDER_EXECUTOR);
+        ImageCache.getInstance().getResource(location.toUrl(), true).thenCompose(entry -> {
+            var future = new CompletableFuture<TextureProvider>();
+            var providerFactory = dispatchProviderFactory(entry);
+            RenderSystem.recordRenderCall(() -> {
+                try {
+                    future.complete(providerFactory.call());
+                } catch (Exception e) {
+                    SlideShow.LOGGER.error("Failed to load online texture provider from {}", location, e);
+                    future.completeExceptionally(e);
+                }
+            });
+            return future;
+        }).whenCompleteAsync((textureProvider, throwable) -> {
+            if (requestCounter == mRequestCounter) {
+                if (mState == State.INITIAL) {
+                    mSlide.close();
+                    mState = State.FAILURE;
+                    mSlide = Slide.failed();
+                }
+                if (textureProvider != null) {
+                    mSlide.close();
+                    mState = State.SUCCESS;
+                    mSlide = Slide.make(textureProvider);
+                    mRecycleCounter += RECYCLE_SECONDS - RETRY_INTERVAL_SECONDS;
+                }
+                mRequestCounter = requestCounter + 1;
+            }
+        }, RENDER_EXECUTOR);
+        ImageCache.getInstance().getResource(location.toUrl(), false).thenCompose(entry -> {
+            var future = new CompletableFuture<TextureProvider>();
+            var providerFactory = dispatchProviderFactory(entry);
+            RenderSystem.recordRenderCall(() -> {
+                try {
+                    future.complete(providerFactory.call());
+                } catch (Exception e) {
+                    SlideShow.LOGGER.error("Failed to load offline texture provider from {}", location, e);
+                    future.completeExceptionally(e);
+                }
+            });
+            return future;
+        }).whenCompleteAsync((textureProvider, throwable) -> {
+            if (requestCounter == mRequestCounter) {
+                if (textureProvider != null) {
+                    mSlide.close();
+                    mState = State.OFFLINE;
+                    mSlide = Slide.make(textureProvider);
+                }
+            }
+        }, RENDER_EXECUTOR);
     }
 
     private Slide fetch() {
@@ -290,74 +311,83 @@ public final class SlideState {
                 "counter=" + mRecycleCounter + ", requests=" + mRequestCounter + "}";
     }
 
+    private static Callable<TextureProvider> throwIOE(String message) {
+        return () -> {
+            throw new IOException(message);
+        };
+    }
+
     /**
      * Decode image and create texture.
      *
      * @param nameDataEntry image file name & compressed image data
      * @return texture
      */
-    private static CompletableFuture<TextureProvider> createTexture(Map.Entry<String, byte[]> nameDataEntry) {
+    private static Callable<TextureProvider> dispatchProviderFactory(Map.Entry<String, byte[]> nameDataEntry) {
         var name = nameDataEntry.getKey();
         var data = nameDataEntry.getValue();
-        var future = new CompletableFuture<TextureProvider>();
+        // gif
         var isGif = name.endsWith(".gif") || GIFDecoder.checkMagic(data);
-        var isWebP = name.endsWith(".webp") || WebPDecoder.checkMagic(data);
         if (isGif) {
-            // construct providers
-            RenderSystem.recordRenderCall(() -> {
-                try {
-                    // TODO: decode GIFs asynchronously
-                    future.complete(new AnimatedTextureProvider(name, data));
-                } catch (IOException e) {
-                    future.completeExceptionally(e);
+            // TODO: decode GIFs asynchronously
+            return () -> new GIFTextureProvider(name, data);
+        }
+        // webp detector
+        var featureWebP = name.endsWith(".webp") || WebPDecoder.checkMagic(data) ? new WebPBitstreamFeatures() : null;
+        if (featureWebP != null) {
+            var success = VP8StatusCode.getStatusCode(NativeWebP.getFeatures(data, data.length, featureWebP));
+            if (success != VP8StatusCode.VP8_STATUS_OK) {
+                return throwIOE("Failed to decode webp image features.");
+            }
+        }
+        // animated webp
+        if (featureWebP != null && featureWebP.isHasAnimation()) {
+            var webPData = new AnimatedWebPData();
+            var success = NativeWebP.decodeAnimatedWebP(data, webPData);
+            if (!success) {
+                return throwIOE("Failed to decode animated webp image.");
+            }
+            if (webPData.getFrameCount() > 1) {
+                return () -> new WebPTextureProvider(name, data.length, webPData, featureWebP.isHasAlpha());
+            }
+        }
+        var img = new NativeImage[1];
+        // static webp
+        if (featureWebP != null) {
+            var width = featureWebP.getWidth();
+            var height = featureWebP.getHeight();
+            var bytes = new byte[width * height * 4];
+            if (!NativeWebP.decodeRGBAInto(data, bytes, width * 4)) {
+                return throwIOE("Failed to decode static webp image.");
+            }
+            var format = NativeImage.Format.RGBA;
+            var loaded = MemoryUtil.memAlloc(bytes.length).put(bytes).rewind();
+            // noinspection resource
+            img[0] = new NativeImage(format, width, height, false, MemoryUtil.memAddress(loaded));
+        }
+        // static image by stbi
+        if (img[0] == null) {
+            // copy to native memory
+            var buffer = MemoryUtil.memAlloc(data.length).put(data).rewind();
+            // load rgba image
+            try (var stack = MemoryStack.stackPush()) {
+                var width = stack.mallocInt(1);
+                var height = stack.mallocInt(1);
+                var channels = stack.mallocInt(1);
+                var format = NativeImage.Format.RGBA;
+                var loaded = STBImage.stbi_load_from_memory(buffer, width, height, channels, format.components());
+                if (loaded == null) {
+                    return throwIOE("Failed to decode image from stbi (" + STBImage.stbi_failure_reason() + ").");
                 }
-            });
-        } else {
-            var img = new NativeImage[1];
-            // color swizzle for web usage
-            var rgba = new int[]{GL_RED, GL_GREEN, GL_BLUE, GL_ALPHA};
-            // copy to native memory if it is not webp
-            var buffer = isWebP ? MemoryUtil.memAlloc(0) : MemoryUtil.memAlloc(data.length).put(data).rewind();
-            // load images
-            try {
-                if (isWebP) {
-                    // convert to RGBA
-                    // noinspection resource
-                    img[0] = WebPDecoder.toNativeImage(data, rgba);
-                } else {
-                    try (var stack = MemoryStack.stackPush()) {
-                        var b1 = stack.mallocInt(1);
-                        var b2 = stack.mallocInt(1);
-                        var b3 = stack.mallocInt(1);
-                        var format = NativeImage.Format.RGBA;
-                        var loaded = STBImage.stbi_load_from_memory(buffer, b1, b2, b3, format.components());
-                        if (loaded == null) {
-                            throw new IOException("Could not load image: " + STBImage.stbi_failure_reason());
-                        } else {
-                            // noinspection resource
-                            img[0] = new NativeImage(format, b1.get(0), b2.get(0), true, MemoryUtil.memAddress(loaded));
-                        }
-                    }
-                }
-            } catch (IOException e) {
-                future.completeExceptionally(e);
+                var addr = MemoryUtil.memAddress(loaded);
+                // noinspection resource
+                img[0] = new NativeImage(format, width.get(0), height.get(0), true, addr);
             } finally {
                 MemoryUtil.memFree(buffer);
             }
-            // construct providers
-            if (img[0] != null) {
-                RenderSystem.recordRenderCall(() -> {
-                    try {
-                        future.complete(new StaticTextureProvider(name, img[0], rgba));
-                    } catch (Throwable e) {
-                        future.completeExceptionally(e);
-                    } finally {
-                        img[0].close();
-                    }
-                });
-            }
         }
-        return future;
+        // construct static provider
+        return () -> new StaticTextureProvider(name, Objects.requireNonNull(img[0]));
     }
 
     public enum State {
