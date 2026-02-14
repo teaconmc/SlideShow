@@ -24,7 +24,7 @@ jobs:
           VERSION_IDENTIFIER: SNAPSHOT+${{ steps.short-sha.outputs.sha }}
         run: ./gradlew build githubActionOutput --stacktrace
       - name: GitHub Action Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.build.outputs.artifact_name }}
           path: ${{ steps.build.outputs.artifact_path }}
