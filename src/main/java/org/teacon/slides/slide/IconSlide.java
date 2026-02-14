@@ -7,7 +7,9 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import org.joml.Vector2i;
 import org.teacon.slides.SlideShow;
+import org.teacon.slides.calc.Concrete;
 import org.teacon.slides.renderer.SlideRenderType;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -42,25 +44,16 @@ public enum IconSlide implements Slide {
     }
 
     @Override
-    public void render(MultiBufferSource source, PoseStack.Pose pose,
-                       int widthMicros, int heightMicros, double scaleWidthMicros, double scaleHeightMicros,
+    public void render(MultiBufferSource source, PoseStack.Pose pose, Vector2i viewportMicros, Concrete.Size size,
                        int color, int light, int overlay, boolean front, boolean back, long tick, float partialTick) {
         var alpha = color >>> 24;
-        var realWidthMicros = (float) Math.min(widthMicros, scaleWidthMicros);
-        var realHeightMicros = (float) Math.min(heightMicros, scaleHeightMicros);
-        var realPaddingWidth = (widthMicros - realWidthMicros) / 2F;
-        var realPaddingHeight = (heightMicros - realHeightMicros) / 2F;
-        var factor = getFactor(realWidthMicros, realHeightMicros);
-        var xSize = Math.round(realWidthMicros / factor);
-        var ySize = Math.round(realHeightMicros / factor);
-        renderIcon(source, pose,
-                realWidthMicros, realHeightMicros,
-                realPaddingWidth, realPaddingHeight,
-                alpha, light, xSize, ySize, front, back);
-        renderBackground(source, pose,
-                realWidthMicros, realHeightMicros,
-                realPaddingWidth, realPaddingHeight,
-                alpha, light, xSize, ySize, front, back);
+        var widthMicros = viewportMicros.x;
+        var heightMicros = viewportMicros.y;
+        var factor = getFactor(widthMicros, heightMicros);
+        var xSize = Math.round(widthMicros / factor);
+        var ySize = Math.round(heightMicros / factor);
+        renderIcon(source, pose, widthMicros, heightMicros, 0, 0, alpha, light, xSize, ySize, front, back);
+        renderBackground(source, pose, widthMicros, heightMicros, 0, 0, alpha, light, xSize, ySize, front, back);
     }
 
     private void renderIcon(MultiBufferSource source, PoseStack.Pose pose,

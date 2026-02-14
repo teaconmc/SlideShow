@@ -14,8 +14,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.glfw.GLFW;
 import org.teacon.slides.SlideShow;
+import org.teacon.slides.calc.Concrete;
 import org.teacon.slides.inventory.SlideItemContainerMenu;
-import org.teacon.slides.item.SlideItem;
 import org.teacon.slides.network.SlideItemUpdatePacket;
 import org.teacon.slides.renderer.SlideState;
 import org.teacon.slides.url.ProjectorURL;
@@ -71,7 +71,7 @@ public final class SlideItemScreen extends AbstractContainerScreen<SlideItemCont
 
     private final SlideItemUpdatePacket mInitPacket;
 
-    private SlideItem.Size mSlideSize;
+    private Concrete.Size mSlideSize;
     private @Nullable ProjectorURL mImgUrl;
 
     // refreshed after initialization
@@ -122,7 +122,7 @@ public final class SlideItemScreen extends AbstractContainerScreen<SlideItemCont
             input.setMaxLength(SIZE_MAX_LENGTH);
             input.setResponder(text -> {
                 try {
-                    mSlideSize = SlideItem.Size.parse(text);
+                    mSlideSize = Concrete.Size.parse(text);
                     mInvalidSize = false;
                 } catch (IllegalArgumentException e) {
                     mInvalidSize = true;

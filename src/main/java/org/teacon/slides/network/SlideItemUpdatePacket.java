@@ -15,6 +15,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.admin.SlidePermission;
+import org.teacon.slides.calc.Concrete;
 import org.teacon.slides.item.SlideItem;
 import org.teacon.slides.url.ProjectorURL;
 import org.teacon.slides.url.ProjectorURLSavedData;
@@ -29,7 +30,7 @@ import java.util.UUID;
 @ParametersAreNonnullByDefault
 public record SlideItemUpdatePacket(int slotId, Perm permissions,
                                     UUID imgUniqueId, Optional<Log> oldLastLog,
-                                    Optional<ProjectorURL> url, SlideItem.Size size) implements CustomPacketPayload {
+                                    Optional<ProjectorURL> url, Concrete.Size size) implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<SlideItemUpdatePacket> TYPE;
     public static final StreamCodec<RegistryFriendlyByteBuf, SlideItemUpdatePacket> CODEC;
 
@@ -41,7 +42,7 @@ public record SlideItemUpdatePacket(int slotId, Perm permissions,
                 UUIDUtil.STREAM_CODEC, SlideItemUpdatePacket::imgUniqueId,
                 Log.OPTIONAL_STREAM_CODEC, SlideItemUpdatePacket::oldLastLog,
                 ProjectorURL.OPTIONAL_STREAM_CODEC, SlideItemUpdatePacket::url,
-                SlideItem.Size.STREAM_CODEC, SlideItemUpdatePacket::size,
+                Concrete.Size.STREAM_CODEC, SlideItemUpdatePacket::size,
                 SlideItemUpdatePacket::new);
     }
 

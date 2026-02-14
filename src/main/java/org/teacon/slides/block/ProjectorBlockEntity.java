@@ -38,6 +38,7 @@ import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.admin.SlidePermission;
 import org.teacon.slides.calc.CalcMicros;
+import org.teacon.slides.calc.Concrete;
 import org.teacon.slides.inventory.ProjectorContainerMenu;
 import org.teacon.slides.item.SlideItem;
 
@@ -164,10 +165,10 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
             this.loadCommon(tag);
             mNextCurrentEntries.setLeft(Optional.ofNullable(tag.hasUUID("NextUUID") ?
                     new SlideItem.Entry(tag.getUUID("NextUUID"), tag.contains("NextSize", Tag.TAG_STRING)
-                            ? SlideItem.Size.parse(tag.getString("NextSize")) : SlideItem.Size.DEFAULT) : null));
+                            ? Concrete.Size.parse(tag.getString("NextSize")) : Concrete.Size.DEFAULT) : null));
             mNextCurrentEntries.setRight(Optional.ofNullable(tag.hasUUID("CurrentUUID") ?
                     new SlideItem.Entry(tag.getUUID("CurrentUUID"), tag.contains("CurrentSize", Tag.TAG_STRING)
-                            ? SlideItem.Size.parse(tag.getString("CurrentSize")) : SlideItem.Size.DEFAULT) : null));
+                            ? Concrete.Size.parse(tag.getString("CurrentSize")) : Concrete.Size.DEFAULT) : null));
             if (this.level != null && this.level.isClientSide) {
                 SlideShow.requestUrlPrefetch(this);
             }
@@ -184,7 +185,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         this.loadCommon(tag);
         if (tag.hasUUID("ImageLocation")) {
             var item = ModRegistries.SLIDE_ITEM.get().getDefaultInstance();
-            var size = tag.getBoolean("KeepAspectRatio") ? SlideItem.KeywordSize.CONTAIN : SlideItem.Size.DEFAULT;
+            var size = tag.getBoolean("KeepAspectRatio") ? Concrete.KeywordSize.CONTAIN : Concrete.Size.DEFAULT;
             item.set(ModRegistries.SLIDE_ENTRY, new SlideItem.Entry(tag.getUUID("ImageLocation"), size));
             for (var i = 0; i < ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY; ++i) {
                 mItemsToDisplay.setStackInSlot(i, ItemStack.EMPTY);

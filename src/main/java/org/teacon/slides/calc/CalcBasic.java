@@ -56,11 +56,11 @@ public final class CalcBasic {
         throw new IllegalArgumentException("Cannot calculate " + builder);
     }
 
-    public boolean hasPercentage() {
+    public boolean hasPercentagePart() {
         return !this.emptyPercentage;
     }
 
-    public double getPercentage() {
+    public double getPercentagePart() {
         return this.percentage;
     }
 
@@ -68,7 +68,7 @@ public final class CalcBasic {
         return this.lengths.keySet();
     }
 
-    public double getLengthValue(String unit) {
+    public double getLengthValuePart(String unit) {
         return this.lengths.getOrDefault(unit, 0D);
     }
 

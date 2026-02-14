@@ -15,11 +15,9 @@ import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.client.model.data.ModelData;
-import org.joml.Vector2d;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.block.ProjectorBlock;
 import org.teacon.slides.block.ProjectorBlockEntity;
-import org.teacon.slides.item.SlideItem;
 import org.teacon.slides.slide.IconSlide;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -58,52 +56,18 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
                 case DEFAULT_BLOCKED -> tileColorTransform.hideBlockedSlideIcon;
                 case DEFAULT_LOADING -> tileColorTransform.hideLoadingSlideIcon;
             };
-            var tileColorTransparent = (tileColorTransform.color & 0xFF000000) == 0;
+            var tileColor = tileColorTransform.color;
+            var tileColorTransparent = tileCurrentSlide == null || (tileColor & 0xFF000000) == 0;
             if (!tileColorTransparent && !tileIconHidden) {
                 var last = pStack.last();
                 tile.transformToSlideSpaceMicros(last.pose(), last.normal());
                 var flipped = tileState.getValue(ProjectorBlock.ROTATION).isFlipped();
-                var sizeMicros = tile.getSizeMicros();
-                var scaleSizeMicros = new Vector2d(sizeMicros);
-                switch (currentEntry.get().size()) {
-                    case SlideItem.KeywordSize.COVER -> tileCurrentSlide.getDimension().ifPresent(dim -> {
-                        var scale = Math.max((double) sizeMicros.x / dim.x, (double) sizeMicros.y / dim.y);
-                        scaleSizeMicros.set(scale * dim.x, scale * dim.y);
-                    });
-                    case SlideItem.KeywordSize.CONTAIN,
-                         SlideItem.KeywordSize.AUTO,
-                         SlideItem.KeywordSize.AUTO_AUTO -> tileCurrentSlide.getDimension().ifPresent(dim -> {
-                        var scale = Math.min((double) sizeMicros.x / dim.x, (double) sizeMicros.y / dim.y);
-                        scaleSizeMicros.set(scale * dim.x, scale * dim.y);
-                    });
-                    case SlideItem.AutoValueSize(var value) -> {
-                        var scale = value.getPercentage() / 100D;
-                        scaleSizeMicros.y = scale * sizeMicros.y;
-                        var tileCurrentSlideDim = tileCurrentSlide.getDimension();
-                        tileCurrentSlideDim.ifPresent(dim -> scaleSizeMicros.x = scale * sizeMicros.y * dim.x / dim.y);
-                    }
-                    case SlideItem.ValueAutoSize(var value) -> {
-                        var scale = value.getPercentage() / 100D;
-                        scaleSizeMicros.x = scale * sizeMicros.x;
-                        var tileCurrentSlideDim = tileCurrentSlide.getDimension();
-                        tileCurrentSlideDim.ifPresent(dim -> scaleSizeMicros.y = scale * sizeMicros.x * dim.y / dim.x);
-                    }
-                    case SlideItem.ValueSize(var value) -> {
-                        var scale = value.getPercentage() / 100D;
-                        scaleSizeMicros.x = scale * sizeMicros.x;
-                        var tileCurrentSlideDim = tileCurrentSlide.getDimension();
-                        tileCurrentSlideDim.ifPresent(dim -> scaleSizeMicros.y = scale * sizeMicros.x * dim.y / dim.x);
-                    }
-                    case SlideItem.ValueValueSize(var first, var second) -> {
-                        scaleSizeMicros.x = first.getPercentage() / 100D * sizeMicros.x;
-                        scaleSizeMicros.y = second.getPercentage() / 100D * sizeMicros.y;
-                    }
-                }
-                tileCurrentSlide.render(src, last,
-                        sizeMicros.x, sizeMicros.y, scaleSizeMicros.x, scaleSizeMicros.y,
-                        tileColorTransform.color, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY,
-                        flipped || tileColorTransform.doubleSided, !flipped || tileColorTransform.doubleSided,
-                        SlideState.getAnimationTick(), partialTick);
+                var light = LightTexture.FULL_BRIGHT;
+                var overlay = OverlayTexture.NO_OVERLAY;
+                var front = flipped || tileColorTransform.doubleSided;
+                var back = !flipped || tileColorTransform.doubleSided;
+                tileCurrentSlide.render(src, last, tile.getSizeMicros(), currentEntry.get().size(),
+                        tileColor, light, overlay, front, back, SlideState.getAnimationTick(), partialTick);
             }
             pStack.popPose();
         }

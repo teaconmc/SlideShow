@@ -33,8 +33,8 @@ public final class CalcMicros {
         var builder = new StringBuilder("calc(").append(text).append(")");
         var calc = new CalcBasic(builder);
         checkArgument(builder.isEmpty() && Set.of("").containsAll(calc.getLengthUnits()));
-        var relative = calc.getPercentage() * oldMicros;
-        var absolute = calc.getLengthValue("") * 1E6;
+        var relative = calc.getPercentagePart() * oldMicros;
+        var absolute = calc.getLengthValuePart("") * 1E6;
         return (int) Math.rint(relative + absolute);
     }
 

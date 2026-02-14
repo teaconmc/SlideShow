@@ -5,11 +5,11 @@ import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.MultiBufferSource;
 import org.joml.Vector2i;
+import org.teacon.slides.calc.Concrete;
 import org.teacon.slides.renderer.SlideState;
 import org.teacon.slides.texture.TextureProvider;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Optional;
 
 /**
  * Represents a slide drawable, with immutable storage.
@@ -20,16 +20,11 @@ import java.util.Optional;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public sealed interface Slide extends AutoCloseable permits IconSlide, ImageSlide {
-    void render(MultiBufferSource source, PoseStack.Pose pose,
-                int widthMicros, int heightMicros, double scaleWidthMicros, double scaleHeightMicros,
+    void render(MultiBufferSource source, PoseStack.Pose pose, Vector2i viewportMicros, Concrete.Size size,
                 int color, int light, int overlay, boolean front, boolean back, long tick, float partialTick);
 
     @Override
     void close();
-
-    default Optional<Vector2i> getDimension() {
-        return Optional.empty();
-    }
 
     default String getRecommendedName() {
         return "";
