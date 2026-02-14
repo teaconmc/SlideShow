@@ -183,20 +183,10 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     @Override
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         this.loadCommon(tag);
-        if (tag.hasUUID("ImageLocation")) {
-            var item = ModRegistries.SLIDE_ITEM.get().getDefaultInstance();
-            var size = tag.getBoolean("KeepAspectRatio") ? Concrete.KeywordSize.CONTAIN : Concrete.Size.DEFAULT;
-            item.set(ModRegistries.SLIDE_ENTRY, new SlideItem.Entry(tag.getUUID("ImageLocation"), size));
-            for (var i = 0; i < ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY; ++i) {
-                mItemsToDisplay.setStackInSlot(i, ItemStack.EMPTY);
-                mItemsDisplayed.setStackInSlot(i, i == 0 ? item : ItemStack.EMPTY);
-            }
-        } else {
-            var itemsUp = tag.getList("ItemsToDisplay", Tag.TAG_COMPOUND);
-            var itemsDown = tag.getList("ItemsDisplayed", Tag.TAG_COMPOUND);
-            mItemsToDisplay.deserializeNBT(registries, Util.make(new CompoundTag(), c -> c.put("Items", itemsUp)));
-            mItemsDisplayed.deserializeNBT(registries, Util.make(new CompoundTag(), c -> c.put("Items", itemsDown)));
-        }
+        var itemsUp = tag.getList("ItemsToDisplay", Tag.TAG_COMPOUND);
+        var itemsDown = tag.getList("ItemsDisplayed", Tag.TAG_COMPOUND);
+        mItemsToDisplay.deserializeNBT(registries, Util.make(new CompoundTag(), c -> c.put("Items", itemsUp)));
+        mItemsDisplayed.deserializeNBT(registries, Util.make(new CompoundTag(), c -> c.put("Items", itemsDown)));
     }
 
     @Override
