@@ -2,6 +2,7 @@ package org.teacon.slides.texture;
 
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
+import org.joml.Vector2i;
 import org.teacon.slides.renderer.SlideRenderType;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -14,9 +15,7 @@ public interface TextureProvider extends AutoCloseable {
 
     SlideRenderType updateAndGet(long tick, float partialTick);
 
-    int getWidth();
-
-    int getHeight();
+    void getSize(Vector2i result);
 
     int getCPUMemorySize();
 

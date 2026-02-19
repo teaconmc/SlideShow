@@ -3,6 +3,7 @@ package org.teacon.slides.texture;
 import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
+import org.joml.Vector2i;
 import org.lwjgl.system.MemoryUtil;
 import org.teacon.slides.renderer.SlideRenderType;
 
@@ -82,8 +83,8 @@ public final class GIFTextureProvider implements TextureProvider {
             mFrameStartTime = timeMillis;
         } else if (mFrameStartTime + mFrameDelayTime <= timeMillis) {
             try {
-                final int width = getWidth();
-                final int height = getHeight();
+                int width = mDecoder.getScreenWidth();
+                int height = mDecoder.getScreenHeight();
                 assert mFrame != null;
                 mFrameDelayTime = mDecoder.decodeNextFrame(mFrame);
                 GlStateManager._bindTexture(mTexture);
@@ -104,13 +105,8 @@ public final class GIFTextureProvider implements TextureProvider {
     }
 
     @Override
-    public int getWidth() {
-        return mDecoder.getScreenWidth();
-    }
-
-    @Override
-    public int getHeight() {
-        return mDecoder.getScreenHeight();
+    public void getSize(Vector2i result) {
+        result.set(mDecoder.getScreenWidth(), mDecoder.getScreenHeight());
     }
 
     @Override
@@ -120,7 +116,7 @@ public final class GIFTextureProvider implements TextureProvider {
 
     @Override
     public int getGPUMemorySize() {
-        return getWidth() * getHeight() * 4;
+        return mDecoder.getScreenWidth() * mDecoder.getScreenHeight() * 4;
     }
 
     @Override

@@ -5,6 +5,7 @@ import dev.matrixlab.webp4j.model.AnimatedWebPData;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.util.Mth;
+import org.joml.Vector2i;
 import org.lwjgl.system.MemoryUtil;
 import org.teacon.slides.renderer.SlideRenderType;
 
@@ -166,13 +167,8 @@ public final class WebPTextureProvider implements TextureProvider {
     }
 
     @Override
-    public int getWidth() {
-        return mFrameWidth;
-    }
-
-    @Override
-    public int getHeight() {
-        return mFrameHeight;
+    public void getSize(Vector2i result) {
+        result.set(mFrameWidth, mFrameHeight);
     }
 
     @Override

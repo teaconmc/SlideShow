@@ -4,6 +4,7 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
+import org.joml.Vector2i;
 import org.teacon.slides.renderer.SlideRenderType;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -80,13 +81,8 @@ public final class StaticTextureProvider implements TextureProvider {
     }
 
     @Override
-    public int getWidth() {
-        return mWidth;
-    }
-
-    @Override
-    public int getHeight() {
-        return mHeight;
+    public void getSize(Vector2i result) {
+        result.set(mWidth, mHeight);
     }
 
     @Override

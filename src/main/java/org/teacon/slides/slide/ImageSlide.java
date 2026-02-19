@@ -33,7 +33,9 @@ public final class ImageSlide implements Slide {
         // get vertex consumer
         var consumer = source.getBuffer(mTexture.updateAndGet(tick, partialTick));
         // calculate image boundaries without clipping
-        var concrete = Concrete.from(size, viewportMicros, new Vector2i(mTexture.getWidth(), mTexture.getHeight()));
+        var imageDim = new Vector2i();
+        mTexture.getSize(imageDim);
+        var concrete = Concrete.from(size, viewportMicros, imageDim);
         var top = concrete.topMicros();
         var right = concrete.rightMicros();
         var bottom = concrete.bottomMicros();
