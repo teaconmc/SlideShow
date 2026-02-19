@@ -1,4 +1,4 @@
-package org.teacon.slides.texture;
+package org.teacon.slides.renderer.bitmap;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import net.minecraft.FieldsAreNonnullByDefault;
@@ -6,6 +6,8 @@ import net.minecraft.MethodsReturnNonnullByDefault;
 import org.joml.Vector2i;
 import org.lwjgl.system.MemoryUtil;
 import org.teacon.slides.renderer.SlideRenderType;
+import org.teacon.slides.renderer.decoder.GIFDecoder;
+import org.teacon.slides.renderer.decoder.LZWDecoder;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -18,7 +20,7 @@ import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class GIFTextureProvider implements TextureProvider {
+public final class GIFBitmapProvider implements BitmapProvider {
 
     private static final LZWDecoder gRenderThreadDecoder = new LZWDecoder();
 
@@ -36,7 +38,7 @@ public final class GIFTextureProvider implements TextureProvider {
 
     private final int mCPUMemorySize;
 
-    public GIFTextureProvider(String name, byte[] data) throws IOException {
+    public GIFBitmapProvider(String name, byte[] data) throws IOException {
         try {
             mDecoder = new GIFDecoder(ByteBuffer.wrap(data), gRenderThreadDecoder);
             final int width = mDecoder.getScreenWidth();

@@ -16,7 +16,7 @@
  * License along with Modern UI. If not, see <https://www.gnu.org/licenses/>.
  */
 
-package org.teacon.slides.texture;
+package org.teacon.slides.renderer.decoder;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;

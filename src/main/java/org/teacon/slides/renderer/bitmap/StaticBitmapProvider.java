@@ -1,4 +1,4 @@
-package org.teacon.slides.texture;
+package org.teacon.slides.renderer.bitmap;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -19,14 +19,14 @@ import static org.lwjgl.opengl.GL30C.glGenerateMipmap;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class StaticTextureProvider implements TextureProvider {
+public final class StaticBitmapProvider implements BitmapProvider {
 
     private int mTexture;
     private final SlideRenderType mRenderType;
     private final String mRecommendedName;
     private final int mWidth, mHeight;
 
-    public StaticTextureProvider(String name, NativeImage image) throws IOException {
+    public StaticBitmapProvider(String name, NativeImage image) throws IOException {
         try {
             mWidth = image.getWidth();
             mHeight = image.getHeight();

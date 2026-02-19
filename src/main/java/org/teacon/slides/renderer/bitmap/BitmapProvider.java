@@ -1,4 +1,4 @@
-package org.teacon.slides.texture;
+package org.teacon.slides.renderer.bitmap;
 
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
@@ -10,7 +10,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public interface TextureProvider extends AutoCloseable {
+public interface BitmapProvider extends AutoCloseable {
     int MAX_TEXTURE_SIZE = 4096;
 
     SlideRenderType updateAndGet(long tick, float partialTick);

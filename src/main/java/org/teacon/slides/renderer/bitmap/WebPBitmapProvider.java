@@ -1,10 +1,11 @@
-package org.teacon.slides.texture;
+package org.teacon.slides.renderer.bitmap;
 
 import com.mojang.blaze3d.platform.GlStateManager;
 import dev.matrixlab.webp4j.model.AnimatedWebPData;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.util.Mth;
+import org.apache.commons.lang3.ArrayUtils;
 import org.joml.Vector2i;
 import org.lwjgl.system.MemoryUtil;
 import org.teacon.slides.renderer.SlideRenderType;
@@ -13,6 +14,7 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -22,7 +24,19 @@ import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class WebPTextureProvider implements TextureProvider {
+public final class WebPBitmapProvider implements BitmapProvider {
+    public static boolean checkMagic(byte[] buf) {
+        if (buf.length >= 12) {
+            var wr = ByteBuffer.wrap(buf).order(ByteOrder.LITTLE_ENDIAN);
+            var riff = wr.getInt() == 0x46464952; // RIFF in LITTLE ENDIAN
+            var size = wr.getInt() == buf.length - 8; // SIZE - 8 of image
+            var webp = wr.getInt() == 0x50424557; // WEBP in LITTLE ENDIAN
+            var vp8_ = ArrayUtils.contains(new int[]{0x58385056, 0x4C385056, 0x20385056}, wr.getInt()); // VP8[XL\x20] in LITTLE ENDIAN;
+            return riff && size && webp && vp8_;
+        }
+        return false;
+    }
+
     private int mTexture;
     private final SlideRenderType mRenderType;
 
@@ -42,7 +56,7 @@ public final class WebPTextureProvider implements TextureProvider {
 
     private final int mCPUMemorySize;
 
-    public WebPTextureProvider(String name, int byteCount, AnimatedWebPData data, boolean hasAlpha) throws IOException {
+    public WebPBitmapProvider(String name, int byteCount, AnimatedWebPData data, boolean hasAlpha) throws IOException {
         try {
             // check canvas size
             var width = data.getCanvasWidth();

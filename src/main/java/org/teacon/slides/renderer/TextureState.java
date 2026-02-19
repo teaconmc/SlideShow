@@ -34,7 +34,11 @@ import org.teacon.slides.block.ProjectorBlockEntity;
 import org.teacon.slides.cache.ImageCache;
 import org.teacon.slides.item.SlideItem;
 import org.teacon.slides.network.SlideURLRequestPacket;
-import org.teacon.slides.texture.*;
+import org.teacon.slides.renderer.bitmap.BitmapProvider;
+import org.teacon.slides.renderer.bitmap.GIFBitmapProvider;
+import org.teacon.slides.renderer.bitmap.StaticBitmapProvider;
+import org.teacon.slides.renderer.bitmap.WebPBitmapProvider;
+import org.teacon.slides.renderer.decoder.GIFDecoder;
 import org.teacon.slides.url.ProjectorURL;
 
 import javax.annotation.Nullable;
@@ -233,7 +237,7 @@ public final class TextureState {
     private int mRecycleCounter;
     private int mRequestCounter;
     private boolean mTimeoutCheckAtUpdate;
-    private @Nullable TextureProvider mProvider;
+    private @Nullable BitmapProvider mProvider;
 
     private TextureState(ProjectorURL location) {
         mState = State.INITIAL;
@@ -246,7 +250,7 @@ public final class TextureState {
     private void refresh(ProjectorURL location) {
         var requestCounter = mRequestCounter;
         ImageCache.getInstance().getResource(location.toUrl(), true).thenCompose(entry -> {
-            var future = new CompletableFuture<TextureProvider>();
+            var future = new CompletableFuture<BitmapProvider>();
             var providerFactory = dispatchProviderFactory(entry);
             RenderSystem.recordRenderCall(() -> {
                 try {
@@ -270,7 +274,7 @@ public final class TextureState {
             }
         }));
         ImageCache.getInstance().getResource(location.toUrl(), false).thenCompose(entry -> {
-            var future = new CompletableFuture<TextureProvider>();
+            var future = new CompletableFuture<BitmapProvider>();
             var providerFactory = dispatchProviderFactory(entry);
             RenderSystem.recordRenderCall(() -> {
                 try {
@@ -290,7 +294,7 @@ public final class TextureState {
         }));
     }
 
-    private void transferState(State state, @Nullable TextureProvider provider) {
+    private void transferState(State state, @Nullable BitmapProvider provider) {
         var old = mProvider;
         mProvider = provider;
         if (old != null && old != provider) {
@@ -328,7 +332,7 @@ public final class TextureState {
                 "counter=" + mRecycleCounter + ", requests=" + mRequestCounter + "}";
     }
 
-    private static Callable<TextureProvider> throwIOE(String message) {
+    private static Callable<BitmapProvider> throwIOE(String message) {
         return () -> {
             throw new IOException(message);
         };
@@ -340,17 +344,17 @@ public final class TextureState {
      * @param nameDataEntry image file name & compressed image data
      * @return texture
      */
-    private static Callable<TextureProvider> dispatchProviderFactory(Map.Entry<String, byte[]> nameDataEntry) {
+    private static Callable<BitmapProvider> dispatchProviderFactory(Map.Entry<String, byte[]> nameDataEntry) {
         var name = nameDataEntry.getKey();
         var data = nameDataEntry.getValue();
         // gif
         var isGif = name.endsWith(".gif") || GIFDecoder.checkMagic(data);
         if (isGif) {
             // TODO: decode GIFs asynchronously
-            return () -> new GIFTextureProvider(name, data);
+            return () -> new GIFBitmapProvider(name, data);
         }
         // webp detector
-        var featureWebP = name.endsWith(".webp") || WebPDecoder.checkMagic(data) ? new WebPBitstreamFeatures() : null;
+        var featureWebP = name.endsWith(".webp") || WebPBitmapProvider.checkMagic(data) ? new WebPBitstreamFeatures() : null;
         if (featureWebP != null) {
             var success = VP8StatusCode.getStatusCode(NativeWebP.getFeatures(data, data.length, featureWebP));
             if (success != VP8StatusCode.VP8_STATUS_OK) {
@@ -365,7 +369,7 @@ public final class TextureState {
                 return throwIOE("Failed to decode animated webp image.");
             }
             if (webPData.getFrameCount() > 1) {
-                return () -> new WebPTextureProvider(name, data.length, webPData, featureWebP.isHasAlpha());
+                return () -> new WebPBitmapProvider(name, data.length, webPData, featureWebP.isHasAlpha());
             }
         }
         var img = new NativeImage[1];
@@ -404,7 +408,7 @@ public final class TextureState {
             }
         }
         // construct static provider
-        return () -> new StaticTextureProvider(name, Objects.requireNonNull(img[0]));
+        return () -> new StaticBitmapProvider(name, Objects.requireNonNull(img[0]));
     }
 
     public enum State {

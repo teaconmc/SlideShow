@@ -9,7 +9,7 @@ import org.joml.Vector2i;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.block.ProjectorBlockEntity;
 import org.teacon.slides.calc.Concrete;
-import org.teacon.slides.texture.TextureProvider;
+import org.teacon.slides.renderer.bitmap.BitmapProvider;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -75,7 +75,7 @@ public final class TextureSequence {
         this.elements.add(IconCentered.DEFAULT_EMPTY);
     }
 
-    public void addTexture(TextureProvider provider, Concrete.Size size) {
+    public void addTexture(BitmapProvider provider, Concrete.Size size) {
         this.recommends.add(provider.getRecommendedName());
         var textureSize = Util.make(new Vector2i(), provider::getSize);
         var concrete = Concrete.from(size, this.sizeMicros, textureSize);
@@ -135,7 +135,7 @@ public final class TextureSequence {
                     int light, int overlay, long tick, float partialTick);
     }
 
-    private record Texture(TextureProvider provider, Concrete concrete, int x, int y, int w, int h) implements Elem {
+    private record Texture(BitmapProvider provider, Concrete concrete, int x, int y, int w, int h) implements Elem {
         @Override
         public void render(MultiBufferSource src, PoseStack.Pose pose,
                            Vector2i viewportMicros, Vector2i scaleHint,
