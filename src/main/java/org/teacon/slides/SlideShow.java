@@ -5,17 +5,14 @@ import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.fml.common.Mod;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.teacon.slides.block.ProjectorBlockEntity;
+import org.teacon.slides.item.SlideItem;
 import org.teacon.slides.url.ProjectorURL;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -30,7 +27,7 @@ public final class SlideShow {
 
     private static volatile Consumer<ProjectorBlockEntity> requestUrlPrefetch = Objects::hash;
     private static volatile BiConsumer<Set<UUID>, Map<UUID, ProjectorURL>> applyPrefetch = Objects::hash;
-    private static volatile Function<UUID, String> fetchSlideRecommendedName = uuid -> StringUtils.EMPTY;
+    private static volatile Function<SlideItem.Entry, SequencedCollection<String>> fetchRecommends = e -> List.of();
     private static volatile Function<Either<UUID, ProjectorURL>, ProjectorURL.Status> checkBlock = url -> ProjectorURL.Status.UNKNOWN;
 
     public static void setRequestUrlPrefetch(Consumer<ProjectorBlockEntity> requestUrlPrefetch) {
@@ -49,12 +46,12 @@ public final class SlideShow {
         applyPrefetch.accept(nonExistent, existent);
     }
 
-    public static void setFetchSlideRecommendedName(Function<UUID, String> fetchSlideRecommendedName) {
-        SlideShow.fetchSlideRecommendedName = fetchSlideRecommendedName;
+    public static void setFetchRecommends(Function<SlideItem.Entry, SequencedCollection<String>> fetchRecommends) {
+        SlideShow.fetchRecommends = fetchRecommends;
     }
 
-    public static String fetchSlideRecommendedName(UUID uuid) {
-        return fetchSlideRecommendedName.apply(uuid);
+    public static SequencedCollection<String> fetchRecommends(SlideItem.Entry entry) {
+        return fetchRecommends.apply(entry);
     }
 
     public static void setCheckBlock(Function<Either<UUID, ProjectorURL>, ProjectorURL.Status> checkBlock) {

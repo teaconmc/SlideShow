@@ -24,6 +24,7 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.CustomizeGuiOverlayEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.joml.Vector2i;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
@@ -31,8 +32,8 @@ import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.block.ProjectorBlockEntity;
 import org.teacon.slides.cache.ImageCache;
+import org.teacon.slides.item.SlideItem;
 import org.teacon.slides.network.SlideURLRequestPacket;
-import org.teacon.slides.slide.Slide;
 import org.teacon.slides.texture.*;
 import org.teacon.slides.url.ProjectorURL;
 
@@ -43,7 +44,6 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -53,21 +53,23 @@ import java.util.concurrent.atomic.AtomicReference;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 @EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
-public final class SlideState {
-    private static final Executor RENDER_EXECUTOR = r -> RenderSystem.recordRenderCall(r::run);
-
+public final class TextureState {
+    // prefetch related
     private static final Set<BlockPos> sBlockPending = new LinkedHashSet<>();
     private static final Map<UUID, IntList> sOpeningSlotIds = new LinkedHashMap<>();
     private static final Object2ObjectMap<UUID, ProjectorURL> sIdWithImage = new Object2ObjectOpenHashMap<>();
 
+    // recycle and retry related
     private static final int RECYCLE_SECONDS = 120; // 2min
     private static final int RETRY_INTERVAL_SECONDS = 30; // 30s
     private static long sAnimationTick = 0L;
 
+    // cleaner related
     private static final int CLEANER_INTERVAL_SECONDS = 720; // 12min
     private static int sCleanerTimer = 0;
 
-    private static final AtomicReference<ConcurrentHashMap<ProjectorURL, SlideState>> sCache;
+    // cache related
+    private static final AtomicReference<ConcurrentHashMap<ProjectorURL, TextureState>> sCache;
 
     static {
         sCache = new AtomicReference<>(new ConcurrentHashMap<>());
@@ -77,19 +79,19 @@ public final class SlideState {
     public static void onTick(ClientTickEvent.Pre event) {
         var minecraft = Minecraft.getInstance();
         if (minecraft.player != null) {
-            SlideState.tick(minecraft.player.containerMenu, minecraft.isPaused());
+            TextureState.tick(minecraft.player.containerMenu, minecraft.isPaused());
         }
     }
 
     @SubscribeEvent
     public static void onPlayerLeft(ClientPlayerNetworkEvent.LoggingOut event) {
-        RenderSystem.recordRenderCall(SlideState::clear);
+        RenderSystem.recordRenderCall(TextureState::clear);
     }
 
     @SubscribeEvent
     public static void onDebugTextCollection(CustomizeGuiOverlayEvent.DebugText event) {
         if (!Minecraft.getInstance().options.reducedDebugInfo().get()) {
-            event.getLeft().add(SlideState.getDebugText());
+            event.getLeft().add(TextureState.getDebugText());
         }
     }
 
@@ -106,7 +108,7 @@ public final class SlideState {
         if (!paused && ++sAnimationTick % 20 == 0) {
             var map = sCache.getAcquire();
             if (!map.isEmpty()) {
-                RENDER_EXECUTOR.execute(() -> map.entrySet().removeIf(e -> e.getValue().update(e.getKey())));
+                RenderSystem.recordRenderCall(() -> map.entrySet().removeIf(e -> e.getValue().update(e.getKey())));
             }
             if (++sCleanerTimer > CLEANER_INTERVAL_SECONDS) {
                 var n = ImageCache.getInstance().cleanResources();
@@ -147,11 +149,7 @@ public final class SlideState {
     private static void clear() {
         sBlockPending.clear();
         var map = sCache.getAndSet(new ConcurrentHashMap<>());
-        map.values().forEach(s -> {
-            s.mSlide.close();
-            s.mState = State.TIMEOUT;
-            s.mSlide = Slide.failed();
-        });
+        map.values().forEach(s -> s.transferState(State.TIMEOUT, null));
         SlideShow.LOGGER.debug("Release {} slide images", map.size());
         map.clear();
     }
@@ -160,8 +158,11 @@ public final class SlideState {
         long cpuSize = 0L, gpuSize = 0L;
         var map = sCache.getAcquire();
         for (var state : map.values()) {
-            cpuSize += state.mSlide.getCPUMemorySize();
-            gpuSize += state.mSlide.getGPUMemorySize();
+            var provider = state.mProvider;
+            if (provider != null) {
+                cpuSize += provider.getCPUMemorySize();
+                gpuSize += provider.getGPUMemorySize();
+            }
         }
         return "SlideShow Cache: " + map.size() + " (CPU=" + (cpuSize >> 20) + "MiB, GPU=" + (gpuSize >> 20) + "MiB)";
     }
@@ -184,40 +185,61 @@ public final class SlideState {
         // non-existent
         sIdWithImage.keySet().removeAll(nonExistent);
         // prefetch
-        existent.values().forEach(v -> sCache.getAcquire().computeIfAbsent(v, SlideState::new));
+        existent.values().forEach(v -> sCache.getAcquire().computeIfAbsent(v, TextureState::new));
     }
 
     public static void prefetch(ProjectorBlockEntity blockEntity) {
         sBlockPending.add(blockEntity.getBlockPos());
     }
 
-    public static @Nullable Slide getSlide(UUID id) {
-        var imageUrl = sIdWithImage.get(id);
-        if (imageUrl != null) {
-            var blockTestResult = SlideShow.checkBlock(imageUrl);
-            if (blockTestResult.isAllowed()) {
-                return sCache.getAcquire().computeIfAbsent(sIdWithImage.get(id), SlideState::new).fetch();
-            }
-            return blockTestResult.isBlocked() ? Slide.blocked() : null;
+    public static SequencedCollection<String> getRecommendedNames(SlideItem.Entry entry) {
+        var sequence = new TextureSequence(new Vector2i(1, 1), new ProjectorBlockEntity.ColorTransform(), false);
+        appendTextureSequence(entry, sequence);
+        return sequence.getRecommends();
+    }
+
+    public static void appendTextureSequence(SlideItem.Entry entry, TextureSequence sequence) {
+        var imageUrl = sIdWithImage.get(entry.id());
+        if (imageUrl == null) {
+            sequence.addBackground();
+            sequence.addEmptyIcon();
+            return;
         }
-        return Slide.empty();
+        var blockTestResult = SlideShow.checkBlock(imageUrl);
+        if (blockTestResult.isBlocked()) {
+            sequence.addBackground();
+            sequence.addBlockedIcon();
+            return;
+        }
+        if (blockTestResult.isAllowed()) {
+            var state = sCache.getAcquire().computeIfAbsent(imageUrl, TextureState::new);
+            if (state.mProvider != null) {
+                sequence.addTexture(state.mProvider, entry.size());
+            } else if (state.mState == State.INITIAL) {
+                sequence.addBackground();
+                sequence.addLoadingIcon();
+            } else {
+                sequence.addBackground();
+                sequence.addFailedIcon();
+            }
+            state.mTimeoutCheckAtUpdate = true;
+        }
     }
 
     /**
      * Current slide and state.
      */
     private State mState;
-    private Slide mSlide;
     private int mRecycleCounter;
     private int mRequestCounter;
-    private boolean mFetchedAfterUpdate;
+    private boolean mTimeoutCheckAtUpdate;
+    private @Nullable TextureProvider mProvider;
 
-    private SlideState(ProjectorURL location) {
+    private TextureState(ProjectorURL location) {
         mState = State.INITIAL;
-        mSlide = Slide.loading();
         mRecycleCounter = RETRY_INTERVAL_SECONDS;
         mRequestCounter = 0;
-        mFetchedAfterUpdate = false;
+        mTimeoutCheckAtUpdate = false;
         this.refresh(location);
     }
 
@@ -235,22 +257,18 @@ public final class SlideState {
                 }
             });
             return future;
-        }).whenCompleteAsync((textureProvider, throwable) -> {
+        }).whenComplete((provider, throwable) -> RenderSystem.recordRenderCall(() -> {
             if (requestCounter == mRequestCounter) {
                 if (mState == State.INITIAL) {
-                    mSlide.close();
-                    mState = State.FAILURE;
-                    mSlide = Slide.failed();
+                    this.transferState(State.FAILURE, null);
                 }
-                if (textureProvider != null) {
-                    mSlide.close();
-                    mState = State.SUCCESS;
-                    mSlide = Slide.make(textureProvider);
+                if (provider != null) {
+                    this.transferState(State.SUCCESS, provider);
                     mRecycleCounter += RECYCLE_SECONDS - RETRY_INTERVAL_SECONDS;
                 }
                 mRequestCounter = requestCounter + 1;
             }
-        }, RENDER_EXECUTOR);
+        }));
         ImageCache.getInstance().getResource(location.toUrl(), false).thenCompose(entry -> {
             var future = new CompletableFuture<TextureProvider>();
             var providerFactory = dispatchProviderFactory(entry);
@@ -263,20 +281,22 @@ public final class SlideState {
                 }
             });
             return future;
-        }).whenCompleteAsync((textureProvider, throwable) -> {
+        }).whenComplete((provider, throwable) -> RenderSystem.recordRenderCall(() -> {
             if (requestCounter == mRequestCounter) {
-                if (textureProvider != null) {
-                    mSlide.close();
-                    mState = State.OFFLINE;
-                    mSlide = Slide.make(textureProvider);
+                if (provider != null) {
+                    this.transferState(State.OFFLINE, provider);
                 }
             }
-        }, RENDER_EXECUTOR);
+        }));
     }
 
-    private Slide fetch() {
-        mFetchedAfterUpdate = true;
-        return mSlide;
+    private void transferState(State state, @Nullable TextureProvider provider) {
+        var old = mProvider;
+        mProvider = provider;
+        if (old != null && old != provider) {
+            old.close();
+        }
+        mState = state;
     }
 
     /**
@@ -287,27 +307,24 @@ public final class SlideState {
     private boolean update(ProjectorURL location) {
         var requestCounter = mRequestCounter;
         if (--mRecycleCounter >= 0) {
-            mFetchedAfterUpdate = false;
+            mTimeoutCheckAtUpdate = false;
             return false;
         }
-        if (mFetchedAfterUpdate) {
-            mState = State.TIMEOUT;
+        if (mTimeoutCheckAtUpdate) {
+            this.transferState(State.TIMEOUT, this.mProvider);
             mRecycleCounter = RECYCLE_SECONDS;
             mRequestCounter = requestCounter + 1;
-            mFetchedAfterUpdate = false;
-            refresh(location);
+            mTimeoutCheckAtUpdate = false;
+            this.refresh(location);
             return false;
         }
-        mSlide.close();
-        mState = State.TIMEOUT;
-        mSlide = Slide.failed();
+        this.transferState(State.TIMEOUT, null);
         return true;
     }
 
     @Override
     public String toString() {
-        return "SlideState{" +
-                "slide=" + mSlide + ", state=" + mState + ", " +
+        return "SlideState{provider=" + mProvider + ", state=" + mState + ", " +
                 "counter=" + mRecycleCounter + ", requests=" + mRequestCounter + "}";
     }
 
@@ -392,9 +409,9 @@ public final class SlideState {
 
     public enum State {
         /**
-         * <p>INITIAL: a slide which has never been loaded yet.</p>
+         * <p>INITIAL: a slide which has never been loaded yet and background retrieving tasks are running.</p>
          * <p>SUCCESS: a network resource is succeeded to retrieve.</p>
-         * <p>OFFLINE: a network resource is failed to retrieve but the offline resource is available.</p>
+         * <p>OFFLINE: a network resource is retrieving or failed to retrieve but the offline resource is available.</p>
          * <p>TIMEOUT: a slide which has been marked as timeout and a refresh task is executing.</p>
          * <p>FAILURE: it is failed to retrieve either the network or the offline resource.</p>
          */

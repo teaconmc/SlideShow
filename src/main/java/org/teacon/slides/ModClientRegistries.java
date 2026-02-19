@@ -1,6 +1,5 @@
 package org.teacon.slides;
 
-import com.google.common.base.Functions;
 import net.minecraft.FieldsAreNonnullByDefault;
 import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.item.ItemProperties;
@@ -12,10 +11,9 @@ import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import org.teacon.slides.item.SlideItem;
 import org.teacon.slides.renderer.ProjectorRenderer;
-import org.teacon.slides.renderer.SlideState;
+import org.teacon.slides.renderer.TextureState;
 import org.teacon.slides.screen.ProjectorScreen;
 import org.teacon.slides.screen.SlideItemScreen;
-import org.teacon.slides.slide.Slide;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -44,9 +42,9 @@ public final class ModClientRegistries {
 
     @SubscribeEvent
     public static void onClientSetup(final FMLClientSetupEvent event) {
-        SlideShow.setRequestUrlPrefetch(SlideState::prefetch);
-        SlideShow.setApplyPrefetch(SlideState::applyPrefetch);
-        SlideShow.setFetchSlideRecommendedName(Functions.compose(Slide::getRecommendedName, SlideState::getSlide));
+        SlideShow.setRequestUrlPrefetch(TextureState::prefetch);
+        SlideShow.setApplyPrefetch(TextureState::applyPrefetch);
+        SlideShow.setFetchRecommends(TextureState::getRecommendedNames);
         event.enqueueWork(() -> {
             var slideItem = ModRegistries.SLIDE_ITEM.get();
             ItemProperties.register(slideItem, SlideShow.id("url_status"), (stack, level, entity, seed) -> {

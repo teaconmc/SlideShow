@@ -18,7 +18,6 @@ import net.neoforged.neoforge.client.model.data.ModelData;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.block.ProjectorBlock;
 import org.teacon.slides.block.ProjectorBlockEntity;
-import org.teacon.slides.slide.IconSlide;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
@@ -36,41 +35,31 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
     @Override
     public void render(ProjectorBlockEntity tile, float partialTick, PoseStack pStack,
                        MultiBufferSource src, int packedLight, int packedOverlay) {
+        // initialize texture sequence
         var tileState = tile.getBlockState();
+        var flipped = tileState.getValue(ProjectorBlock.ROTATION).isFlipped();
+        var sequence = new TextureSequence(tile.getSizeMicros(), tile.getColorTransform(), flipped);
         // always update slide state of current and next slide
         var nextCurrentEntries = tile.getNextCurrentEntries();
         var nextEntry = nextCurrentEntries.left;
         if (nextEntry.isPresent()) {
-            var tileNextEntryUUID = nextEntry.get().id();
-            SlideState.getSlide(tileNextEntryUUID);
+            TextureState.appendTextureSequence(nextEntry.get(), sequence);
+            sequence.clear();
         }
+        // render current slide
         var currentEntry = nextCurrentEntries.right;
         if (currentEntry.isPresent()) {
             pStack.pushPose();
-            var tileColorTransform = tile.getColorTransform();
-            var tileCurrentEntryUUID = currentEntry.get().id();
-            var tileCurrentSlide = SlideState.getSlide(tileCurrentEntryUUID);
-            var tileIconHidden = tileCurrentSlide instanceof IconSlide iconSlide && switch (iconSlide) {
-                case DEFAULT_EMPTY -> tileColorTransform.hideEmptySlideIcon;
-                case DEFAULT_FAILED -> tileColorTransform.hideFailedSlideIcon;
-                case DEFAULT_BLOCKED -> tileColorTransform.hideBlockedSlideIcon;
-                case DEFAULT_LOADING -> tileColorTransform.hideLoadingSlideIcon;
-            };
-            var tileColor = tileColorTransform.color;
-            var tileColorTransparent = tileCurrentSlide == null || (tileColor & 0xFF000000) == 0;
-            if (!tileColorTransparent && !tileIconHidden) {
-                var last = pStack.last();
-                tile.transformToSlideSpaceMicros(last.pose(), last.normal());
-                var flipped = tileState.getValue(ProjectorBlock.ROTATION).isFlipped();
-                var light = LightTexture.FULL_BRIGHT;
-                var overlay = OverlayTexture.NO_OVERLAY;
-                var front = flipped || tileColorTransform.doubleSided;
-                var back = !flipped || tileColorTransform.doubleSided;
-                tileCurrentSlide.render(src, last, tile.getSizeMicros(), currentEntry.get().size(),
-                        tileColor, light, overlay, front, back, SlideState.getAnimationTick(), partialTick);
-            }
+            var last = pStack.last();
+            var light = LightTexture.FULL_BRIGHT;
+            var overlay = OverlayTexture.NO_OVERLAY;
+            var tick = TextureState.getAnimationTick();
+            tile.transformToSlideSpaceMicros(last.pose(), last.normal());
+            TextureState.appendTextureSequence(currentEntry.get(), sequence);
+            sequence.render(src, last, tile.getSizeMicros(), light, overlay, tick, partialTick);
             pStack.popPose();
         }
+        // render outline
         if (tile.hasLevel()) {
             pStack.pushPose();
             var mc = Minecraft.getInstance();

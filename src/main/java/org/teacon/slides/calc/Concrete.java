@@ -29,9 +29,7 @@ public record Concrete(double topMicros, double rightMicros, double bottomMicros
                 var scale = Math.max((double) viewportMicros.x / imageDim.x, (double) viewportMicros.y / imageDim.y);
                 scaleMicros.set(scale * imageDim.x, scale * imageDim.y);
             }
-            case Concrete.KeywordSize.CONTAIN,
-                 Concrete.KeywordSize.AUTO,
-                 Concrete.KeywordSize.AUTO_AUTO -> {
+            case Concrete.KeywordSize.CONTAIN, Concrete.KeywordSize.AUTO, Concrete.KeywordSize.AUTO_AUTO -> {
                 var scale = Math.min((double) viewportMicros.x / imageDim.x, (double) viewportMicros.y / imageDim.y);
                 scaleMicros.set(scale * imageDim.x, scale * imageDim.y);
             }

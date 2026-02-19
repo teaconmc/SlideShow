@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Predicates.alwaysFalse;
 import static org.apache.commons.lang3.StringUtils.abbreviateMiddle;
@@ -57,9 +58,13 @@ public final class SlideItem extends Item {
 
     @Override
     public Component getName(ItemStack stack) {
-        var uuid = stack.getOrDefault(ModRegistries.SLIDE_ENTRY, SlideItem.ENTRY_DEF).id();
-        var name = abbreviateMiddle("<" + SlideShow.fetchSlideRecommendedName(uuid) + ">", "...", 45);
-        return "<>".equals(name) ? Component.translatable(this.getDescriptionId(stack)) : Component.literal(name);
+        var entry = stack.getOrDefault(ModRegistries.SLIDE_ENTRY, SlideItem.ENTRY_DEF);
+        var names = SlideShow.fetchRecommends(entry);
+        if (names.isEmpty()) {
+            return Component.translatable(this.getDescriptionId(stack));
+        }
+        var name = names.stream().collect(Collectors.joining("<", ", ", ">"));
+        return Component.literal(abbreviateMiddle(name, "...", 45));
     }
 
     @Override

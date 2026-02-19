@@ -17,7 +17,7 @@ import org.teacon.slides.SlideShow;
 import org.teacon.slides.calc.Concrete;
 import org.teacon.slides.inventory.SlideItemContainerMenu;
 import org.teacon.slides.network.SlideItemUpdatePacket;
-import org.teacon.slides.renderer.SlideState;
+import org.teacon.slides.renderer.TextureState;
 import org.teacon.slides.url.ProjectorURL;
 
 import javax.annotation.Nullable;
@@ -96,10 +96,10 @@ public final class SlideItemScreen extends AbstractContainerScreen<SlideItemCont
                 try {
                     mImgUrl = new ProjectorURL(text);
                     if (mInitPacket.permissions().create()) {
-                        var blocked = SlideState.getImgBlocked(mImgUrl);
+                        var blocked = TextureState.getImgBlocked(mImgUrl);
                         mUrlStatus = blocked ? UrlStatus.BLOCKED : UrlStatus.NORMAL;
                     } else {
-                        var allowed = SlideState.getImgAllowed(mImgUrl);
+                        var allowed = TextureState.getImgAllowed(mImgUrl);
                         mUrlStatus = allowed ? UrlStatus.NORMAL : UrlStatus.INVALID;
                     }
                 } catch (IllegalArgumentException e) {
