@@ -63,7 +63,7 @@ public final class SlideItem extends Item {
         if (names.isEmpty()) {
             return Component.translatable(this.getDescriptionId(stack));
         }
-        var name = names.stream().collect(Collectors.joining("<", ", ", ">"));
+        var name = names.stream().collect(Collectors.joining(",", "<", ">"));
         return Component.literal(abbreviateMiddle(name, "...", 45));
     }
 
