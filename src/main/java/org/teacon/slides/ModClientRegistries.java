@@ -59,15 +59,4 @@ public final class ModClientRegistries {
     public static void registerRenders(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModRegistries.PROJECTOR_BLOCK_ENTITY.get(), ProjectorRenderer::new);
     }
-
-    /*@SubscribeEvent
-    public static void registerShaders(RegisterShadersEvent event) {
-        try {
-            event.registerShader(new ShaderInstance(event.getResourceProvider(),
-                    SlideShow.identifier("rendertype_palette_slide"),
-                    DefaultVertexFormat.POSITION_COLOR_TEX_LIGHTMAP), SlideRenderType::setPaletteSlideShader);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }*/
 }
