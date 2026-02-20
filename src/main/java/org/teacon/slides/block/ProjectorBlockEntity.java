@@ -151,10 +151,12 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         mNextCurrentEntries.left.ifPresent(entry -> {
             tag.putUUID("NextUUID", entry.id());
             tag.putString("NextSize", entry.size().toString());
+            tag.putString("NextPosition", entry.position().toString());
         });
         mNextCurrentEntries.right.ifPresent(entry -> {
             tag.putUUID("CurrentUUID", entry.id());
             tag.putString("CurrentSize", entry.size().toString());
+            tag.putString("CurrentPosition", entry.position().toString());
         });
         return tag;
     }
@@ -163,12 +165,18 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider registries) {
         if (!tag.isEmpty()) {
             this.loadCommon(tag);
+            var nextSize = tag.contains("NextSize", Tag.TAG_STRING)
+                    ? Concrete.Size.parse(tag.getString("NextSize")) : Concrete.Size.DEFAULT;
+            var nextPosition = tag.contains("NextPosition", Tag.TAG_STRING)
+                    ? Concrete.Position.parse(tag.getString("NextPosition")) : Concrete.Position.DEFAULT;
             mNextCurrentEntries.setLeft(Optional.ofNullable(tag.hasUUID("NextUUID") ?
-                    new SlideItem.Entry(tag.getUUID("NextUUID"), tag.contains("NextSize", Tag.TAG_STRING)
-                            ? Concrete.Size.parse(tag.getString("NextSize")) : Concrete.Size.DEFAULT) : null));
+                    new SlideItem.Entry(tag.getUUID("NextUUID"), nextSize, nextPosition) : null));
+            var currentSize = tag.contains("CurrentSize", Tag.TAG_STRING)
+                    ? Concrete.Size.parse(tag.getString("CurrentSize")) : Concrete.Size.DEFAULT;
+            var currentPosition = tag.contains("CurrentPosition", Tag.TAG_STRING)
+                    ? Concrete.Position.parse(tag.getString("CurrentPosition")) : Concrete.Position.DEFAULT;
             mNextCurrentEntries.setRight(Optional.ofNullable(tag.hasUUID("CurrentUUID") ?
-                    new SlideItem.Entry(tag.getUUID("CurrentUUID"), tag.contains("CurrentSize", Tag.TAG_STRING)
-                            ? Concrete.Size.parse(tag.getString("CurrentSize")) : Concrete.Size.DEFAULT) : null));
+                    new SlideItem.Entry(tag.getUUID("CurrentUUID"), currentSize, currentPosition) : null));
             if (this.level != null && this.level.isClientSide) {
                 SlideShow.requestUrlPrefetch(this);
             }

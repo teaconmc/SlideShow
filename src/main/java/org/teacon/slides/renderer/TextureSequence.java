@@ -75,10 +75,10 @@ public final class TextureSequence {
         this.elements.add(IconCentered.DEFAULT_EMPTY);
     }
 
-    public void addTexture(BitmapProvider provider, Concrete.Size size) {
+    public void addTexture(BitmapProvider provider, Concrete.Size size, Concrete.Position position) {
         this.recommends.add(provider.getRecommendedName());
         var textureSize = Util.make(new Vector2i(), provider::getSize);
-        var concrete = Concrete.from(size, this.sizeMicros, textureSize);
+        var concrete = Concrete.from(size, position, this.sizeMicros, textureSize);
         this.elements.add(new Texture(provider, concrete, 0, 0, textureSize.x, textureSize.y));
     }
 

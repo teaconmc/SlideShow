@@ -52,14 +52,15 @@ public record SlideItemUpdatePacket(int slotId, Perm permissions,
                 var data = ProjectorURLSavedData.get(player.server);
                 var item = player.getInventory().getItem(this.slotId);
                 if (item.is(ModRegistries.SLIDE_ITEM)) {
-                    var newEntry = new SlideItem.Entry(this.imgUniqueId, this.size);
                     var oldEntry = item.getOrDefault(ModRegistries.SLIDE_ENTRY, SlideItem.ENTRY_DEF);
+                    var newEntry = new SlideItem.Entry(this.imgUniqueId, this.size, oldEntry.position());
                     if (data.getUrlById(newEntry.id()).isEmpty() && this.url.isPresent()) {
                         if (SlidePermission.canInteractCreateUrl(player)) {
-                            newEntry = new SlideItem.Entry(data.getOrCreateIdByItem(this.url.get(), player), this.size);
+                            var imgId = data.getOrCreateIdByItem(this.url.get(), player);
+                            newEntry = new SlideItem.Entry(imgId, this.size, oldEntry.position());
                         } else {
-                            var imgId = data.getIdByUrl(this.url.get());
-                            newEntry = new SlideItem.Entry(imgId.orElseGet(oldEntry::id), this.size);
+                            var imgId = data.getIdByUrl(this.url.get()).orElseGet(oldEntry::id);
+                            newEntry = new SlideItem.Entry(imgId, this.size, oldEntry.position());
                         }
                     }
                     if (!newEntry.equals(oldEntry)) {

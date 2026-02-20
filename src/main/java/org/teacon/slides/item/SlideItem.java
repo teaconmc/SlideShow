@@ -25,7 +25,8 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
-import org.teacon.slides.calc.Concrete;
+import org.teacon.slides.calc.Concrete.Position;
+import org.teacon.slides.calc.Concrete.Size;
 import org.teacon.slides.inventory.SlideItemContainerMenu;
 import org.teacon.slides.network.SlideItemUpdatePacket;
 import org.teacon.slides.url.ProjectorURLSavedData;
@@ -45,7 +46,7 @@ import static org.apache.commons.lang3.StringUtils.abbreviateMiddle;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class SlideItem extends Item {
-    public static final Entry ENTRY_DEF = new Entry(new UUID(0L, 0L), Concrete.Size.DEFAULT);
+    public static final Entry ENTRY_DEF = new Entry(new UUID(0L, 0L), Size.DEFAULT, Position.DEFAULT);
 
     public SlideItem() {
         super(new Properties().stacksTo(1).rarity(Rarity.RARE).component(ModRegistries.SLIDE_ENTRY, ENTRY_DEF));
@@ -94,17 +95,24 @@ public final class SlideItem extends Item {
         return new SimpleMenuProvider((c, i, p) -> new SlideItemContainerMenu(c, packet), item.getDisplayName());
     }
 
-    public record Entry(UUID id, Concrete.Size size) {
+    public record Entry(UUID id, Size size, Position position) {
         public static final Codec<Entry> CODEC;
         public static final StreamCodec<ByteBuf, Entry> STREAM_CODEC;
 
         static {
             CODEC = RecordCodecBuilder.create(builder -> builder.group(
                     UUIDUtil.CODEC.fieldOf("id").forGetter(Entry::id),
-                    Concrete.Size.CODEC.fieldOf("size").forGetter(Entry::size)).apply(builder, Entry::new));
+                    Size.CODEC.optionalFieldOf("size")
+                            .xmap(o -> o.orElse(Size.DEFAULT), Optional::of).
+                            forGetter(Entry::size),
+                    Position.CODEC.optionalFieldOf("position")
+                            .xmap(o -> o.orElse(Position.DEFAULT), Optional::of)
+                            .forGetter(Entry::position)).apply(builder, Entry::new));
             STREAM_CODEC = StreamCodec.composite(
                     UUIDUtil.STREAM_CODEC, Entry::id,
-                    Concrete.Size.STREAM_CODEC, Entry::size, Entry::new);
+                    Size.STREAM_CODEC, Entry::size,
+                    // TODO: support editing on newer version
+                    StreamCodec.unit(Position.DEFAULT), e -> Position.DEFAULT, Entry::new);
         }
 
         public static DataComponentType<Entry> createComponentType() {

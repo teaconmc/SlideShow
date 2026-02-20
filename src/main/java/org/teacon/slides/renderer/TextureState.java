@@ -218,7 +218,7 @@ public final class TextureState {
         if (blockTestResult.isAllowed()) {
             var state = sCache.getAcquire().computeIfAbsent(imageUrl, TextureState::new);
             if (state.mProvider != null) {
-                sequence.addTexture(state.mProvider, entry.size());
+                sequence.addTexture(state.mProvider, entry.size(), entry.position());
             } else if (state.mState == State.INITIAL) {
                 sequence.addBackground();
                 sequence.addLoadingIcon();
