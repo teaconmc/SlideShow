@@ -1,10 +1,10 @@
 package org.teacon.slides;
 
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.inventory.MenuType;
@@ -35,7 +35,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD, modid = SlideShow.ID)
+@EventBusSubscriber(modid = SlideShow.ID)
 public final class ModRegistries {
     /**
      * The networking channel version. Since we follow SemVer, this is
@@ -49,11 +49,11 @@ public final class ModRegistries {
     // Last Update: Thu, 22 Aug 2024 02:00:00 +0800 (4 => 5)
     public static final String NETWORK_VERSION = "5";
 
-    public static final ResourceLocation PROJECTOR_URL_PATTERN_ID = SlideShow.id("projector_url_pattern");
-    public static final ResourceLocation PROJECTOR_URL_ID = SlideShow.id("projector_url");
-    public static final ResourceLocation PROJECTOR_ID = SlideShow.id("projector");
-    public static final ResourceLocation SLIDE_ITEM_ID = SlideShow.id("slide_item");
-    public static final ResourceLocation SLIDE_ENTRY_ID = SlideShow.id("slide_entry");
+    public static final Identifier PROJECTOR_URL_PATTERN_ID = SlideShow.id("projector_url_pattern");
+    public static final Identifier PROJECTOR_URL_ID = SlideShow.id("projector_url");
+    public static final Identifier PROJECTOR_ID = SlideShow.id("projector");
+    public static final Identifier SLIDE_ITEM_ID = SlideShow.id("slide_item");
+    public static final Identifier SLIDE_ENTRY_ID = SlideShow.id("slide_entry");
 
     public static final TagKey<Item> SLIDE_ITEMS = ItemTags.create(SlideShow.id("slide_items"));
 
@@ -99,8 +99,7 @@ public final class ModRegistries {
 
     @SubscribeEvent
     public static void onRegisterCapabilities(final RegisterCapabilitiesEvent event) {
-        var blockItemHandler = Capabilities.ItemHandler.BLOCK;
-        event.registerBlockEntity(blockItemHandler,PROJECTOR_BLOCK_ENTITY.get(), ProjectorBlockEntity::getCapability);
+        event.registerBlockEntity(Capabilities.Item.BLOCK, PROJECTOR_BLOCK_ENTITY.get(), ProjectorBlockEntity::getCapability);
     }
 
     @SubscribeEvent

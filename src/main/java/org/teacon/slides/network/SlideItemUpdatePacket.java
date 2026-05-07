@@ -1,9 +1,8 @@
 package org.teacon.slides.network;
 
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.commands.CommandSource;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -11,6 +10,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
@@ -49,7 +49,7 @@ public record SlideItemUpdatePacket(int slotId, Perm permissions,
     public void handle(IPayloadContext context) {
         if (Inventory.isHotbarSlot(this.slotId) || this.slotId == Inventory.SLOT_OFFHAND) {
             if (context.player() instanceof ServerPlayer player && SlidePermission.canInteractEditSlide(player)) {
-                var data = ProjectorURLSavedData.get(player.server);
+                var data = ProjectorURLSavedData.get(player.level().getServer());
                 var item = player.getInventory().getItem(this.slotId);
                 if (item.is(ModRegistries.SLIDE_ITEM)) {
                     var oldEntry = item.getOrDefault(ModRegistries.SLIDE_ENTRY, SlideItem.ENTRY_DEF);
@@ -80,7 +80,7 @@ public record SlideItemUpdatePacket(int slotId, Perm permissions,
     public record Perm(boolean create, boolean edit) {
         public static final StreamCodec<ByteBuf, Perm> STREAM_CODEC;
 
-        public Perm(CommandSource source) {
+        public Perm(Player source) {
             this(SlidePermission.canInteractCreateUrl(source), SlidePermission.canInteractEditSlide(source));
         }
 

@@ -1,7 +1,7 @@
 package org.teacon.slides.admin;
 
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSource;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -23,7 +23,7 @@ import java.util.UUID;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = SlideShow.ID)
 public final class SlidePermission {
     private static @Nullable PermissionNode<Boolean> INTERACT_CREATE_PERM;
     private static @Nullable PermissionNode<Boolean> INTERACT_EDIT_PERM;

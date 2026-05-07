@@ -1,11 +1,11 @@
 package org.teacon.slides.item;
 
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.Util;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -40,7 +40,7 @@ public final class ProjectorItem extends BlockItem {
     protected boolean updateCustomBlockEntityTag(BlockPos pos, Level level, @Nullable Player player, ItemStack stack,
                                                  BlockState state) {
         final boolean superResult = super.updateCustomBlockEntityTag(pos, level, player, stack, state);
-        if (!superResult && !level.isClientSide && player != null) {
+        if (!superResult && !level.isClientSide() && player != null) {
             if (level.getBlockEntity(pos) instanceof ProjectorBlockEntity tile) {
                 ProjectorContainerMenu.openGui(player, tile);
             }

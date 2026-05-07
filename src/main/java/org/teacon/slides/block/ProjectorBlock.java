@@ -1,7 +1,7 @@
 package org.teacon.slides.block;
 
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
@@ -10,7 +10,7 @@ import net.minecraft.util.ByIdMap;
 import net.minecraft.util.RandomSource;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -25,6 +25,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition.Builder;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.redstone.Orientation;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
@@ -64,7 +65,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
         super(Block.Properties.of() // TODO 1.20 material
                 .strength(20F)
                 .lightLevel(state -> 15) // TODO Configurable
-                .noCollission());
+                .noCollision());
         registerDefaultState(defaultBlockState()
                 .setValue(BASE, Direction.DOWN)
                 .setValue(FACING, Direction.EAST)
@@ -131,7 +132,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
 
     @Override
     public void neighborChanged(BlockState state, Level level,
-                                BlockPos pos, Block block, BlockPos fromPos, boolean isMoving) {
+                                BlockPos pos, Block block, Orientation orientation, boolean isMoving) {
         var newPowered = level.hasNeighborSignal(pos);
         var oldPowered = state.getValue(POWERED);
         if (newPowered != oldPowered) {
@@ -152,7 +153,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
 
     @Override
     public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
-        if (!level.isClientSide && player.isCreative()) {
+        if (!level.isClientSide() && player.isCreative()) {
             if (level.getBlockEntity(pos) instanceof ProjectorBlockEntity projector) {
                 var item = this.asItem().getDefaultInstance();
                 item.applyComponents(projector.collectComponents());
@@ -192,16 +193,16 @@ public final class ProjectorBlock extends Block implements EntityBlock {
     }
 
     @Override
-    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state,
-                                              Level level, BlockPos pos, Player player,
-                                              InteractionHand hand, BlockHitResult hitResult) {
-        if (level.isClientSide) {
-            return ItemInteractionResult.SUCCESS;
+    protected InteractionResult useItemOn(ItemStack stack, BlockState state,
+                                          Level level, BlockPos pos, Player player,
+                                          InteractionHand hand, BlockHitResult hitResult) {
+        if (level.isClientSide()) {
+            return InteractionResult.SUCCESS;
         }
         if (level.getBlockEntity(pos) instanceof ProjectorBlockEntity tile) {
             ProjectorContainerMenu.openGui(player, tile);
         }
-        return ItemInteractionResult.CONSUME;
+        return InteractionResult.CONSUME;
     }
 
     public enum InternalRotation implements StringRepresentable {

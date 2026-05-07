@@ -3,6 +3,8 @@ package org.teacon.slides.renderer;
 import com.google.common.collect.ImmutableSet;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import dev.matrixlab.webp4j.internal.NativeWebP;
 import dev.matrixlab.webp4j.model.AnimatedWebPData;
 import dev.matrixlab.webp4j.model.VP8StatusCode;
@@ -12,8 +14,6 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntLists;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -23,7 +23,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.CustomizeGuiOverlayEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.joml.Vector2i;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.MemoryStack;
@@ -56,7 +56,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
+@EventBusSubscriber(value = Dist.CLIENT, modid = SlideShow.ID)
 public final class TextureState {
     // prefetch related
     private static final Set<BlockPos> sBlockPending = new LinkedHashSet<>();
@@ -104,7 +104,7 @@ public final class TextureState {
         var blockPosSet = tickBlockPosRequests();
         var slotIdList = tickContainerChanges(opening);
         if (!blockPosSet.isEmpty() || !slotIdList.isEmpty()) {
-            PacketDistributor.sendToServer(new SlideURLRequestPacket(blockPosSet, slotIdList));
+            ClientPacketDistributor.sendToServer(new SlideURLRequestPacket(blockPosSet, slotIdList));
             var msg = "Requesting project urls for {} block position(s) and {} slot id(s)";
             SlideShow.LOGGER.debug(msg, blockPosSet.size(), slotIdList.size());
         }

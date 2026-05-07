@@ -1,14 +1,14 @@
 package org.teacon.slides;
 
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.client.renderer.item.ItemProperties;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
+import net.neoforged.neoforge.client.event.RegisterRangeSelectItemModelPropertyEvent;
 import org.teacon.slides.item.SlideItem;
 import org.teacon.slides.renderer.ProjectorRenderer;
 import org.teacon.slides.renderer.TextureState;
@@ -20,7 +20,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@EventBusSubscriber(value = Dist.CLIENT, modid = SlideShow.ID)
 public final class ModClientRegistries {
     public static final boolean IS_OPTIFINE_LOADED = isOptifineLoaded();
 
@@ -45,14 +45,11 @@ public final class ModClientRegistries {
         SlideShow.setRequestUrlPrefetch(TextureState::prefetch);
         SlideShow.setApplyPrefetch(TextureState::applyPrefetch);
         SlideShow.setFetchRecommends(TextureState::getRecommendedNames);
-        event.enqueueWork(() -> {
-            var slideItem = ModRegistries.SLIDE_ITEM.get();
-            ItemProperties.register(slideItem, SlideShow.id("url_status"), (stack, level, entity, seed) -> {
-                var uuid = stack.getOrDefault(ModRegistries.SLIDE_ENTRY, SlideItem.ENTRY_DEF).id();
-                var status = SlideShow.checkBlock(uuid);
-                return status.ordinal() / 2F;
-            });
-        });
+    }
+
+    @SubscribeEvent
+    public static void onRegisterItemModelProperties(final RegisterRangeSelectItemModelPropertyEvent event) {
+        event.register(SlideShow.id("url_status"), SlideItem.UrlStatusProperty.MAP_CODEC);
     }
 
     @SubscribeEvent

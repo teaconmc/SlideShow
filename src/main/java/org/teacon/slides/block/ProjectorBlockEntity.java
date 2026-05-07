@@ -1,22 +1,20 @@
 package org.teacon.slides.block;
 
-import com.mojang.datafixers.DSL;
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.Util;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.NonNullList;
+import com.mojang.logging.LogUtils;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
+import com.mojang.serialization.Codec;
+import net.minecraft.core.*;
+import net.minecraft.core.component.DataComponentGetter;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -29,11 +27,17 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.storage.TagValueOutput;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.items.ItemStackHandler;
+import net.neoforged.neoforge.transfer.ResourceHandler;
+import net.neoforged.neoforge.transfer.item.ItemResource;
+import net.neoforged.neoforge.transfer.item.ItemStacksResourceHandler;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.joml.*;
+import org.slf4j.Logger;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.admin.SlidePermission;
@@ -55,11 +59,12 @@ import java.util.stream.IntStream;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ProjectorBlockEntity extends BlockEntity implements MenuProvider {
+    private static final Logger LOGGER = LogUtils.getLogger();
     private static final Component TITLE = Component.translatable("gui.slide_show.title");
+    private static final Codec<NonNullList<ItemStack>> ITEMS_CODEC = NonNullList.codecOf(ItemStack.OPTIONAL_CODEC);
 
     public static BlockEntityType<?> create() {
-        return new BlockEntityType<>(ProjectorBlockEntity::new,
-                Set.of(ModRegistries.PROJECTOR_BLOCK.get()), DSL.remainderType());
+        return new BlockEntityType<>(ProjectorBlockEntity::new, Set.of(ModRegistries.PROJECTOR_BLOCK.get()));
     }
 
     private final Vector2i mSizeMicros = new Vector2i(1_000_000);
@@ -100,14 +105,16 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     }
 
     @Override
-    protected void applyImplicitComponents(BlockEntity.DataComponentInput componentInput) {
+    protected void applyImplicitComponents(DataComponentGetter componentInput) {
         super.applyImplicitComponents(componentInput);
         var container = componentInput.getOrDefault(DataComponents.CONTAINER, ItemContainerContents.EMPTY);
         var count = container.getSlots();
         for (var i = 0; i < ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY; ++i) {
             var j = i + ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY;
-            this.mItemsDisplayed.setStackInSlot(i, i < count ? container.getStackInSlot(i) : ItemStack.EMPTY);
-            this.mItemsToDisplay.setStackInSlot(i, j < count ? container.getStackInSlot(j) : ItemStack.EMPTY);
+            var displayed = i < count ? container.getStackInSlot(i) : ItemStack.EMPTY;
+            var toDisplay = j < count ? container.getStackInSlot(j) : ItemStack.EMPTY;
+            this.mItemsDisplayed.set(i, ItemResource.of(displayed), displayed.getCount());
+            this.mItemsToDisplay.set(i, ItemResource.of(toDisplay), toDisplay.getCount());
         }
         var rotation = componentInput.getOrDefault(DataComponents.BLOCK_STATE, BlockItemStateProperties.EMPTY);
         if (this.level instanceof ServerLevel serverLevel && serverLevel.isLoaded(this.getBlockPos())) {
@@ -126,8 +133,8 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         var containerItems = NonNullList.withSize(ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY * 2, ItemStack.EMPTY);
         for (var i = 0; i < ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY; ++i) {
             var j = i + ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY;
-            containerItems.set(i, this.mItemsDisplayed.getStackInSlot(i));
-            containerItems.set(j, this.mItemsToDisplay.getStackInSlot(i));
+            containerItems.set(i, this.mItemsDisplayed.getResource(i).toStack(this.mItemsDisplayed.getAmountAsInt(i)));
+            containerItems.set(j, this.mItemsToDisplay.getResource(i).toStack(this.mItemsToDisplay.getAmountAsInt(i)));
         }
         components.set(DataComponents.CONTAINER, ItemContainerContents.fromItems(containerItems));
         var rotation = BlockItemStateProperties.EMPTY.with(ProjectorBlock.ROTATION, this.getBlockState());
@@ -136,8 +143,9 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
 
     @Override
     @SuppressWarnings("deprecation")
-    public void removeComponentsFromTag(CompoundTag tag) {
-        tag.remove("Items");
+    public void removeComponentsFromTag(ValueOutput tag) {
+        tag.discard("items_to_display");
+        tag.discard("items_displayed");
     }
 
     @Override
@@ -147,96 +155,109 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
 
     @Override
     public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        var tag = Util.make(new CompoundTag(), this::saveCommon);
-        mNextCurrentEntries.left.ifPresent(entry -> {
-            tag.putUUID("NextUUID", entry.id());
-            tag.putString("NextSize", entry.size().toString());
-            tag.putString("NextPosition", entry.position().toString());
-        });
-        mNextCurrentEntries.right.ifPresent(entry -> {
-            tag.putUUID("CurrentUUID", entry.id());
-            tag.putString("CurrentSize", entry.size().toString());
-            tag.putString("CurrentPosition", entry.position().toString());
-        });
-        return tag;
-    }
-
-    @Override
-    public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider registries) {
-        if (!tag.isEmpty()) {
-            this.loadCommon(tag);
-            var nextSize = tag.contains("NextSize", Tag.TAG_STRING)
-                    ? Concrete.Size.parse(tag.getString("NextSize")) : Concrete.Size.DEFAULT;
-            var nextPosition = tag.contains("NextPosition", Tag.TAG_STRING)
-                    ? Concrete.Position.parse(tag.getString("NextPosition")) : Concrete.Position.DEFAULT;
-            mNextCurrentEntries.setLeft(Optional.ofNullable(tag.hasUUID("NextUUID") ?
-                    new SlideItem.Entry(tag.getUUID("NextUUID"), nextSize, nextPosition) : null));
-            var currentSize = tag.contains("CurrentSize", Tag.TAG_STRING)
-                    ? Concrete.Size.parse(tag.getString("CurrentSize")) : Concrete.Size.DEFAULT;
-            var currentPosition = tag.contains("CurrentPosition", Tag.TAG_STRING)
-                    ? Concrete.Position.parse(tag.getString("CurrentPosition")) : Concrete.Position.DEFAULT;
-            mNextCurrentEntries.setRight(Optional.ofNullable(tag.hasUUID("CurrentUUID") ?
-                    new SlideItem.Entry(tag.getUUID("CurrentUUID"), currentSize, currentPosition) : null));
-            if (this.level != null && this.level.isClientSide) {
-                SlideShow.requestUrlPrefetch(this);
-            }
+        try (var reporter = new ProblemReporter.ScopedCollector(this.problemPath(), LOGGER)) {
+            var output = TagValueOutput.createWithContext(reporter, registries);
+            mNextCurrentEntries.left.ifPresent(entry -> {
+                output.putIntArray("next_uuid", UUIDUtil.uuidToIntArray(entry.id()));
+                output.putString("next_size", entry.size().toString());
+                output.putString("next_position", entry.position().toString());
+            });
+            mNextCurrentEntries.right.ifPresent(entry -> {
+                output.putIntArray("current_uuid", UUIDUtil.uuidToIntArray(entry.id()));
+                output.putString("current_size", entry.size().toString());
+                output.putString("current_position", entry.position().toString());
+            });
+            this.saveCommon(output);
+            return output.buildResult();
         }
     }
 
     @Override
-    public void onDataPacket(Connection net, ClientboundBlockEntityDataPacket pkt, HolderLookup.Provider registries) {
-        this.handleUpdateTag(pkt.getTag(), registries);
+    public void handleUpdateTag(ValueInput input) {
+        this.loadCommon(input);
+        var nextSize = input
+                .getString("next_size")
+                .map(Concrete.Size::parse)
+                .orElse(Concrete.Size.DEFAULT);
+        var nextPosition = input
+                .getString("next_position")
+                .map(Concrete.Position::parse)
+                .orElse(Concrete.Position.DEFAULT);
+        mNextCurrentEntries.setLeft(input
+                .getIntArray("next_uuid")
+                .map(UUIDUtil::uuidFromIntArray)
+                .map(id -> new SlideItem.Entry(id, nextSize, nextPosition)));
+        var currentSize = input
+                .getString("current_size")
+                .map(Concrete.Size::parse)
+                .orElse(Concrete.Size.DEFAULT);
+        var currentPosition = input
+                .getString("current_position")
+                .map(Concrete.Position::parse)
+                .orElse(Concrete.Position.DEFAULT);
+        mNextCurrentEntries.setRight(input
+                .getIntArray("current_uuid")
+                .map(UUIDUtil::uuidFromIntArray)
+                .map(id -> new SlideItem.Entry(id, currentSize, currentPosition)));
+        if (this.level != null && this.level.isClientSide()) {
+            SlideShow.requestUrlPrefetch(this);
+        }
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        this.loadCommon(tag);
-        var itemsUp = tag.getList("ItemsToDisplay", Tag.TAG_COMPOUND);
-        var itemsDown = tag.getList("ItemsDisplayed", Tag.TAG_COMPOUND);
-        mItemsToDisplay.deserializeNBT(registries, Util.make(new CompoundTag(), c -> c.put("Items", itemsUp)));
-        mItemsDisplayed.deserializeNBT(registries, Util.make(new CompoundTag(), c -> c.put("Items", itemsDown)));
+    public void onDataPacket(Connection net, ValueInput valueInput) {
+        this.handleUpdateTag(valueInput);
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
-        this.saveCommon(tag);
-        tag.put("ItemsToDisplay", mItemsToDisplay.serializeNBT(registries).getList("Items", Tag.TAG_COMPOUND));
-        tag.put("ItemsDisplayed", mItemsDisplayed.serializeNBT(registries).getList("Items", Tag.TAG_COMPOUND));
+    protected void loadAdditional(ValueInput input) {
+        input.read("items_to_display", ITEMS_CODEC).ifPresent(mItemsToDisplay::setStacks);
+        input.read("items_displayed", ITEMS_CODEC).ifPresent(mItemsDisplayed::setStacks);
+        mItemsToDisplay.onContentsChanged();
+        mItemsDisplayed.onContentsChanged();
+        this.loadCommon(input);
     }
 
-    private void loadCommon(CompoundTag tag) {
-        mSizeMicros.x = CalcMicros.fromNumber(tag.getFloat("Width"));
-        mSizeMicros.y = CalcMicros.fromNumber(tag.getFloat("Height"));
-        mSlideOffsetMicros.x = CalcMicros.fromNumber(tag.getFloat("OffsetX"));
-        mSlideOffsetMicros.y = CalcMicros.fromNumber(tag.getFloat("OffsetY"));
-        mSlideOffsetMicros.z = CalcMicros.fromNumber(tag.getFloat("OffsetZ"));
-        mColorTransform.color = tag.getInt("Color");
-        mColorTransform.doubleSided = tag.getBoolean("DoubleSided");
-        mColorTransform.hideEmptySlideIcon = tag.getBoolean("HideEmptySlide");
-        mColorTransform.hideFailedSlideIcon = tag.getBoolean("HideFailedSlide");
-        mColorTransform.hideBlockedSlideIcon = tag.getBoolean("HideBlockedSlide");
-        mColorTransform.hideLoadingSlideIcon = tag.getBoolean("HideLoadingSlide");
+    @Override
+    protected void saveAdditional(ValueOutput output) {
+        output.store("items_to_display", ITEMS_CODEC, mItemsToDisplay.copyToList());
+        output.store("items_displayed", ITEMS_CODEC, mItemsDisplayed.copyToList());
+        this.saveCommon(output);
     }
 
-    private void saveCommon(CompoundTag tag) {
-        tag.putFloat("Width", CalcMicros.toNumber(mSizeMicros.x));
-        tag.putFloat("Height", CalcMicros.toNumber(mSizeMicros.y));
-        tag.putFloat("OffsetX", CalcMicros.toNumber(mSlideOffsetMicros.x));
-        tag.putFloat("OffsetY", CalcMicros.toNumber(mSlideOffsetMicros.y));
-        tag.putFloat("OffsetZ", CalcMicros.toNumber(mSlideOffsetMicros.z));
-        tag.putInt("Color", mColorTransform.color);
-        tag.putBoolean("DoubleSided", mColorTransform.doubleSided);
-        tag.putBoolean("HideEmptySlide", mColorTransform.hideEmptySlideIcon);
-        tag.putBoolean("HideFailedSlide", mColorTransform.hideFailedSlideIcon);
-        tag.putBoolean("HideBlockedSlide", mColorTransform.hideBlockedSlideIcon);
-        tag.putBoolean("HideLoadingSlide", mColorTransform.hideLoadingSlideIcon);
+    private void loadCommon(ValueInput input) {
+        mSizeMicros.x = CalcMicros.fromNumber(input.getFloatOr("width", 1F));
+        mSizeMicros.y = CalcMicros.fromNumber(input.getFloatOr("height", 1F));
+        mSlideOffsetMicros.x = CalcMicros.fromNumber(input.getFloatOr("offset_x", 0F));
+        mSlideOffsetMicros.y = CalcMicros.fromNumber(input.getFloatOr("offset_y", 0F));
+        mSlideOffsetMicros.z = CalcMicros.fromNumber(input.getFloatOr("offset_z", 0F));
+        mColorTransform.color = input.getIntOr("color", ~0);
+        mColorTransform.doubleSided = input.getBooleanOr("double_sided", true);
+        mColorTransform.hideEmptySlideIcon = input.getBooleanOr("hide_empty_slide", false);
+        mColorTransform.hideFailedSlideIcon = input.getBooleanOr("hide_failed_slide", false);
+        mColorTransform.hideBlockedSlideIcon = input.getBooleanOr("hide_blocked_slide", false);
+        mColorTransform.hideLoadingSlideIcon = input.getBooleanOr("hide_loading_slide", false);
+    }
+
+    private void saveCommon(ValueOutput output) {
+        output.putFloat("width", CalcMicros.toNumber(mSizeMicros.x));
+        output.putFloat("height", CalcMicros.toNumber(mSizeMicros.y));
+        output.putFloat("offset_x", CalcMicros.toNumber(mSlideOffsetMicros.x));
+        output.putFloat("offset_y", CalcMicros.toNumber(mSlideOffsetMicros.y));
+        output.putFloat("offset_z", CalcMicros.toNumber(mSlideOffsetMicros.z));
+        output.putInt("color", mColorTransform.color);
+        output.putBoolean("double_sided", mColorTransform.doubleSided);
+        output.putBoolean("hide_empty_slide", mColorTransform.hideEmptySlideIcon);
+        output.putBoolean("hide_failed_slide", mColorTransform.hideFailedSlideIcon);
+        output.putBoolean("hide_blocked_slide", mColorTransform.hideBlockedSlideIcon);
+        output.putBoolean("hide_loading_slide", mColorTransform.hideLoadingSlideIcon);
     }
 
     private int findIndex(SlideItemStackHandler items, int step, boolean empty) {
         switch (step) {
             case 1 -> {
                 for (var i = 0; i < ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY; ++i) {
-                    if (items.getStackInSlot(i).isEmpty() == empty) {
+                    if (items.getResource(i).isEmpty() == empty) {
                         return i;
                     }
                 }
@@ -244,7 +265,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
             }
             case -1 -> {
                 for (var i = ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY - 1; i >= 0; --i) {
-                    if (items.getStackInSlot(i).isEmpty() == empty) {
+                    if (items.getResource(i).isEmpty() == empty) {
                         return i;
                     }
                 }
@@ -256,7 +277,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
 
     private void onItemsToDisplayErased() {
         mNextCurrentEntries.setLeft(Optional.empty());
-        if (this.level != null && !this.level.isClientSide) {
+        if (this.level != null && !this.level.isClientSide()) {
             this.setChanged();
             var state = this.getBlockState();
             this.level.sendBlockUpdated(this.getBlockPos(), state, state, Block.UPDATE_ALL);
@@ -265,7 +286,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
 
     private void onItemsDisplayedErased() {
         mNextCurrentEntries.setRight(Optional.empty());
-        if (this.level != null && !this.level.isClientSide) {
+        if (this.level != null && !this.level.isClientSide()) {
             this.setChanged();
             var state = this.getBlockState();
             this.level.sendBlockUpdated(this.getBlockPos(), state, state, Block.UPDATE_ALL);
@@ -274,7 +295,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
 
     private void onItemsToDisplayChanged(SlideItem.Entry first, SlideItem.Entry last) {
         mNextCurrentEntries.setLeft(Optional.of(first));
-        if (this.level != null && !this.level.isClientSide) {
+        if (this.level != null && !this.level.isClientSide()) {
             this.setChanged();
             var state = this.getBlockState();
             this.level.sendBlockUpdated(this.getBlockPos(), state, state, Block.UPDATE_ALL);
@@ -283,7 +304,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
 
     private void onItemsDisplayedChanged(SlideItem.Entry first, SlideItem.Entry last) {
         mNextCurrentEntries.setRight(Optional.of(last));
-        if (this.level != null && !this.level.isClientSide) {
+        if (this.level != null && !this.level.isClientSide()) {
             this.setChanged();
             var state = this.getBlockState();
             this.level.sendBlockUpdated(this.getBlockPos(), state, state, Block.UPDATE_ALL);
@@ -313,20 +334,20 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     public int getItemsToDisplayCount() {
         return Math.toIntExact(IntStream
                 .range(0, ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY)
-                .filter(i -> !mItemsToDisplay.getStackInSlot(i).isEmpty()).count());
+                .filter(i -> !mItemsToDisplay.getResource(i).isEmpty()).count());
     }
 
     public int getItemsDisplayedCount() {
         return Math.toIntExact(IntStream
                 .range(0, ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY)
-                .filter(i -> !mItemsDisplayed.getStackInSlot(i).isEmpty()).count());
+                .filter(i -> !mItemsDisplayed.getResource(i).isEmpty()).count());
     }
 
     public MutablePair<Optional<SlideItem.Entry>, Optional<SlideItem.Entry>> getNextCurrentEntries() {
         return mNextCurrentEntries;
     }
 
-    public @Nullable SlideItemStackHandler getCapability(@Nullable Direction side) {
+    public @Nullable ResourceHandler<ItemResource> getCapability(@Nullable Direction side) {
         return switch (side) {
             case DOWN -> mItemsDisplayed;
             case UP -> mItemsToDisplay;
@@ -388,11 +409,11 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
                 }
                 target = ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY - 1;
                 for (var i = move; i < target; ++i) {
-                    mItemsDisplayed.setStackInSlot(i, mItemsDisplayed.getStackInSlot(i + 1));
+                    mItemsDisplayed.set(i, mItemsDisplayed.getResource(i + 1), mItemsDisplayed.getAmountAsInt(i + 1));
                 }
             }
-            mItemsDisplayed.setStackInSlot(target, mItemsToDisplay.getStackInSlot(source));
-            mItemsToDisplay.setStackInSlot(source, ItemStack.EMPTY);
+            mItemsDisplayed.set(target, mItemsToDisplay.getResource(source), mItemsToDisplay.getAmountAsInt(source));
+            mItemsToDisplay.set(source, ItemResource.EMPTY, 0);
             offset -= 1;
         }
         while (offset < 0) {
@@ -408,11 +429,11 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
                 }
                 target = 0;
                 for (var i = move; i > target; --i) {
-                    mItemsToDisplay.setStackInSlot(i, mItemsToDisplay.getStackInSlot(i - 1));
+                    mItemsToDisplay.set(i, mItemsToDisplay.getResource(i - 1), mItemsToDisplay.getAmountAsInt(i - 1));
                 }
             }
-            mItemsToDisplay.setStackInSlot(target, mItemsDisplayed.getStackInSlot(source));
-            mItemsDisplayed.setStackInSlot(source, ItemStack.EMPTY);
+            mItemsToDisplay.set(target, mItemsDisplayed.getResource(source), mItemsDisplayed.getAmountAsInt(source));
+            mItemsDisplayed.set(source, ItemResource.EMPTY, 0);
             offset += 1;
         }
         return original - offset;
@@ -427,7 +448,7 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         public boolean hideLoadingSlideIcon = false;
     }
 
-    public static final class SlideItemStackHandler extends ItemStackHandler {
+    public static final class SlideItemStackHandler extends ItemStacksResourceHandler {
         private @Nullable Pair<SlideItem.Entry, SlideItem.Entry> itemEntryPair;
         private final BiConsumer<SlideItem.Entry, SlideItem.Entry> whenChanged;
         private final Runnable whenErased;
@@ -440,17 +461,22 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         }
 
         @Override
-        public boolean isItemValid(int slot, ItemStack stack) {
-            return stack.is(ModRegistries.SLIDE_ITEMS);
+        public boolean isValid(int index, ItemResource resource) {
+            return resource.isEmpty() || resource.test(stack -> stack.is(ModRegistries.SLIDE_ITEMS));
         }
 
         @Override
-        protected void onLoad() {
-            this.onContentsChanged();
+        public NonNullList<ItemStack> copyToList() {
+            return super.copyToList();
         }
 
         @Override
-        protected void onContentsChanged(int slot) {
+        protected void setStacks(NonNullList<ItemStack> stacks) {
+            super.setStacks(stacks);
+        }
+
+        @Override
+        protected void onContentsChanged(int slot, ItemStack previousContents) {
             this.onContentsChanged();
         }
 
@@ -459,9 +485,9 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
             var lastItemEntry = (SlideItem.Entry) null;
             var firstItemEntry = (SlideItem.Entry) null;
             for (var i = 0; i < ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY; ++i) {
-                var stackItem = this.stacks.get(i);
-                if (stackItem.is(ModRegistries.SLIDE_ITEMS)) {
-                    var itemEntry = stackItem.getOrDefault(ModRegistries.SLIDE_ENTRY, SlideItem.ENTRY_DEF);
+                var item = this.getResource(i);
+                if (this.getAmountAsInt(i) > 0 && item.test(stack -> stack.is(ModRegistries.SLIDE_ITEMS))) {
+                    var itemEntry = item.getOrDefault(ModRegistries.SLIDE_ENTRY, SlideItem.ENTRY_DEF);
                     lastItemEntry = itemEntry;
                     if (!afterFirstItem) {
                         firstItemEntry = itemEntry;

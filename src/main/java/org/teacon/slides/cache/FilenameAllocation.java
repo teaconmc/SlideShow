@@ -1,9 +1,12 @@
 package org.teacon.slides.cache;
 
 import com.google.common.hash.Hashing;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import org.apache.http.entity.ContentType;
 
 import javax.annotation.Nullable;
+import javax.annotation.ParametersAreNonnullByDefault;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import java.io.ByteArrayInputStream;
@@ -14,6 +17,9 @@ import java.text.Normalizer;
 import java.util.Collections;
 import java.util.Locale;
 
+@FieldsAreNonnullByDefault
+@MethodsReturnNonnullByDefault
+@ParametersAreNonnullByDefault
 public final class FilenameAllocation {
     private FilenameAllocation() {
         throw new UnsupportedOperationException();

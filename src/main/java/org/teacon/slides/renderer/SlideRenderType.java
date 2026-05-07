@@ -7,7 +7,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.ShaderInstance;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.teacon.slides.SlideShow;
 
 /**
@@ -96,7 +96,7 @@ public final class SlideRenderType extends RenderType.CompositeRenderType {
         };
     }
 
-    public SlideRenderType(ResourceLocation texture) {
+    public SlideRenderType(Identifier texture) {
         super(SlideShow.ID + "_icon", DefaultVertexFormat.BLOCK,
                 VertexFormat.Mode.QUADS, 256, false, true,
                 CompositeState.builder()

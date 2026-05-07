@@ -1,11 +1,14 @@
 package org.teacon.slides.item;
 
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.ChatFormatting;
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.item.properties.numeric.RangeSelectItemModelProperty;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.network.chat.Component;
@@ -13,15 +16,17 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.ItemOwner;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
@@ -33,10 +38,10 @@ import org.teacon.slides.url.ProjectorURLSavedData;
 import org.teacon.slides.url.ProjectorURLSavedData.LogType;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Predicates.alwaysFalse;
@@ -53,8 +58,10 @@ public final class SlideItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltips, TooltipFlag flag) {
-        tooltips.add(Component.translatable("item.slide_show.slide_item.hint").withStyle(ChatFormatting.GRAY));
+    @SuppressWarnings("deprecation")
+    public void appendHoverText(ItemStack stack, TooltipContext context,
+                                TooltipDisplay display, Consumer<Component> adder, TooltipFlag flag) {
+        adder.accept(Component.translatable("item.slide_show.slide_item.hint").withStyle(ChatFormatting.GRAY));
     }
 
     @Override
@@ -62,19 +69,19 @@ public final class SlideItem extends Item {
         var entry = stack.getOrDefault(ModRegistries.SLIDE_ENTRY, SlideItem.ENTRY_DEF);
         var names = SlideShow.fetchRecommends(entry);
         if (names.isEmpty()) {
-            return Component.translatable(this.getDescriptionId(stack));
+            return Component.translatable(this.getDescriptionId());
         }
         var name = names.stream().collect(Collectors.joining(",", "<", ">"));
         return Component.literal(abbreviateMiddle(name, "...", 45));
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+    public InteractionResult use(Level level, Player player, InteractionHand hand) {
         var item = player.getItemInHand(hand);
         if (player instanceof ServerPlayer serverPlayer) {
-            var slotId = hand == InteractionHand.MAIN_HAND ? player.getInventory().selected : Inventory.SLOT_OFFHAND;
+            var slotId = hand == InteractionHand.MAIN_HAND ? player.getInventory().getSelectedSlot() : Inventory.SLOT_OFFHAND;
             var entry = item.getOrDefault(ModRegistries.SLIDE_ENTRY, ENTRY_DEF);
-            var data = ProjectorURLSavedData.get(serverPlayer.getServer());
+            var data = ProjectorURLSavedData.get(serverPlayer.level().getServer());
             var log = Optional.<ProjectorURLSavedData.Log>empty();
             var imgUrl = data.getUrlById(entry.id());
             if (imgUrl.isPresent()) {
@@ -88,13 +95,16 @@ public final class SlideItem extends Item {
             player.openMenu(this.getMenuProvider(item, packet), buf -> SlideItemUpdatePacket.CODEC.encode(buf, packet));
         }
         player.awardStat(Stats.ITEM_USED.get(this));
-        return InteractionResultHolder.sidedSuccess(item, level.isClientSide());
+        return level.isClientSide() ? InteractionResult.SUCCESS : InteractionResult.SUCCESS_SERVER;
     }
 
     private MenuProvider getMenuProvider(ItemStack item, SlideItemUpdatePacket packet) {
         return new SimpleMenuProvider((c, i, p) -> new SlideItemContainerMenu(c, packet), item.getDisplayName());
     }
 
+    @FieldsAreNonnullByDefault
+    @MethodsReturnNonnullByDefault
+    @ParametersAreNonnullByDefault
     public record Entry(UUID id, Size size, Position position) {
         public static final Codec<Entry> CODEC;
         public static final StreamCodec<ByteBuf, Entry> STREAM_CODEC;
@@ -118,6 +128,27 @@ public final class SlideItem extends Item {
         public static DataComponentType<Entry> createComponentType() {
             var builder = DataComponentType.<Entry>builder();
             return builder.persistent(CODEC).networkSynchronized(STREAM_CODEC).cacheEncoding().build();
+        }
+    }
+
+    @FieldsAreNonnullByDefault
+    @MethodsReturnNonnullByDefault
+    @ParametersAreNonnullByDefault
+    public enum UrlStatusProperty implements RangeSelectItemModelProperty {
+        INSTANCE;
+
+        public static final MapCodec<UrlStatusProperty> MAP_CODEC = MapCodec.unit(INSTANCE);
+
+        @Override
+        public float get(ItemStack stack, ClientLevel level, ItemOwner owner, int seed) {
+            var uuid = stack.getOrDefault(ModRegistries.SLIDE_ENTRY, ENTRY_DEF).id();
+            var status = SlideShow.checkBlock(uuid);
+            return status.ordinal() / 2F;
+        }
+
+        @Override
+        public MapCodec<? extends RangeSelectItemModelProperty> type() {
+            return MAP_CODEC;
         }
     }
 }

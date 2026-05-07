@@ -1,10 +1,10 @@
 package org.teacon.slides.renderer;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import net.minecraft.Util;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
+import net.minecraft.util.Util;
 import org.joml.Vector2i;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.block.ProjectorBlockEntity;
@@ -209,7 +209,7 @@ public final class TextureSequence {
 
         private final SlideRenderType iconRenderType;
 
-        IconCentered(ResourceLocation icon) {
+        IconCentered(Identifier icon) {
             this.iconRenderType = new SlideRenderType(icon);
         }
 
@@ -267,7 +267,7 @@ public final class TextureSequence {
 
         private final SlideRenderType iconRenderType;
 
-        Background(ResourceLocation background) {
+        Background(Identifier background) {
             this.iconRenderType = new SlideRenderType(background);
         }
 

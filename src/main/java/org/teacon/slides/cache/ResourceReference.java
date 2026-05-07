@@ -1,7 +1,7 @@
 package org.teacon.slides.cache;
 
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import org.apache.http.client.cache.HttpCacheEntry;
 import org.apache.http.client.cache.Resource;
 import org.apache.http.util.Args;

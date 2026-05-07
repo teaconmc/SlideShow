@@ -7,9 +7,9 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.datafixers.util.Either;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.ChatFormatting;
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
@@ -41,7 +41,7 @@ import static net.minecraft.commands.Commands.literal;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.GAME)
+@EventBusSubscriber(modid = SlideShow.ID)
 public final class SlideCommand {
     private static final DynamicCommandExceptionType URL_NOT_EXIST = new DynamicCommandExceptionType(v -> Component.translatable("command.slide_show.failed.url_not_exist", v));
 
@@ -229,22 +229,22 @@ public final class SlideCommand {
     }
 
     private static Component toText(UUID id, ProjectorURL url) {
-        var click = new ClickEvent(ClickEvent.Action.OPEN_URL, url.toUrl().toString());
+        var click = new ClickEvent.OpenUrl(url.toUrl());
         var text = StringUtils.abbreviate(StringUtils.substringAfter(url.toString(), "://"), 15);
-        var hover = new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("UUID:\n" + id + "\n\nURL:\n" + url.toUrl()));
+        var hover = new HoverEvent.ShowText(Component.literal("UUID:\n" + id + "\n\nURL:\n" + url.toUrl()));
         return Component.literal(text).withStyle(s -> s.withColor(ChatFormatting.AQUA).withHoverEvent(hover).withClickEvent(click));
     }
 
     private static Component toText(ProjectorURL url) {
-        var click = new ClickEvent(ClickEvent.Action.OPEN_URL, url.toUrl().toString());
+        var click = new ClickEvent.OpenUrl(url.toUrl());
         var text = StringUtils.abbreviate(StringUtils.substringAfter(url.toString(), "://"), 15);
-        var hover = new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("URL:\n" + url.toUrl()));
+        var hover = new HoverEvent.ShowText(Component.literal("URL:\n" + url.toUrl()));
         return Component.literal(text).withStyle(s -> s.withColor(ChatFormatting.AQUA).withHoverEvent(hover).withClickEvent(click));
     }
 
     private static Component toText(UUID id) {
         var text = StringUtils.abbreviate(id.toString(), 15);
-        var hover = new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal("UUID:\n" + id));
+        var hover = new HoverEvent.ShowText(Component.literal("UUID:\n" + id));
         return Component.literal(text).withStyle(s -> s.withColor(ChatFormatting.AQUA).withHoverEvent(hover));
     }
 }

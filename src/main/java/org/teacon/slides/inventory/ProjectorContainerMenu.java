@@ -1,12 +1,12 @@
 package org.teacon.slides.inventory;
 
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.Util;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -14,7 +14,7 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
-import net.neoforged.neoforge.items.SlotItemHandler;
+import net.neoforged.neoforge.transfer.item.ResourceHandlerSlot;
 import org.apache.commons.lang3.tuple.MutablePair;
 import org.joml.Vector2i;
 import org.joml.Vector3i;
@@ -54,11 +54,11 @@ public final class ProjectorContainerMenu extends AbstractContainerMenu {
         var itemsDisplayed = projector.getItemsDisplayed();
 
         for (var i = 0; i < ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY; ++i) {
-            this.addSlot(new SlotItemHandler(itemsToDisplay, i, 7 + (i % 12) * 18, 7 + (i / 12) * 18));
+            this.addSlot(new ResourceHandlerSlot(itemsToDisplay, itemsToDisplay::set, i, 7 + (i % 12) * 18, 7 + (i / 12) * 18));
         }
 
         for (var i = 0; i < ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY; ++i) {
-            this.addSlot(new SlotItemHandler(itemsDisplayed, i, 7 + (i % 12) * 18, 156 + (i / 12) * 18));
+            this.addSlot(new ResourceHandlerSlot(itemsDisplayed, itemsDisplayed::set, i, 7 + (i % 12) * 18, 156 + (i / 12) * 18));
         }
 
         for (var i = 9; i < 36; ++i) {
@@ -97,11 +97,11 @@ public final class ProjectorContainerMenu extends AbstractContainerMenu {
                 (f, l) -> tileNextCurrent.setRight(Optional.of(l)));
 
         for (var i = 0; i < ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY; ++i) {
-            this.addSlot(new SlotItemHandler(itemsToDisplay, i, 8 + (i % 12) * 18, 8 + (i / 12) * 18));
+            this.addSlot(new ResourceHandlerSlot(itemsToDisplay, itemsToDisplay::set, i, 8 + (i % 12) * 18, 8 + (i / 12) * 18));
         }
 
         for (var i = 0; i < ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY; ++i) {
-            this.addSlot(new SlotItemHandler(itemsDisplayed, i, 8 + (i % 12) * 18, 157 + (i / 12) * 18));
+            this.addSlot(new ResourceHandlerSlot(itemsDisplayed, itemsDisplayed::set, i, 8 + (i % 12) * 18, 157 + (i / 12) * 18));
         }
 
         for (var i = 9; i < 36; ++i) {

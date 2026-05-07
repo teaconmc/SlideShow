@@ -1,16 +1,16 @@
 package org.teacon.slides.screen;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.ChatFormatting;
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.apache.commons.lang3.StringUtils;
 import org.lwjgl.glfw.GLFW;
 import org.teacon.slides.SlideShow;
@@ -28,7 +28,7 @@ import java.util.*;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class SlideItemScreen extends AbstractContainerScreen<SlideItemContainerMenu> {
-    private static final ResourceLocation
+    private static final Identifier
             GUI_TEXTURE = SlideShow.id("textures/gui/projector_gui.png");
 
     private static final int
@@ -156,7 +156,7 @@ public final class SlideItemScreen extends AbstractContainerScreen<SlideItemCont
             // use default uuid to trigger update
             imgId = new UUID(0L, 0L);
         }
-        PacketDistributor.sendToServer(new SlideItemUpdatePacket(
+        ClientPacketDistributor.sendToServer(new SlideItemUpdatePacket(
                 mInitPacket.slotId(), mInitPacket.permissions(), imgId,
                 Optional.empty(), Optional.ofNullable(urlFallback), mSlideSize));
     }

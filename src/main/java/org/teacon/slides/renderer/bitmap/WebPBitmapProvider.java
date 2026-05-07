@@ -1,9 +1,9 @@
 package org.teacon.slides.renderer.bitmap;
 
 import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import dev.matrixlab.webp4j.model.AnimatedWebPData;
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.util.Mth;
 import org.apache.commons.lang3.ArrayUtils;
 import org.joml.Vector2i;

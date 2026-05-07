@@ -3,29 +3,30 @@ package org.teacon.slides.url;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.*;
 import com.mojang.authlib.GameProfile;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
+import com.mojang.serialization.Codec;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.ints.IntObjectPair;
 import net.minecraft.ChatFormatting;
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
-import net.minecraft.core.HolderLookup;
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.world.level.saveddata.SavedDataType;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
@@ -52,15 +53,17 @@ import java.util.function.Predicate;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-@EventBusSubscriber(bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = SlideShow.ID)
 public final class ProjectorURLSavedData extends SavedData {
-    private static final Factory<ProjectorURLSavedData> FACTORY = new Factory<>(ProjectorURLSavedData::new, ProjectorURLSavedData::new);
+    private static final Identifier ID = SlideShow.id("slide_projector_urls");
+    private static final Codec<ProjectorURLSavedData> CODEC = CompoundTag.CODEC.xmap(ProjectorURLSavedData::new, ProjectorURLSavedData::save);
+    private static final SavedDataType<ProjectorURLSavedData> TYPE = new SavedDataType<>(ID, ProjectorURLSavedData::new, CODEC);
     private static final Comparator<ProjectorURL> PROJECTOR_URL_ASC = Comparator.comparing(ProjectorURL::toString);
     private static final Comparator<Log> LOG_TIME_ASC = Comparator.comparing(Log::time);
 
     public static ProjectorURLSavedData get(@Nullable MinecraftServer server) {
         var dataStorage = Objects.requireNonNull(server).overworld().getDataStorage();
-        return Objects.requireNonNull(dataStorage.computeIfAbsent(FACTORY, "slide_projector_urls"));
+        return Objects.requireNonNull(dataStorage.computeIfAbsent(TYPE));
     }
 
     @SubscribeEvent
@@ -206,8 +209,8 @@ public final class ProjectorURLSavedData extends SavedData {
         return changed;
     }
 
-    @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider provider) {
+    private CompoundTag save() {
+        var tag = new CompoundTag();
         var logs = new ListTag();
         for (var log : Iterables.mergeSorted(this.urlStrToLogs.asMap().values(), LOG_TIME_ASC)) {
             var logRecord = log.writeTag();
@@ -217,7 +220,7 @@ public final class ProjectorURLSavedData extends SavedData {
         var mappings = new ListTag();
         for (var mapping : this.idToUrlStr.entrySet()) {
             var mappingRecord = new CompoundTag();
-            mappingRecord.putUUID("UUID", mapping.getKey());
+            mappingRecord.putIntArray("UUID", UUIDUtil.uuidToIntArray(mapping.getKey()));
             mappingRecord.putString("URL", mapping.getValue().toUrl().toString());
             mappingRecord.putBoolean("Blocked", this.blockedIdCollection.contains(mapping.getKey()));
             mappings.add(mappingRecord);
@@ -236,11 +239,11 @@ public final class ProjectorURLSavedData extends SavedData {
         this.blockedIdCollection = new HashSet<>();
     }
 
-    private ProjectorURLSavedData(CompoundTag tag, HolderLookup.Provider provider) {
-        var logs = tag.getList("Logs", Tag.TAG_COMPOUND);
+    private ProjectorURLSavedData(CompoundTag tag) {
+        var logs = tag.getListOrEmpty("Logs");
         this.urlStrToLogs = TreeMultimap.create(PROJECTOR_URL_ASC, LOG_TIME_ASC);
         for (var i = 0; i < logs.size(); ++i) {
-            var logRecord = logs.getCompound(i);
+            var logRecord = logs.getCompoundOrEmpty(i);
             var logEntry = Log.readTag(logRecord);
             // it is guaranteed that all the log timestamps
             // are different positive numbers under ascending order
@@ -249,15 +252,15 @@ public final class ProjectorURLSavedData extends SavedData {
             this.maxLogTimestamp = logTimestamp;
             this.urlStrToLogs.put(logEntry.getKey(), logEntry.getValue());
         }
-        var mappings = tag.getList("Mappings", Tag.TAG_COMPOUND);
+        var mappings = tag.getListOrEmpty("Mappings");
         this.idToUrlStr = HashBiMap.create(mappings.size() + 16);
         this.blockedIdCollection = new HashSet<>();
         for (var i = 0; i < mappings.size(); ++i) {
-            var mappingRecord = mappings.getCompound(i);
-            var mappingId = mappingRecord.getUUID("UUID");
-            var mappingUrl = new ProjectorURL(mappingRecord.getString("URL"));
+            var mappingRecord = mappings.getCompoundOrEmpty(i);
+            var mappingId = mappingRecord.getIntArray("UUID").map(UUIDUtil::uuidFromIntArray).orElse(new UUID(0L, 0L));
+            var mappingUrl = new ProjectorURL(mappingRecord.getStringOr("URL", ""));
             Preconditions.checkArgument(this.idToUrlStr.put(mappingId, mappingUrl) == null);
-            if (mappingRecord.getBoolean("Blocked")) {
+            if (mappingRecord.getBooleanOr("Blocked", false)) {
                 this.blockedIdCollection.add(mappingId);
             }
         }
@@ -304,23 +307,23 @@ public final class ProjectorURLSavedData extends SavedData {
         DETACH(SlideShow.ID, "detach_url_from_projector"),
         DETACH_ITEM(SlideShow.ID, "detach_url_from_item");
 
-        private final ResourceLocation id;
+        private final Identifier id;
 
-        private static final ImmutableMap<ResourceLocation, LogType> indexes;
+        private static final ImmutableMap<Identifier, LogType> indexes;
 
         static {
             indexes = Arrays.stream(LogType.values()).collect(ImmutableMap.toImmutableMap(LogType::id, lt -> lt));
         }
 
         LogType(String domain, String path) {
-            this.id = ResourceLocation.fromNamespaceAndPath(domain, path);
+            this.id = Identifier.fromNamespaceAndPath(domain, path);
         }
 
-        public ResourceLocation id() {
+        public Identifier id() {
             return this.id;
         }
 
-        public static LogType of(ResourceLocation id) {
+        public static LogType of(Identifier id) {
             return Optional.ofNullable(indexes.get(id)).orElseThrow(IllegalArgumentException::new);
         }
     }
@@ -358,7 +361,7 @@ public final class ProjectorURLSavedData extends SavedData {
             var timeText = Component.literal(timeString);
             if (this.operator.isPresent()) {
                 var key = "gui.slide_show.log_comment";
-                var nameText = this.operator.get().getName();
+                var nameText = this.operator.get().name();
                 list.add(Component.translatable(key, timeText, nameText).withStyle(ChatFormatting.GRAY));
             } else {
                 var key = "gui.slide_show.log_comment_nobody";
@@ -372,8 +375,8 @@ public final class ProjectorURLSavedData extends SavedData {
             result.putLong("LogTime", this.time.toEpochMilli());
             result.putString("LogType", this.type.id().toString());
             if (this.operator.isPresent()) {
-                result.putUUID("OperatorUUID", this.operator.get().getId());
-                result.putString("OperatorName", this.operator.get().getName());
+                result.putIntArray("OperatorUUID", UUIDUtil.uuidToIntArray(this.operator.get().id()));
+                result.putString("OperatorName", this.operator.get().name());
             }
             result.merge(this.writeProjector());
             return result;
@@ -386,28 +389,32 @@ public final class ProjectorURLSavedData extends SavedData {
                 result.putInt("ReferredProjectorX", this.projector.get().pos().getX());
                 result.putInt("ReferredProjectorY", this.projector.get().pos().getY());
                 result.putInt("ReferredProjectorZ", this.projector.get().pos().getZ());
-                result.putString("ReferredProjectorDimension", dim.location().toString());
+                result.putString("ReferredProjectorDimension", dim.identifier().toString());
             }
             return result;
         }
 
         public static Map.Entry<ProjectorURL, Log> readTag(CompoundTag tag) {
-            var url = new ProjectorURL(tag.getString("URL"));
-            var time = Instant.ofEpochMilli(tag.getLong("LogTime"));
-            var type = LogType.of(ResourceLocation.parse(tag.getString("LogType")));
+            var url = new ProjectorURL(tag.getStringOr("URL", ""));
+            var time = Instant.ofEpochMilli(tag.getLongOr("LogTime", 0L));
+            var type = LogType.of(Identifier.parse(tag.getStringOr("LogType", LogType.CREATE.id().toString())));
             var gameProfile = Optional.<GameProfile>empty();
-            if (tag.contains("OperatorUUID", Tag.TAG_INT_ARRAY) && tag.contains("OperatorName", Tag.TAG_STRING)) {
-                gameProfile = Optional.of(new GameProfile(tag.getUUID("OperatorUUID"), tag.getString("OperatorName")));
+            if (tag.contains("OperatorUUID") && tag.contains("OperatorName")) {
+                var operatorId = tag.getIntArray("OperatorUUID").map(UUIDUtil::uuidFromIntArray);
+                var operatorName = tag.getString("OperatorName");
+                if (operatorId.isPresent() && operatorName.isPresent()) {
+                    gameProfile = Optional.of(new GameProfile(operatorId.get(), operatorName.get()));
+                }
             }
             return Map.entry(url, new Log(url.toUrl(), time, type, gameProfile, readProjector(tag)));
         }
 
         private static Optional<GlobalPos> readProjector(CompoundTag tag) {
-            if (tag.contains("ReferredProjectorDimension", Tag.TAG_STRING)) {
-                var x = tag.getInt("ReferredProjectorX");
-                var y = tag.getInt("ReferredProjectorY");
-                var z = tag.getInt("ReferredProjectorZ");
-                var dim = ResourceLocation.parse(tag.getString("ReferredProjectorDimension"));
+            if (tag.contains("ReferredProjectorDimension")) {
+                var x = tag.getIntOr("ReferredProjectorX", 0);
+                var y = tag.getIntOr("ReferredProjectorY", 0);
+                var z = tag.getIntOr("ReferredProjectorZ", 0);
+                var dim = Identifier.parse(tag.getStringOr("ReferredProjectorDimension", Level.OVERWORLD.identifier().toString()));
                 return Optional.of(GlobalPos.of(ResourceKey.create(Registries.DIMENSION, dim), new BlockPos(x, y, z)));
             }
             return Optional.empty();

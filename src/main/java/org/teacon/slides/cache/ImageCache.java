@@ -1,9 +1,9 @@
 package org.teacon.slides.cache;
 
 import com.google.common.net.HttpHeaders;
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.Util;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
+import net.minecraft.util.Util;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.Header;
 import org.apache.http.client.ClientProtocolException;

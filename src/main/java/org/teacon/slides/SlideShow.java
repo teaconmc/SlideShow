@@ -1,9 +1,9 @@
 package org.teacon.slides;
 
 import com.mojang.datafixers.util.Either;
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
-import net.minecraft.resources.ResourceLocation;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
+import net.minecraft.resources.Identifier;
 import net.neoforged.fml.common.Mod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -66,7 +66,7 @@ public final class SlideShow {
         return checkBlock.apply(Either.right(url));
     }
 
-    public static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(SlideShow.ID, path);
+    public static Identifier id(String path) {
+        return Identifier.fromNamespaceAndPath(SlideShow.ID, path);
     }
 }

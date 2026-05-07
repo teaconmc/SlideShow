@@ -1,10 +1,10 @@
 package org.teacon.slides.network;
 
 import com.google.common.collect.ImmutableSet;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -67,7 +67,7 @@ public final class SlideURLRequestPacket implements CustomPacketPayload {
             var player = context.player();
             if (player instanceof ServerPlayer serverPlayer) {
                 // noinspection resource
-                var level = serverPlayer.serverLevel();
+                var level = serverPlayer.level();
                 var imageLocations = new LinkedHashSet<UUID>(this.requestedPosSet.size());
                 for (var pos : this.requestedPosSet) {
                     // prevent remote chunk loading
@@ -89,7 +89,7 @@ public final class SlideURLRequestPacket implements CustomPacketPayload {
                         imageLocations.add(entry.id());
                     }
                 }
-                var data = ProjectorURLSavedData.get(serverPlayer.getServer());
+                var data = ProjectorURLSavedData.get(serverPlayer.level().getServer());
                 PacketDistributor.sendToPlayer(serverPlayer, new SlideURLPrefetchPacket(imageLocations, data));
             }
         });

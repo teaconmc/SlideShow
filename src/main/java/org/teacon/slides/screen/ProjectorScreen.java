@@ -1,9 +1,9 @@
 package org.teacon.slides.screen;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.ChatFormatting;
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.EditBox;
@@ -12,10 +12,10 @@ import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.Rotation;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.joml.Vector2i;
 import org.joml.Vector3i;
 import org.lwjgl.glfw.GLFW;
@@ -37,7 +37,7 @@ import java.util.Objects;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ProjectorScreen extends AbstractContainerScreen<ProjectorContainerMenu> {
-    private static final ResourceLocation
+    private static final Identifier
             GUI_TEXTURE = SlideShow.id("textures/gui/projector_gui.png");
 
     private static final int
@@ -343,7 +343,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
             case SET_INTERNAL_ROTATION -> this.updateRotation(ProjectorBlock.InternalRotation.BY_ID.apply(value));
         };
         if (changed) {
-            PacketDistributor.sendToServer(new ProjectorUpdatePacket(category, mBlockPos, value));
+            ClientPacketDistributor.sendToServer(new ProjectorUpdatePacket(category, mBlockPos, value));
         }
         this.mSyncedCategories.add(category);
     }

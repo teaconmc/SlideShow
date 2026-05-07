@@ -1,7 +1,7 @@
 package org.teacon.slides.calc;
 
-import net.minecraft.FieldsAreNonnullByDefault;
-import net.minecraft.MethodsReturnNonnullByDefault;
+import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
+import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import org.joml.*;
 import org.teacon.slides.block.ProjectorBlock.InternalRotation;
 
