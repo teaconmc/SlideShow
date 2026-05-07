@@ -12,11 +12,11 @@ jobs:
         with:
           # Fetch all history 
           fetch-depth: 0
-      - name: Setup Java 21
+      - name: Setup Java 25
         uses: actions/setup-java@v2
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '25'
       - name: Maven Publish
         id: maven_publish
         env:
@@ -30,9 +30,10 @@ jobs:
         shell: bash
         env:
           CURRENT: ${{ github.ref }}
+          ARTIFACT_GIT_TAG: ${{ steps.maven_publish.outputs.artifact_git_tag }}
         # Special thanks to this post on Stack Overflow regarding change set between two tags:
         # https://stackoverflow.com/questions/12082981
-        # Do note that actions/checkout will enter detach mode by default, so you won't have 
+        # Do note that actions/checkout will enter detach mode by default, so you won't have
         # access to HEAD ref. Use GitHub-Action-supplied `github.ref` instead.
         # Special thanks to this issue ticket regarding escaping newline:
         # https://github.com/actions/create-release/issues/25
@@ -42,6 +43,7 @@ jobs:
         # See https://stackoverflow.com/questions/36927089/
         run: |
           current_tag=${CURRENT/refs\/tags\//}
+          test "$current_tag" = "$ARTIFACT_GIT_TAG"
           last_tag=`git describe --tags --abbrev=0 "$current_tag"^ 2>/dev/null || echo`
           if [ last_tag ]; then
           changelog=`git log --pretty="format:%H: %s" ${last_tag}..$current_tag`
@@ -50,7 +52,7 @@ jobs:
           fi
           changelog="${changelog//'%'/'%25'}"
           changelog="${changelog//$'\n'/'  %0A'}"
-          echo "::set-output name=value::Change set since ${last_tag:-the beginning}:  %0A%0A$changelog"
+          echo "::set-output name=value::Change set since ${last_tag:-the beginning}:  %0A%0A$changelog" | tee "$GITHUB_OUTPUT"
       - name: GitHub Release
         id: create_release
         uses: actions/create-release@v1.1.1
