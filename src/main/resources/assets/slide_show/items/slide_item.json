@@ -1,0 +1,22 @@
+{
+  "model": {
+	"type": "minecraft:condition",
+	"on_false": {
+	  "type": "minecraft:condition",
+	  "on_false": {
+		"type": "minecraft:model",
+		"model": "slide_show:item/slide_item"
+	  },
+	  "on_true": {
+		"type": "minecraft:model",
+		"model": "slide_show:item/slide_item_allowed"
+	  },
+	  "property": "slide_show:slide_url_allowed"
+	},
+	"on_true": {
+	  "type": "minecraft:model",
+	  "model": "slide_show:item/slide_item_blocked"
+	},
+	"property": "slide_show:slide_url_blocked"
+  }
+}

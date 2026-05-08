@@ -8,26 +8,27 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.item.properties.numeric.RangeSelectItemModelProperty;
+import net.minecraft.client.renderer.item.properties.conditional.ConditionalItemModelProperty;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.SimpleMenuProvider;
-import net.minecraft.world.entity.ItemOwner;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Rarity;
-import net.minecraft.world.item.TooltipFlag;
+import net.minecraft.world.item.*;
 import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.level.Level;
+import org.jspecify.annotations.Nullable;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.calc.Concrete.Position;
@@ -53,8 +54,12 @@ import static org.apache.commons.lang3.StringUtils.abbreviateMiddle;
 public final class SlideItem extends Item {
     public static final Entry ENTRY_DEF = new Entry(new UUID(0L, 0L), Size.DEFAULT, Position.DEFAULT);
 
-    public SlideItem() {
-        super(new Properties().stacksTo(1).rarity(Rarity.RARE).component(ModRegistries.SLIDE_ENTRY, ENTRY_DEF));
+    public SlideItem(Identifier identifier) {
+        super(new Properties()
+                .stacksTo(1)
+                .rarity(Rarity.RARE)
+                .component(ModRegistries.SLIDE_ENTRY, ENTRY_DEF)
+                .setId(ResourceKey.create(Registries.ITEM, identifier)));
     }
 
     @Override
@@ -134,21 +139,44 @@ public final class SlideItem extends Item {
     @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
-    public enum UrlStatusProperty implements RangeSelectItemModelProperty {
+    public enum SlideUrlBlockedProperty implements ConditionalItemModelProperty {
         INSTANCE;
 
-        public static final MapCodec<UrlStatusProperty> MAP_CODEC = MapCodec.unit(INSTANCE);
+        public static final MapCodec<SlideUrlBlockedProperty> MAP_CODEC = MapCodec.unit(INSTANCE);
 
         @Override
-        public float get(ItemStack stack, ClientLevel level, ItemOwner owner, int seed) {
-            var uuid = stack.getOrDefault(ModRegistries.SLIDE_ENTRY, ENTRY_DEF).id();
-            var status = SlideShow.checkBlock(uuid);
-            return status.ordinal() / 2F;
+        public MapCodec<SlideUrlBlockedProperty> type() {
+            return MAP_CODEC;
         }
 
         @Override
-        public MapCodec<? extends RangeSelectItemModelProperty> type() {
+        public boolean get(ItemStack stack, @Nullable ClientLevel level,
+                           @Nullable LivingEntity owner, int seed, ItemDisplayContext ctx) {
+            var uuid = stack.getOrDefault(ModRegistries.SLIDE_ENTRY, ENTRY_DEF).id();
+            var status = SlideShow.checkBlock(uuid);
+            return status.isBlocked();
+        }
+    }
+
+    @FieldsAreNonnullByDefault
+    @MethodsReturnNonnullByDefault
+    @ParametersAreNonnullByDefault
+    public enum SlideUrlAllowedProperty implements ConditionalItemModelProperty {
+        INSTANCE;
+
+        public static final MapCodec<SlideUrlAllowedProperty> MAP_CODEC = MapCodec.unit(INSTANCE);
+
+        @Override
+        public MapCodec<SlideUrlAllowedProperty> type() {
             return MAP_CODEC;
+        }
+
+        @Override
+        public boolean get(ItemStack stack, @Nullable ClientLevel level,
+                           @Nullable LivingEntity owner, int seed, ItemDisplayContext ctx) {
+            var uuid = stack.getOrDefault(ModRegistries.SLIDE_ENTRY, ENTRY_DEF).id();
+            var status = SlideShow.checkBlock(uuid);
+            return status.isAllowed();
         }
     }
 }

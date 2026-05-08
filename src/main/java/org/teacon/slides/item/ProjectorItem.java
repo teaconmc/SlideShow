@@ -3,8 +3,12 @@ package org.teacon.slides.item;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.util.Util;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
@@ -27,13 +31,12 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @ParametersAreNonnullByDefault
 public final class ProjectorItem extends BlockItem {
 
-    public ProjectorItem() {
-        super(ModRegistries.PROJECTOR_BLOCK.get(), new Item.Properties().rarity(Rarity.RARE)
-                .component(DataComponents.CONTAINER, Util.make(() -> {
-                    var list = NonNullList.withSize(ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY * 2, ItemStack.EMPTY);
-                    list.set(0, ModRegistries.SLIDE_ITEM.get().getDefaultInstance());
-                    return ItemContainerContents.fromItems(list);
-                })));
+    public ProjectorItem(Identifier identifier) {
+        super(ModRegistries.PROJECTOR_BLOCK.get(), new Properties()
+                .rarity(Rarity.RARE)
+                .component(DataComponents.CONTAINER, ItemContainerContents.EMPTY)
+                .useBlockDescriptionPrefix()
+                .setId(ResourceKey.create(Registries.ITEM, identifier)));
     }
 
     @Override

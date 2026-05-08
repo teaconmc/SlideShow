@@ -4,6 +4,7 @@ import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
@@ -65,25 +66,25 @@ public final class ModRegistries {
     public static final DeferredHolder<MenuType<?>, MenuType<SlideItemContainerMenu>> SLIDE_ITEM_MENU;
 
     static {
-        SLIDE_ITEM = DeferredHolder.create(BuiltInRegistries.ITEM.key(), SLIDE_ITEM_ID);
-        PROJECTOR_BLOCK = DeferredHolder.create(BuiltInRegistries.BLOCK.key(), PROJECTOR_ID);
-        SLIDE_ENTRY = DeferredHolder.create(BuiltInRegistries.DATA_COMPONENT_TYPE.key(), SLIDE_ENTRY_ID);
-        PROJECTOR_BLOCK_ENTITY = DeferredHolder.create(BuiltInRegistries.BLOCK_ENTITY_TYPE.key(), PROJECTOR_ID);
-        PROJECTOR_MENU = DeferredHolder.create(BuiltInRegistries.MENU.key(), PROJECTOR_ID);
-        SLIDE_ITEM_MENU = DeferredHolder.create(BuiltInRegistries.MENU.key(), SLIDE_ITEM_ID);
+        SLIDE_ITEM = DeferredHolder.create(Registries.ITEM, SLIDE_ITEM_ID);
+        PROJECTOR_BLOCK = DeferredHolder.create(Registries.BLOCK, PROJECTOR_ID);
+        SLIDE_ENTRY = DeferredHolder.create(Registries.DATA_COMPONENT_TYPE, SLIDE_ENTRY_ID);
+        PROJECTOR_BLOCK_ENTITY = DeferredHolder.create(Registries.BLOCK_ENTITY_TYPE, PROJECTOR_ID);
+        PROJECTOR_MENU = DeferredHolder.create(Registries.MENU, PROJECTOR_ID);
+        SLIDE_ITEM_MENU = DeferredHolder.create(Registries.MENU, SLIDE_ITEM_ID);
     }
 
     @SubscribeEvent
     public static void register(final RegisterEvent event) {
-        event.register(BuiltInRegistries.ITEM.key(), SLIDE_ITEM_ID, SlideItem::new);
-        event.register(BuiltInRegistries.BLOCK.key(), PROJECTOR_ID, ProjectorBlock::new);
-        event.register(BuiltInRegistries.ITEM.key(), PROJECTOR_ID, ProjectorItem::new);
-        event.register(BuiltInRegistries.DATA_COMPONENT_TYPE.key(), SLIDE_ENTRY_ID, SlideItem.Entry::createComponentType);
-        event.register(BuiltInRegistries.BLOCK_ENTITY_TYPE.key(), PROJECTOR_ID, ProjectorBlockEntity::create);
-        event.register(BuiltInRegistries.MENU.key(), PROJECTOR_ID, ProjectorContainerMenu::create);
-        event.register(BuiltInRegistries.MENU.key(), SLIDE_ITEM_ID, SlideItemContainerMenu::create);
-        event.register(BuiltInRegistries.COMMAND_ARGUMENT_TYPE.key(), PROJECTOR_URL_ID, ProjectorURLArgument::create);
-        event.register(BuiltInRegistries.COMMAND_ARGUMENT_TYPE.key(), PROJECTOR_URL_PATTERN_ID, ProjectorURLPatternArgument::create);
+        event.register(Registries.ITEM, SLIDE_ITEM_ID, () -> new SlideItem(SLIDE_ITEM_ID));
+        event.register(Registries.BLOCK, PROJECTOR_ID, () -> new ProjectorBlock(PROJECTOR_ID));
+        event.register(Registries.ITEM, PROJECTOR_ID, () -> new ProjectorItem(PROJECTOR_ID));
+        event.register(Registries.DATA_COMPONENT_TYPE, SLIDE_ENTRY_ID, SlideItem.Entry::createComponentType);
+        event.register(Registries.BLOCK_ENTITY_TYPE, PROJECTOR_ID, ProjectorBlockEntity::create);
+        event.register(Registries.MENU, PROJECTOR_ID, ProjectorContainerMenu::create);
+        event.register(Registries.MENU, SLIDE_ITEM_ID, SlideItemContainerMenu::create);
+        event.register(Registries.COMMAND_ARGUMENT_TYPE, PROJECTOR_URL_ID, ProjectorURLArgument::create);
+        event.register(Registries.COMMAND_ARGUMENT_TYPE, PROJECTOR_URL_PATTERN_ID, ProjectorURLPatternArgument::create);
     }
 
     @SubscribeEvent
