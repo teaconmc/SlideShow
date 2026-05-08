@@ -10,6 +10,7 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.ByIdMap;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -44,8 +45,9 @@ public record ProjectorUpdatePacket(Category category, BlockPos pos, int value) 
     public void handle(IPayloadContext context) {
         context.enqueueWork(() -> {
             var player = context.player();
-            // noinspection resource
-            if (SlidePermission.canInteract(player) && player.level() instanceof ServerLevel level) {
+            if (player instanceof ServerPlayer sp && SlidePermission.canInteract(sp.createCommandSourceStack())) {
+                // noinspection resource
+                var level = sp.level();
                 // prevent remote chunk loading
                 if (level.isLoaded(this.pos) && level.getBlockEntity(this.pos) instanceof ProjectorBlockEntity tile) {
                     var state = tile.getBlockState();

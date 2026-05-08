@@ -3,8 +3,11 @@ package org.teacon.slides.admin;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.commands.CommandSource;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.Permission;
+import net.minecraft.server.permissions.PermissionLevel;
 import net.minecraft.server.rcon.RconConsoleSource;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -49,55 +52,67 @@ public final class SlidePermission {
                 "interact_url.unblock", PermissionTypes.BOOLEAN, SlidePermission::operator));
     }
 
-    public static boolean canInteract(@Nullable CommandSource source) {
+    public static boolean canInteract(CommandSourceStack source) {
+        return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.ALL));
+        /* TODO
         if (source instanceof ServerPlayer sp) {
             return PermissionAPI.getPermission(sp, Objects.requireNonNull(INTERACT_PERM));
         }
-        return false;
+        return false;*/
     }
 
-    public static boolean canInteractCreateUrl(@Nullable CommandSource source) {
+    public static boolean canInteractCreateUrl(CommandSourceStack source) {
+        return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.ALL));
+        /* TODO
         if (source instanceof ServerPlayer serverPlayer) {
             return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(INTERACT_CREATE_PERM));
         }
-        return false;
+        return false;*/
     }
 
-    public static boolean canInteractEditSlide(@Nullable CommandSource source) {
+    public static boolean canInteractEditSlide(CommandSourceStack source) {
+        return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.ALL));
+        /* TODO
         if (source instanceof ServerPlayer serverPlayer) {
             return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(INTERACT_EDIT_PERM));
         }
-        return false;
+        return false;*/
     }
 
-    public static boolean canListUrl(@Nullable CommandSource source) {
+    public static boolean canListUrl(CommandSourceStack source) {
+        return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS));
+        /* TODO
         if (source instanceof MinecraftServer || source instanceof RconConsoleSource) {
             return true;
         }
         if (source instanceof ServerPlayer serverPlayer) {
             return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(LIST_PERM));
         }
-        return false;
+        return false;*/
     }
 
-    public static boolean canBlockUrl(@Nullable CommandSource source) {
+    public static boolean canBlockUrl(CommandSourceStack source) {
+        return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS));
+        /* TODO
         if (source instanceof MinecraftServer || source instanceof RconConsoleSource) {
             return true;
         }
         if (source instanceof ServerPlayer serverPlayer) {
             return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(BLOCK_PERM));
         }
-        return false;
+        return false;*/
     }
 
-    public static boolean canUnblockUrl(@Nullable CommandSource source) {
+    public static boolean canUnblockUrl(CommandSourceStack source) {
+        return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS));
+        /* TODO
         if (source instanceof MinecraftServer || source instanceof RconConsoleSource) {
             return true;
         }
         if (source instanceof ServerPlayer serverPlayer) {
             return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(UNBLOCK_PERM));
         }
-        return false;
+        return false;*/
     }
 
     private static boolean everyone(@Nullable ServerPlayer player, UUID uuid, PermissionDynamicContext<?>... context) {
@@ -105,6 +120,6 @@ public final class SlidePermission {
     }
 
     private static boolean operator(@Nullable ServerPlayer player, UUID uuid, PermissionDynamicContext<?>... context) {
-        return player != null && player.hasPermissions(2);
+        return player != null && player.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS));
     }
 }

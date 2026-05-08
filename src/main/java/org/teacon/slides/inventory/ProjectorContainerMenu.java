@@ -114,7 +114,7 @@ public final class ProjectorContainerMenu extends AbstractContainerMenu {
     }
 
     public static void openGui(Player currentPlayer, ProjectorBlockEntity tile) {
-        if (currentPlayer instanceof ServerPlayer player && SlidePermission.canInteract(player)) {
+        if (currentPlayer instanceof ServerPlayer sp && SlidePermission.canInteract(sp.createCommandSourceStack())) {
             currentPlayer.openMenu(tile, buf -> {
                 buf.writeBlockPos(tile.getBlockPos());
                 var tileSizeMicros = tile.getSizeMicros();
@@ -177,6 +177,6 @@ public final class ProjectorContainerMenu extends AbstractContainerMenu {
         if (!(level.getBlockEntity(this.tilePos) instanceof ProjectorBlockEntity)) {
             return false;
         }
-        return SlidePermission.canInteract(player);
+        return player instanceof ServerPlayer serverPlayer && SlidePermission.canInteract(serverPlayer.createCommandSourceStack());
     }
 }

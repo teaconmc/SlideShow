@@ -152,7 +152,7 @@ public final class SlideCommand {
         if (urlOptional.isPresent()) {
             var url = urlOptional.get();
             var uuidOptional = data.getIdByUrl(url);
-            if (uuidOptional.isPresent() || SlidePermission.canInteractCreateUrl(source.source)) {
+            if (uuidOptional.isPresent() || SlidePermission.canInteractCreateUrl(source)) {
                 var uuid = uuidOptional.orElseGet(() -> data.getOrCreateIdByCommand(url, source));
                 PacketDistributor.sendToAllPlayers(new SlideURLPrefetchPacket(Set.of(uuid), data));
                 var msg = Component.translatable("command.slide_show.prefetch_projector_url.success", toText(uuid, url));
@@ -166,7 +166,7 @@ public final class SlideCommand {
     private static int list(CommandSourceStack source,
                             URLPattern urlPatternArgument,
                             ProjectorURLSavedData data) throws CommandSyntaxException {
-        if (SlidePermission.canListUrl(source.source)) {
+        if (SlidePermission.canListUrl(source)) {
             var limit = 20;
             var matchResults = data.getUrlMatchResults(urlPatternArgument, limit);
             var components = Arrays.asList(matchResults.value().keySet().stream().flatMap(
@@ -186,7 +186,7 @@ public final class SlideCommand {
     private static int block(CommandSourceStack source,
                              Either<UUID, ProjectorURL> urlArgument,
                              ProjectorURLSavedData data) throws CommandSyntaxException {
-        if (SlidePermission.canBlockUrl(source.source)) {
+        if (SlidePermission.canBlockUrl(source)) {
             var pairOptional = toPairOpt(data, urlArgument);
             if (pairOptional.isPresent()) {
                 var pair = pairOptional.get();
@@ -205,7 +205,7 @@ public final class SlideCommand {
     private static int unblock(CommandSourceStack source,
                                Either<UUID, ProjectorURL> urlArgument,
                                ProjectorURLSavedData data) throws CommandSyntaxException {
-        if (SlidePermission.canUnblockUrl(source.source)) {
+        if (SlidePermission.canUnblockUrl(source)) {
             var pairOptional = toPairOpt(data, urlArgument);
             if (pairOptional.isPresent()) {
                 var pair = pairOptional.get();

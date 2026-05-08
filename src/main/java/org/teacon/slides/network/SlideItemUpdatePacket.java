@@ -48,15 +48,15 @@ public record SlideItemUpdatePacket(int slotId, Perm permissions,
 
     public void handle(IPayloadContext context) {
         if (Inventory.isHotbarSlot(this.slotId) || this.slotId == Inventory.SLOT_OFFHAND) {
-            if (context.player() instanceof ServerPlayer player && SlidePermission.canInteractEditSlide(player)) {
-                var data = ProjectorURLSavedData.get(player.level().getServer());
-                var item = player.getInventory().getItem(this.slotId);
+            if (context.player() instanceof ServerPlayer sp && SlidePermission.canInteractEditSlide(sp.createCommandSourceStack())) {
+                var data = ProjectorURLSavedData.get(sp.level().getServer());
+                var item = sp.getInventory().getItem(this.slotId);
                 if (item.is(ModRegistries.SLIDE_ITEM)) {
                     var oldEntry = item.getOrDefault(ModRegistries.SLIDE_ENTRY, SlideItem.ENTRY_DEF);
                     var newEntry = new SlideItem.Entry(this.imgUniqueId, this.size, oldEntry.position());
                     if (data.getUrlById(newEntry.id()).isEmpty() && this.url.isPresent()) {
-                        if (SlidePermission.canInteractCreateUrl(player)) {
-                            var imgId = data.getOrCreateIdByItem(this.url.get(), player);
+                        if (SlidePermission.canInteractCreateUrl(sp.createCommandSourceStack())) {
+                            var imgId = data.getOrCreateIdByItem(this.url.get(), sp);
                             newEntry = new SlideItem.Entry(imgId, this.size, oldEntry.position());
                         } else {
                             var imgId = data.getIdByUrl(this.url.get()).orElseGet(oldEntry::id);
@@ -65,7 +65,7 @@ public record SlideItemUpdatePacket(int slotId, Perm permissions,
                     }
                     if (!newEntry.equals(oldEntry)) {
                         item.set(ModRegistries.SLIDE_ENTRY, newEntry);
-                        data.applyIdChangeByItem(oldEntry, newEntry, player);
+                        data.applyIdChangeByItem(oldEntry, newEntry, sp);
                     }
                 }
             }
@@ -81,7 +81,8 @@ public record SlideItemUpdatePacket(int slotId, Perm permissions,
         public static final StreamCodec<ByteBuf, Perm> STREAM_CODEC;
 
         public Perm(Player source) {
-            this(SlidePermission.canInteractCreateUrl(source), SlidePermission.canInteractEditSlide(source));
+            this(source instanceof ServerPlayer player && SlidePermission.canInteractCreateUrl(player.createCommandSourceStack()),
+                    source instanceof ServerPlayer player && SlidePermission.canInteractEditSlide(player.createCommandSourceStack()));
         }
 
         static {
