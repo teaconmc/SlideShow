@@ -15,14 +15,20 @@ import it.unimi.dsi.fastutil.ints.IntLists;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.debug.DebugEntryCategory;
+import net.minecraft.client.gui.components.debug.DebugScreenDisplayer;
+import net.minecraft.client.gui.components.debug.DebugScreenEntry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.CustomizeGuiOverlayEvent;
+import net.neoforged.neoforge.client.event.RegisterDebugEntriesEvent;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.joml.Vector2i;
 import org.lwjgl.stb.STBImage;
@@ -89,14 +95,23 @@ public final class TextureState {
 
     @SubscribeEvent
     public static void onPlayerLeft(ClientPlayerNetworkEvent.LoggingOut event) {
-        RenderSystem.recordRenderCall(TextureState::clear);
+        Minecraft.getInstance().schedule(TextureState::clear);
     }
 
     @SubscribeEvent
-    public static void onDebugTextCollection(CustomizeGuiOverlayEvent.DebugText event) {
-        if (!Minecraft.getInstance().options.reducedDebugInfo().get()) {
-            event.getLeft().add(TextureState.getDebugText());
-        }
+    public static void onDebugTextCollection(RegisterDebugEntriesEvent event) {
+        event.register(SlideShow.id("texture"), new DebugScreenEntry() {
+            @Override
+            public void display(DebugScreenDisplayer displayer, @Nullable Level serverOrClientLevel,
+                                @Nullable LevelChunk clientChunk, @Nullable LevelChunk serverChunk) {
+                displayer.addLine(TextureState.getDebugText());
+            }
+
+            @Override
+            public DebugEntryCategory category() {
+                return DebugEntryCategory.RENDERER;
+            }
+        });
     }
 
     private static void tick(AbstractContainerMenu opening, boolean paused) {
@@ -112,7 +127,7 @@ public final class TextureState {
         if (!paused && ++sAnimationTick % 20 == 0) {
             var map = sCache.getAcquire();
             if (!map.isEmpty()) {
-                RenderSystem.recordRenderCall(() -> map.entrySet().removeIf(e -> e.getValue().update(e.getKey())));
+                Minecraft.getInstance().schedule(() -> map.entrySet().removeIf(e -> e.getValue().update(e.getKey())));
             }
             if (++sCleanerTimer > CLEANER_INTERVAL_SECONDS) {
                 var n = ImageCache.getInstance().cleanResources();
@@ -197,7 +212,7 @@ public final class TextureState {
     }
 
     public static SequencedCollection<String> getRecommendedNames(SlideItem.Entry entry) {
-        var sequence = new TextureSequence(new Vector2i(1, 1), new ProjectorBlockEntity.ColorTransform(), false);
+        var sequence = new TextureSequence(1, 1, new ProjectorBlockEntity.ColorTransform(), false);
         appendTextureSequence(entry, sequence);
         return sequence.getRecommends();
     }
@@ -252,7 +267,7 @@ public final class TextureState {
         ImageCache.getInstance().getResource(location.toUrl(), true).thenCompose(entry -> {
             var future = new CompletableFuture<BitmapProvider>();
             var providerFactory = dispatchProviderFactory(entry);
-            RenderSystem.recordRenderCall(() -> {
+            Minecraft.getInstance().schedule(() -> {
                 try {
                     future.complete(providerFactory.call());
                 } catch (Exception e) {
@@ -261,7 +276,7 @@ public final class TextureState {
                 }
             });
             return future;
-        }).whenComplete((provider, throwable) -> RenderSystem.recordRenderCall(() -> {
+        }).whenComplete((provider, throwable) -> Minecraft.getInstance().schedule(() -> {
             if (requestCounter == mRequestCounter) {
                 if (mState == State.INITIAL) {
                     this.transferState(State.FAILURE, null);
@@ -276,7 +291,7 @@ public final class TextureState {
         ImageCache.getInstance().getResource(location.toUrl(), false).thenCompose(entry -> {
             var future = new CompletableFuture<BitmapProvider>();
             var providerFactory = dispatchProviderFactory(entry);
-            RenderSystem.recordRenderCall(() -> {
+            Minecraft.getInstance().schedule(() -> {
                 try {
                     future.complete(providerFactory.call());
                 } catch (Exception e) {
@@ -285,7 +300,7 @@ public final class TextureState {
                 }
             });
             return future;
-        }).whenComplete((provider, throwable) -> RenderSystem.recordRenderCall(() -> {
+        }).whenComplete((provider, throwable) -> Minecraft.getInstance().schedule(() -> {
             if (requestCounter == mRequestCounter) {
                 if (provider != null) {
                     this.transferState(State.OFFLINE, provider);

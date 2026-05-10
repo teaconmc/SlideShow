@@ -1,28 +1,28 @@
 package org.teacon.slides.renderer.bitmap;
 
-import com.mojang.blaze3d.platform.GlStateManager;
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import org.joml.Vector2i;
-import org.teacon.slides.renderer.SlideRenderType;
+import org.teacon.slides.renderer.SlideRenderSetup;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
-import java.nio.IntBuffer;
 
-import static org.lwjgl.opengl.GL11C.*;
-import static org.lwjgl.opengl.GL12C.*;
-import static org.lwjgl.opengl.GL14C.GL_TEXTURE_LOD_BIAS;
-import static org.lwjgl.opengl.GL30C.glGenerateMipmap;
+import static com.mojang.blaze3d.textures.GpuTexture.USAGE_COPY_DST;
+import static com.mojang.blaze3d.textures.GpuTexture.USAGE_TEXTURE_BINDING;
+import static com.mojang.blaze3d.textures.TextureFormat.RGBA8;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class StaticBitmapProvider implements BitmapProvider {
 
-    private int mTexture;
-    private final SlideRenderType mRenderType;
+    private final GpuTexture mTexture;
+    private final RenderType mRenderType;
     private final String mRecommendedName;
     private final int mWidth, mHeight;
 
@@ -33,41 +33,16 @@ public final class StaticBitmapProvider implements BitmapProvider {
             if (mWidth > MAX_TEXTURE_SIZE || mHeight > MAX_TEXTURE_SIZE) {
                 throw new IOException("Image is too big: " + mWidth + "x" + mHeight);
             }
-            final int maxLevel = Math.min(31 - Integer.numberOfLeadingZeros(Math.max(mWidth, mHeight)), 4);
 
-            mTexture = GlStateManager._genTexture();
-            GlStateManager._bindTexture(mTexture);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, maxLevel);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, 0.0F);
-
-            for (int level = 0; level <= maxLevel; ++level) {
-                glTexImage2D(GL_TEXTURE_2D, level,
-                        GL_RGBA8, mWidth >> level, mHeight >> level,
-                        0, GL_RGBA, GL_UNSIGNED_BYTE, (IntBuffer) null);
-            }
-
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            // row pixels 0 means width
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-            glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            var device = RenderSystem.getDevice();
+            mTexture = device.createTexture(name, USAGE_COPY_DST + USAGE_TEXTURE_BINDING, RGBA8, mWidth, mHeight, 1, 1);
 
             try (image) {
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mWidth, mHeight, GL_RGBA, GL_UNSIGNED_BYTE, image.pixels);
+                var encoder = device.createCommandEncoder();
+                encoder.writeToTexture(mTexture, image, 0, 0, 0, 0, mWidth, mHeight, 0, 0);
             }
 
-            // auto generate mipmap
-            glGenerateMipmap(GL_TEXTURE_2D);
-            mRenderType = new SlideRenderType(mTexture);
+            mRenderType = SlideRenderSetup.createSlideType(mTexture);
             mRecommendedName = name;
         } catch (IOException e) {
             this.close();
@@ -76,8 +51,13 @@ public final class StaticBitmapProvider implements BitmapProvider {
     }
 
     @Override
-    public SlideRenderType updateAndGet(long tick, float partialTick) {
+    public RenderType updateAndGet(long tick, float partialTick) {
         return mRenderType;
+    }
+
+    @Override
+    public String getRecommendedName() {
+        return mRecommendedName;
     }
 
     @Override
@@ -96,15 +76,10 @@ public final class StaticBitmapProvider implements BitmapProvider {
     }
 
     @Override
-    public String getRecommendedName() {
-        return mRecommendedName;
-    }
-
-    @Override
     public void close() {
-        if (mTexture != 0) {
-            GlStateManager._deleteTexture(mTexture);
+        // noinspection ConstantValue
+        if (mTexture != null) {
+            mTexture.close();
         }
-        mTexture = 0;
     }
 }

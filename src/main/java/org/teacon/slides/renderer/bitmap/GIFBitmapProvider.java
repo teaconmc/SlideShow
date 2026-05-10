@@ -1,11 +1,14 @@
 package org.teacon.slides.renderer.bitmap;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.google.common.base.MoreObjects;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import org.joml.Vector2i;
 import org.lwjgl.system.MemoryUtil;
-import org.teacon.slides.renderer.SlideRenderType;
+import org.teacon.slides.renderer.SlideRenderSetup;
 import org.teacon.slides.renderer.decoder.GIFDecoder;
 import org.teacon.slides.renderer.decoder.LZWDecoder;
 
@@ -13,9 +16,14 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
-import static org.lwjgl.opengl.GL11C.*;
-import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
+import static com.mojang.blaze3d.platform.NativeImage.Format.RGBA;
+import static com.mojang.blaze3d.textures.GpuTexture.USAGE_COPY_DST;
+import static com.mojang.blaze3d.textures.GpuTexture.USAGE_TEXTURE_BINDING;
+import static com.mojang.blaze3d.textures.TextureFormat.RGBA8;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -26,8 +34,8 @@ public final class GIFBitmapProvider implements BitmapProvider {
 
     private final GIFDecoder mDecoder;
 
-    private int mTexture;
-    private final SlideRenderType mRenderType;
+    private final GpuTexture mTexture;
+    private final RenderType mRenderType;
 
     private long mFrameStartTime;
     private long mFrameDelayTime;
@@ -41,36 +49,23 @@ public final class GIFBitmapProvider implements BitmapProvider {
     public GIFBitmapProvider(String name, byte[] data) throws IOException {
         try {
             mDecoder = new GIFDecoder(ByteBuffer.wrap(data), gRenderThreadDecoder);
-            final int width = mDecoder.getScreenWidth();
-            final int height = mDecoder.getScreenHeight();
+            var width = mDecoder.getScreenWidth();
+            var height = mDecoder.getScreenHeight();
             if (width > MAX_TEXTURE_SIZE || height > MAX_TEXTURE_SIZE) {
                 throw new IOException("Image is too big: " + width + "x" + height);
             }
 
             // COMPRESSED + HEAP (4) + NATIVE (4) + INDEX (1)
             mCPUMemorySize = data.length + (width * height * (4 + 4 + 1));
-
             mFrame = MemoryUtil.memAlloc(width * height * 4);
             mFrameDelayTime = mDecoder.decodeNextFrame(mFrame);
+
             // we successfully decoded the first frame, then create a texture
-
-            mTexture = GlStateManager._genTexture();
-            GlStateManager._bindTexture(mTexture);
-
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-            glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-            // no mipmap generation
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, mFrame.rewind());
-            mRenderType = new SlideRenderType(mTexture);
+            var device = RenderSystem.getDevice();
+            mTexture = device.createTexture(name, USAGE_COPY_DST + USAGE_TEXTURE_BINDING, RGBA8, width, height, 1, 1);
+            var encoder = device.createCommandEncoder();
+            encoder.writeToTexture(mTexture, mFrame.rewind(), RGBA, 0, 0, 0, 0, width, height);
+            mRenderType = SlideRenderSetup.createSlideType(mTexture);
             mRecommendedName = name;
         } catch (IOException e) {
             this.close();
@@ -79,22 +74,20 @@ public final class GIFBitmapProvider implements BitmapProvider {
     }
 
     @Override
-    public SlideRenderType updateAndGet(long tick, float partialTick) {
-        long timeMillis = (long) ((tick + partialTick) * 50);
+    public RenderType updateAndGet(long tick, float partialTick) {
+        var timeMillis = (long) ((tick + partialTick) * 50);
         if (mFrameStartTime == 0) {
             mFrameStartTime = timeMillis;
-        } else if (mFrameStartTime + mFrameDelayTime <= timeMillis) {
+            return mRenderType;
+        }
+        if (mFrameStartTime + mFrameDelayTime <= timeMillis) {
             try {
-                int width = mDecoder.getScreenWidth();
-                int height = mDecoder.getScreenHeight();
-                assert mFrame != null;
-                mFrameDelayTime = mDecoder.decodeNextFrame(mFrame);
-                GlStateManager._bindTexture(mTexture);
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-                glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-                glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, mFrame.rewind());
+                var device = RenderSystem.getDevice();
+                var width = mDecoder.getScreenWidth();
+                var height = mDecoder.getScreenHeight();
+                mFrameDelayTime = mDecoder.decodeNextFrame(Objects.requireNonNull(mFrame));
+                var encoder = device.createCommandEncoder();
+                encoder.writeToTexture(mTexture, mFrame.rewind(), RGBA, 0, 0, 0, 0, width, height);
             } catch (Exception e) {
                 // If an exception occurs, keep the texture image as the last frame and no longer update
                 // Don't use Long.MAX_VALUE in case of overflow
@@ -104,6 +97,11 @@ public final class GIFBitmapProvider implements BitmapProvider {
             mFrameStartTime = timeMillis;
         }
         return mRenderType;
+    }
+
+    @Override
+    public String getRecommendedName() {
+        return mRecommendedName;
     }
 
     @Override
@@ -122,17 +120,14 @@ public final class GIFBitmapProvider implements BitmapProvider {
     }
 
     @Override
-    public String getRecommendedName() {
-        return mRecommendedName;
-    }
-
-    @Override
     public void close() {
-        if (mTexture != 0) {
-            GlStateManager._deleteTexture(mTexture);
+        // noinspection ConstantValue
+        if (mTexture != null) {
+            mTexture.close();
         }
-        mTexture = 0;
-        MemoryUtil.memFree(mFrame);
-        mFrame = null;
+        if (mFrame != null) {
+            MemoryUtil.memFree(mFrame);
+            mFrame = null;
+        }
     }
 }

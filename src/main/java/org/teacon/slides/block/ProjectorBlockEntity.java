@@ -371,27 +371,8 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     }
 
     public void transformToSlideSpaceMicros(Matrix4f pose, Matrix3f normal) {
-        var state = getBlockState();
-        // get direction
-        var direction = state.getValue(BlockStateProperties.FACING);
-        // get internal rotation
-        var rotation = state.getValue(ProjectorBlock.ROTATION);
-        // matrix 1: translation to block center
-        pose.translate(1F / 2F, 1F / 2F, 1F / 2F);
-        // matrix 2: rotation
-        pose.rotate(direction.getRotation());
-        normal.rotate(direction.getRotation());
-        // matrix 3: translation to block surface
-        pose.translate(0F, 1F / 2F, 0F);
-        // matrix 4: float to micros
-        pose.scale(1E-6F, 1E-6F, 1E-6F);
-        // matrix 5: internal rotation
-        rotation.transform(pose);
-        rotation.transform(normal);
-        // matrix 6: translation for slide
-        pose.translate(-5E5F, 0F, 5E5F - mSizeMicros.y);
-        // matrix 7: offset for slide
-        pose.translate(mSlideOffsetMicros.x, -mSlideOffsetMicros.z, mSlideOffsetMicros.y);
+        var tm = new TransformMicros(this.getBlockState(), mSizeMicros, mSlideOffsetMicros);
+        tm.transformToSlideSpaceMicros(pose, normal);
     }
 
     public int moveSlideItems(int offset) {
@@ -437,6 +418,36 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
             offset += 1;
         }
         return original - offset;
+    }
+
+    public record TransformMicros(Direction direction,
+                                  ProjectorBlock.InternalRotation rotation,
+                                  int xSizeMicros, int ySizeMicros,
+                                  int xOffsetMicros, int yOffsetMicros, int zOffsetMicros) {
+        public TransformMicros(BlockState state, Vector2i sizeMicros, Vector3i offsetMicros) {
+            var rotation = state.getValue(ProjectorBlock.ROTATION);
+            var direction = state.getValue(BlockStateProperties.FACING);
+            this(direction, rotation, sizeMicros.x, sizeMicros.y, offsetMicros.x, offsetMicros.y, offsetMicros.z);
+        }
+
+        public void transformToSlideSpaceMicros(Matrix4f pose, Matrix3f normal) {
+            // matrix 1: translation to block center
+            pose.translate(1F / 2F, 1F / 2F, 1F / 2F);
+            // matrix 2: rotation
+            pose.rotate(direction.getRotation());
+            normal.rotate(direction.getRotation());
+            // matrix 3: translation to block surface
+            pose.translate(0F, 1F / 2F, 0F);
+            // matrix 4: float to micros
+            pose.scale(1E-6F, 1E-6F, 1E-6F);
+            // matrix 5: internal rotation
+            rotation.transform(pose);
+            rotation.transform(normal);
+            // matrix 6: translation for slide
+            pose.translate(-5E5F, 0F, 5E5F - ySizeMicros);
+            // matrix 7: offset for slide
+            pose.translate(xOffsetMicros, -zOffsetMicros, yOffsetMicros);
+        }
     }
 
     public static final class ColorTransform {

@@ -4,17 +4,20 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.block.BlockRenderDispatcher;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.block.BlockModelResolver;
+import net.minecraft.client.renderer.block.model.BlockDisplayContext;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState;
+import net.minecraft.client.renderer.feature.ModelFeatureRenderer;
+import net.minecraft.client.renderer.state.level.CameraRenderState;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.client.model.data.ModelData;
+import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.block.ProjectorBlock;
 import org.teacon.slides.block.ProjectorBlockEntity;
@@ -22,59 +25,18 @@ import org.teacon.slides.block.ProjectorBlockEntity;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
 
+import static net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY;
+
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlockEntity> {
-    private final BlockRenderDispatcher blockRenderDispatcher;
+public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlockEntity, ProjectorRenderState> {
+    private static final BlockDisplayContext BLOCK_DISPLAY_CONTEXT = BlockDisplayContext.create();
+
+    private final BlockModelResolver blockModelResolver;
 
     public ProjectorRenderer(BlockEntityRendererProvider.Context context) {
-        this.blockRenderDispatcher = context.getBlockRenderDispatcher();
-    }
-
-    @Override
-    public void render(ProjectorBlockEntity tile, float partialTick, PoseStack pStack,
-                       MultiBufferSource src, int packedLight, int packedOverlay) {
-        // initialize texture sequence
-        var tileState = tile.getBlockState();
-        var flipped = tileState.getValue(ProjectorBlock.ROTATION).isFlipped();
-        var sequence = new TextureSequence(tile.getSizeMicros(), tile.getColorTransform(), flipped);
-        // always update slide state of current and next slide
-        var nextCurrentEntries = tile.getNextCurrentEntries();
-        var nextEntry = nextCurrentEntries.left;
-        if (nextEntry.isPresent()) {
-            TextureState.appendTextureSequence(nextEntry.get(), sequence);
-            sequence.clear();
-        }
-        // render current slide
-        var currentEntry = nextCurrentEntries.right;
-        if (currentEntry.isPresent()) {
-            pStack.pushPose();
-            var last = pStack.last();
-            var light = LightTexture.FULL_BRIGHT;
-            var overlay = OverlayTexture.NO_OVERLAY;
-            var tick = TextureState.getAnimationTick();
-            tile.transformToSlideSpaceMicros(last.pose(), last.normal());
-            TextureState.appendTextureSequence(currentEntry.get(), sequence);
-            sequence.render(src, last, tile.getSizeMicros(), light, overlay, tick, partialTick);
-            pStack.popPose();
-        }
-        // render outline
-        if (tile.hasLevel()) {
-            pStack.pushPose();
-            var mc = Minecraft.getInstance();
-            var handItems = mc.player == null ? List.of(Items.AIR, Items.AIR) :
-                    List.of(mc.player.getMainHandItem().getItem(), mc.player.getOffhandItem().getItem());
-            if (handItems.contains(ModRegistries.PROJECTOR_BLOCK.get().asItem())) {
-                var outline = RenderType.outline(InventoryMenu.BLOCK_ATLAS);
-                var outlineSource = mc.renderBuffers().outlineBufferSource();
-                var blockModel = this.blockRenderDispatcher.getBlockModel(tileState);
-                this.blockRenderDispatcher.getModelRenderer().renderModel(
-                        pStack.last(), outlineSource.getBuffer(outline), tileState, blockModel,
-                        0.0F, 0.0F, 0.0F, packedLight, packedOverlay, ModelData.EMPTY, outline);
-            }
-            pStack.popPose();
-        }
+        this.blockModelResolver = context.blockModelResolver();
     }
 
     @Override
@@ -83,9 +45,67 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
     }
 
     @Override
-    public boolean shouldRenderOffScreen(ProjectorBlockEntity tile) {
+    public boolean shouldRenderOffScreen() {
         // global rendering
         return true;
+    }
+
+    @Override
+    public ProjectorRenderState createRenderState() {
+        return new ProjectorRenderState();
+    }
+
+    @Override
+    public void extractRenderState(ProjectorBlockEntity blockEntity, ProjectorRenderState state, float partialTicks,
+                                   Vec3 cameraPosition, ModelFeatureRenderer.@Nullable CrumblingOverlay breakProgress) {
+        // parent extractions
+        BlockEntityRenderState.extractBase(blockEntity, state, breakProgress);
+        // phase
+        state.tickPhase = TextureState.getAnimationTick();
+        state.partialTickPhase = partialTicks;
+        // model
+        var blockState = blockEntity.getBlockState();
+        if (blockEntity.hasLevel()) {
+            this.blockModelResolver.update(state.renderModel, blockState, BLOCK_DISPLAY_CONTEXT);
+        }
+        // construct sequence instance
+        var sizeMicros = blockEntity.getSizeMicros();
+        var colorTransform = blockEntity.getColorTransform();
+        var flipped = blockState.getValue(ProjectorBlock.ROTATION).isFlipped();
+        state.sequence = new TextureSequence(sizeMicros.x, sizeMicros.y, colorTransform, flipped);
+        // preload next slide
+        var entries = blockEntity.getNextCurrentEntries();
+        entries.left.ifPresent(e -> TextureState.appendTextureSequence(e, state.sequence));
+        state.sequence.clear();
+        // render current slide
+        entries.right.ifPresent(e -> TextureState.appendTextureSequence(e, state.sequence));
+        // construct transform instance
+        var offsetMicros = blockEntity.getOffsetMicros();
+        state.transformMicros = new ProjectorBlockEntity.TransformMicros(blockState, sizeMicros, offsetMicros);
+    }
+
+    @Override
+    public void submit(ProjectorRenderState state, PoseStack stack, SubmitNodeCollector snc, CameraRenderState camera) {
+        // render slide
+        stack.pushPose();
+        var last = stack.last();
+        state.transformMicros.transformToSlideSpaceMicros(last.pose(), last.normal());
+        var light = LightCoordsUtil.withBlock(state.lightCoords, ProjectorBlock.LIGHTNESS);
+        state.sequence.render(snc, stack, light, state.tickPhase, state.partialTickPhase);
+        stack.popPose();
+        // render outline
+        if (!state.renderModel.isEmpty()) {
+            stack.pushPose();
+            var mc = Minecraft.getInstance();
+            var handItems = List.of(Items.AIR, Items.AIR);
+            if (mc.player != null) {
+                handItems = List.of(mc.player.getMainHandItem().getItem(), mc.player.getOffhandItem().getItem());
+            }
+            if (handItems.contains(ModRegistries.PROJECTOR_BLOCK.get().asItem())) {
+                state.renderModel.submitOnlyOutline(stack, snc, state.lightCoords, NO_OVERLAY, 0xFFFFFFFF);
+            }
+            stack.popPose();
+        }
     }
 
     @Override

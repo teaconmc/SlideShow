@@ -1,14 +1,16 @@
 package org.teacon.slides.renderer.bitmap;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import dev.matrixlab.webp4j.model.AnimatedWebPData;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.util.Mth;
 import org.apache.commons.lang3.ArrayUtils;
 import org.joml.Vector2i;
 import org.lwjgl.system.MemoryUtil;
-import org.teacon.slides.renderer.SlideRenderType;
+import org.teacon.slides.renderer.SlideRenderSetup;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -18,8 +20,11 @@ import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Objects;
 
-import static org.lwjgl.opengl.GL11C.*;
-import static org.lwjgl.opengl.GL12C.GL_CLAMP_TO_EDGE;
+import static com.mojang.blaze3d.platform.NativeImage.Format.RGB;
+import static com.mojang.blaze3d.platform.NativeImage.Format.RGBA;
+import static com.mojang.blaze3d.textures.GpuTexture.USAGE_COPY_DST;
+import static com.mojang.blaze3d.textures.GpuTexture.USAGE_TEXTURE_BINDING;
+import static com.mojang.blaze3d.textures.TextureFormat.RGBA8;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -37,8 +42,8 @@ public final class WebPBitmapProvider implements BitmapProvider {
         return false;
     }
 
-    private int mTexture;
-    private final SlideRenderType mRenderType;
+    private final GpuTexture mTexture;
+    private final RenderType mRenderType;
 
     private int mCurrentRawFrame;
     private final int mFrameWidth;
@@ -111,25 +116,12 @@ public final class WebPBitmapProvider implements BitmapProvider {
             mFrame.put(frameData);
 
             // then create a texture
-            mTexture = GlStateManager._genTexture();
-            GlStateManager._bindTexture(mTexture);
-
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-            glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-            // no mipmap generation
-            var format = mHasAlpha ? GL_RGBA : GL_RGB;
-            var internalFormat = mHasAlpha ? GL_RGBA8 : GL_RGB8;
-            glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, mFrame.rewind());
-            mRenderType = new SlideRenderType(mTexture);
+            var format = mHasAlpha ? RGBA : RGB;
+            var device = RenderSystem.getDevice();
+            mTexture = device.createTexture(name, USAGE_COPY_DST + USAGE_TEXTURE_BINDING, RGBA8, width, height, 1, 1);
+            var encoder = device.createCommandEncoder();
+            encoder.writeToTexture(mTexture, mFrame.rewind(), format, 0, 0, 0, 0, width, height);
+            mRenderType = SlideRenderSetup.createSlideType(mTexture);
             mRecommendedName = name;
         } catch (IOException e) {
             this.close();
@@ -142,7 +134,7 @@ public final class WebPBitmapProvider implements BitmapProvider {
     }
 
     @Override
-    public SlideRenderType updateAndGet(long tick, float partialTick) {
+    public RenderType updateAndGet(long tick, float partialTick) {
         var timeMillis = Mth.lfloor((tick + partialTick) * 50);
         if (mFrameStartTime == 0) {
             mFrameStartTime = timeMillis;
@@ -159,16 +151,10 @@ public final class WebPBitmapProvider implements BitmapProvider {
                 Objects.requireNonNull(mFrame).clear().put(frameData);
 
                 // then bind the texture
-                GlStateManager._bindTexture(mTexture);
-
-                glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-                glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-                glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-                glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-                // no mipmap generation
-                var format = mHasAlpha ? GL_RGBA : GL_RGB;
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, mFrameWidth, mFrameHeight, format, GL_UNSIGNED_BYTE, mFrame.rewind());
+                var format = mHasAlpha ? RGBA : RGB;
+                var device = RenderSystem.getDevice();
+                var encoder = device.createCommandEncoder();
+                encoder.writeToTexture(mTexture, mFrame.rewind(), format, 0, 0, 0, 0, mFrameWidth, mFrameHeight);
             } catch (Exception e) {
                 // If an exception occurs, keep the texture image as the last frame and no longer update
                 // Don't use Long.MAX_VALUE in case of overflow
@@ -178,6 +164,11 @@ public final class WebPBitmapProvider implements BitmapProvider {
             mFrameStartTime = timeMillis;
         }
         return mRenderType;
+    }
+
+    @Override
+    public String getRecommendedName() {
+        return mRecommendedName;
     }
 
     @Override
@@ -196,17 +187,14 @@ public final class WebPBitmapProvider implements BitmapProvider {
     }
 
     @Override
-    public String getRecommendedName() {
-        return mRecommendedName;
-    }
-
-    @Override
     public void close() {
-        if (mTexture != 0) {
-            GlStateManager._deleteTexture(mTexture);
+        // noinspection ConstantValue
+        if (mTexture != null) {
+            mTexture.close();
         }
-        mTexture = 0;
-        MemoryUtil.memFree(mFrame);
-        mFrame = null;
+        if (mFrame != null) {
+            MemoryUtil.memFree(mFrame);
+            mFrame = null;
+        }
     }
 }

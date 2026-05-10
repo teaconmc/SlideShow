@@ -52,6 +52,7 @@ import static net.minecraft.world.level.block.state.properties.BlockStatePropert
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ProjectorBlock extends Block implements EntityBlock {
+    public static final int LIGHTNESS = 15;
 
     public static final EnumProperty<InternalRotation>
             ROTATION = EnumProperty.create("rotation", InternalRotation.class);
@@ -68,7 +69,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
     public ProjectorBlock(Identifier identifier) {
         super(Block.Properties.of() // TODO material
                 .strength(20F)
-                .lightLevel(state -> 15) // TODO Configurable
+                .lightLevel(state -> LIGHTNESS) // TODO Configurable
                 .noCollision()
                 .setId(ResourceKey.create(Registries.BLOCK, identifier)));
         registerDefaultState(defaultBlockState()
