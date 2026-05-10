@@ -1,18 +1,17 @@
 package org.teacon.slides.screen;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.player.Inventory;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.apache.commons.lang3.StringUtils;
-import org.lwjgl.glfw.GLFW;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.calc.Concrete;
 import org.teacon.slides.inventory.SlideItemContainerMenu;
@@ -23,6 +22,8 @@ import org.teacon.slides.url.ProjectorURL;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
+
+import static net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -80,9 +81,7 @@ public final class SlideItemScreen extends AbstractContainerScreen<SlideItemCont
     private UrlStatus mUrlStatus = UrlStatus.NO_CONTENT;
 
     public SlideItemScreen(SlideItemContainerMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title);
-        imageWidth = 230;
-        imageHeight = 82;
+        super(menu, inventory, title, 230, 82);
         // initialize variables
         mInitPacket = menu.packet;
         mSlideSize = menu.packet.size();
@@ -107,9 +106,9 @@ public final class SlideItemScreen extends AbstractContainerScreen<SlideItemCont
                     mUrlStatus = StringUtils.isNotBlank(text) ? UrlStatus.INVALID : UrlStatus.NO_CONTENT;
                 }
                 input.setTextColor(switch (mUrlStatus) {
-                    case NORMAL, NO_CONTENT -> 0xE0E0E0;
-                    case BLOCKED -> 0xE0E04B;
-                    case INVALID -> 0xE04B4B;
+                    case NORMAL, NO_CONTENT -> 0xFFE0E0E0;
+                    case BLOCKED -> 0xFFE0E04B;
+                    case INVALID -> 0xFFE04B4B;
                 });
             });
             input.setValue(v);
@@ -127,7 +126,7 @@ public final class SlideItemScreen extends AbstractContainerScreen<SlideItemCont
                 } catch (IllegalArgumentException e) {
                     mInvalidSize = true;
                 }
-                input.setTextColor(mInvalidSize ? 0xE04B4B : 0xE0E0E0);
+                input.setTextColor(mInvalidSize ? 0xFFE04B4B : 0xFFE0E0E0);
             });
             input.setValue(v);
             return input;
@@ -162,59 +161,46 @@ public final class SlideItemScreen extends AbstractContainerScreen<SlideItemCont
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifier) {
-        var isEscape = false;
-
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+    public boolean keyPressed(KeyEvent event) {
+        if (event.isEscape()) {
             Objects.requireNonNull(Objects.requireNonNull(minecraft).player).closeContainer();
-            isEscape = true;
+            return true;
         }
-
-        return isEscape
-                || mURLInput.get().keyPressed(keyCode, scanCode, modifier) || mURLInput.get().canConsumeInput()
-                || mSizeInput.get().keyPressed(keyCode, scanCode, modifier) || mSizeInput.get().canConsumeInput()
-                || super.keyPressed(keyCode, scanCode, modifier);
+        for (var input: List.of(mURLInput, mSizeInput)) {
+            if (input.get().keyPressed(event) || input.get().canConsumeInput()) {
+                return true;
+            }
+        }
+        return super.keyPressed(event);
     }
 
     @Override
-    protected void renderBg(GuiGraphics gui, float partialTicks, int mouseX, int mouseY) {
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-        RenderSystem.setShaderTexture(0, GUI_TEXTURE);
-        gui.blit(GUI_TEXTURE, leftPos, topPos, 0F, 302F, imageWidth, imageHeight, GUI_WIDTH, GUI_HEIGHT);
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+        super.extractBackground(graphics, mouseX, mouseY, a);
+        graphics.blit(GUI_TEXTURED, GUI_TEXTURE, leftPos, topPos, 0F, 302F, imageWidth, imageHeight, GUI_WIDTH, GUI_HEIGHT);
     }
 
     @Override
-    protected void renderLabels(GuiGraphics gui, int mouseX, int mouseY) {
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderTexture(0, GUI_TEXTURE);
-
+    protected void extractLabels(GuiGraphicsExtractor graphics, int xm, int ym) {
         if (mUrlStatus == UrlStatus.INVALID || mUrlStatus == UrlStatus.BLOCKED) {
-            gui.blit(GUI_TEXTURE, 7, 35, 7F, 277F, 18, 19, GUI_WIDTH, GUI_HEIGHT);
+            graphics.blit(GUI_TEXTURED, GUI_TEXTURE, 7, 35, 7F, 277F, 18, 19, GUI_WIDTH, GUI_HEIGHT);
         }
-
-        gui.drawString(font, IMAGE_TEXT.getVisualOrderText(), 116 - font.width(IMAGE_TEXT) / 2F, 15, 0x404040, false);
+        graphics.text(font, IMAGE_TEXT, 116 - font.width(IMAGE_TEXT) / 2, 15, 0xFF404040, false);
     }
 
     @Override
-    protected void renderTooltip(GuiGraphics gui, int mouseX, int mouseY) {
-        super.renderTooltip(gui, mouseX, mouseY);
+    protected void extractTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        super.extractTooltip(graphics, mouseX, mouseY);
         int offsetX = mouseX - leftPos, offsetY = mouseY - topPos;
         if (offsetX >= 7 && offsetY >= 35 && offsetX < 25 && offsetY < 54) {
-            gui.renderComponentTooltip(font, this.getUrlTexts(), mouseX, mouseY);
+            graphics.setComponentTooltipForNextFrame(font, this.getUrlTexts(), mouseX, mouseY);
         } else if (offsetX >= 7 && offsetY >= 57 && offsetX < 25 && offsetY < 76) {
-            gui.renderComponentTooltip(font, List.of(SIZE_TEXT,
+            graphics.setComponentTooltipForNextFrame(font, List.of(SIZE_TEXT,
                     Component.literal(""), SIZE_HINT_1, SIZE_HINT_2,
                     Component.literal(""), SIZE_HINT_3, SIZE_HINT_4,
                     Component.literal(""), SIZE_HINT_5, SIZE_HINT_6,
                     Component.literal(""), SIZE_HINT_7, SIZE_HINT_8), mouseX, mouseY);
         }
-    }
-
-    @Override
-    public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
-        super.render(gui, mouseX, mouseY, partialTick);
-        this.renderTooltip(gui, mouseX, mouseY);
     }
 
     private List<Component> getUrlTexts() {

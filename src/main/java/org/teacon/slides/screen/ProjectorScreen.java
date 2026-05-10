@@ -1,15 +1,16 @@
 package org.teacon.slides.screen;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.narration.NarratedElementType;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.input.InputWithModifiers;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -18,7 +19,6 @@ import net.minecraft.world.level.block.Rotation;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.joml.Vector2i;
 import org.joml.Vector3i;
-import org.lwjgl.glfw.GLFW;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.block.ProjectorBlock;
 import org.teacon.slides.block.ProjectorBlockEntity.ColorTransform;
@@ -33,6 +33,8 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 
+import static net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED;
+
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
@@ -42,7 +44,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
 
     private static final int
             GUI_WIDTH = 512, GUI_HEIGHT = 384,
-            COLOR_MAX_LENGTH = 8, VALID_TEXT_COLOR = 0xE0E0E0, INVALID_TEXT_COLOR = 0xE04B4B;
+            COLOR_MAX_LENGTH = 8, VALID_TEXT_COLOR = 0xFFE0E0E0, INVALID_TEXT_COLOR = 0xFFE04B4B;
 
     private static final Component
             SIZE_TEXT = Component.translatable("gui.slide_show.section.size"),
@@ -91,9 +93,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     private final EnumSet<Category> mSyncedCategories = EnumSet.allOf(Category.class);
 
     public ProjectorScreen(ProjectorContainerMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title);
-        imageWidth = 404;
-        imageHeight = 271;
+        super(menu, inventory, title, 404, 271);
         // initialize variables
         mBlockPos = menu.tilePos;
         mSizeMicros = menu.tileSizeMicros;
@@ -412,89 +412,74 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifier) {
-        var isEscape = false;
-
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-            Objects.requireNonNull(Objects.requireNonNull(minecraft).player).closeContainer();
-            isEscape = true;
+    public boolean keyPressed(KeyEvent event) {
+        if (event.isEscape()) {
+            Objects.requireNonNull(minecraft.player).closeContainer();
+            return true;
         }
-
-        return isEscape
-                || mColorInput.get().keyPressed(keyCode, scanCode, modifier) || mColorInput.get().canConsumeInput()
-                || mWidthInput.get().keyPressed(keyCode, scanCode, modifier) || mWidthInput.get().canConsumeInput()
-                || mHeightInput.get().keyPressed(keyCode, scanCode, modifier) || mHeightInput.get().canConsumeInput()
-                || mOffsetXInput.get().keyPressed(keyCode, scanCode, modifier) || mOffsetXInput.get().canConsumeInput()
-                || mOffsetYInput.get().keyPressed(keyCode, scanCode, modifier) || mOffsetYInput.get().canConsumeInput()
-                || mOffsetZInput.get().keyPressed(keyCode, scanCode, modifier) || mOffsetZInput.get().canConsumeInput()
-                || super.keyPressed(keyCode, scanCode, modifier);
+        for (var input: List.of(mColorInput, mWidthInput, mHeightInput, mOffsetXInput, mOffsetYInput, mOffsetZInput)) {
+            if (input.get().keyPressed(event) || input.get().canConsumeInput()) {
+                return true;
+            }
+        }
+        return super.keyPressed(event);
     }
 
     @Override
-    protected void renderBg(GuiGraphics gui, float partialTicks, int mouseX, int mouseY) {
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
-        RenderSystem.setShaderTexture(0, GUI_TEXTURE);
-        gui.blit(GUI_TEXTURE, leftPos, topPos, 0F, 0F, imageWidth, imageHeight, GUI_WIDTH, GUI_HEIGHT);
+    public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+        super.extractBackground(graphics, mouseX, mouseY, a);
+        graphics.blit(GUI_TEXTURED, GUI_TEXTURE, leftPos, topPos, 0F, 0F, imageWidth, imageHeight, GUI_WIDTH, GUI_HEIGHT);
     }
 
     @Override
-    protected void renderLabels(GuiGraphics gui, int mouseX, int mouseY) {
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderTexture(0, GUI_TEXTURE);
-
+    protected void extractLabels(GuiGraphicsExtractor graphics, int xm, int ym) {
         var alpha = mColorTransform.color >>> 24;
         if (alpha > 0) {
-            var blue = mColorTransform.color & 255;
-            var green = (mColorTransform.color >> 8) & 255;
-            var red = (mColorTransform.color >> 8 + 8) & 255;
-            RenderSystem.setShaderColor(red / 255F, green / 255F, blue / 255F, alpha / 255F);
-            gui.blit(GUI_TEXTURE, 326, 163, 357F, 278F, 10, 10, GUI_WIDTH, GUI_HEIGHT);
-            gui.blit(GUI_TEXTURE, 342, 95, 34, 34, 357F, 278F, 17, 17, GUI_WIDTH, GUI_HEIGHT);
+            graphics.blit(GUI_TEXTURED, GUI_TEXTURE, 326, 163, 357F, 278F, 10, 10, GUI_WIDTH, GUI_HEIGHT, mColorTransform.color);
+            graphics.blit(GUI_TEXTURED, GUI_TEXTURE, 342, 95, 357F, 278F, 34, 34, 17, 17, GUI_WIDTH, GUI_HEIGHT, mColorTransform.color);
         }
 
-        RenderSystem.setShaderColor(1F, 1F, 1F, 1F);
         var exampleUOffset = 287F - mCurrentRotation.ordinal() * 35F;
-        gui.blit(GUI_TEXTURE, 342, 95, 34, 34, exampleUOffset, 278F, 17, 17, GUI_WIDTH, GUI_HEIGHT);
+        graphics.blit(GUI_TEXTURED, GUI_TEXTURE, 342, 95, exampleUOffset, 278F, 34, 34, 17, 17, GUI_WIDTH, GUI_HEIGHT);
 
-        gui.drawString(font, SIZE_TEXT.getVisualOrderText(), 273 - font.width(SIZE_TEXT) / 2F, 15, 0x404040, false);
-        gui.drawString(font, OFFSET_TEXT.getVisualOrderText(), 273 - font.width(OFFSET_TEXT) / 2F, 95, 0x404040, false);
-        gui.drawString(font, OTHERS_FIRST_TEXT.getVisualOrderText(), 361 - font.width(OTHERS_FIRST_TEXT) / 2F, 15, 0x404040, false);
-        gui.drawString(font, OTHERS_SECOND_TEXT.getVisualOrderText(), 361 - font.width(OTHERS_SECOND_TEXT) / 2F, 26, 0x404040, false);
+        graphics.text(font, SIZE_TEXT.getVisualOrderText(), 273 - font.width(SIZE_TEXT) / 2, 15, 0xFF404040, false);
+        graphics.text(font, OFFSET_TEXT.getVisualOrderText(), 273 - font.width(OFFSET_TEXT) / 2, 95, 0xFF404040, false);
+        graphics.text(font, OTHERS_FIRST_TEXT.getVisualOrderText(), 361 - font.width(OTHERS_FIRST_TEXT) / 2, 15, 0xFF404040, false);
+        graphics.text(font, OTHERS_SECOND_TEXT.getVisualOrderText(), 361 - font.width(OTHERS_SECOND_TEXT) / 2, 26, 0xFF404040, false);
     }
 
     @Override
-    protected void renderTooltip(GuiGraphics gui, int mouseX, int mouseY) {
-        super.renderTooltip(gui, mouseX, mouseY);
+    protected void extractTooltip(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
+        super.extractTooltip(graphics, mouseX, mouseY);
         int offsetX = mouseX - leftPos, offsetY = mouseY - topPos;
         if (offsetX >= 322 && offsetY >= 159 && offsetX < 340 && offsetY < 178) {
-            gui.renderTooltip(font, COLOR_TEXT, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, COLOR_TEXT, mouseX, mouseY);
         } else if (offsetX >= 235 && offsetY >= 35 && offsetX < 253 && offsetY < 54) {
-            gui.renderTooltip(font, WIDTH_TEXT, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, WIDTH_TEXT, mouseX, mouseY);
         } else if (offsetX >= 235 && offsetY >= 57 && offsetX < 253 && offsetY < 76) {
-            gui.renderTooltip(font, HEIGHT_TEXT, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, HEIGHT_TEXT, mouseX, mouseY);
         } else if (offsetX >= 235 && offsetY >= 115 && offsetX < 253 && offsetY < 134) {
-            gui.renderTooltip(font, OFFSET_X_TEXT, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, OFFSET_X_TEXT, mouseX, mouseY);
         } else if (offsetX >= 235 && offsetY >= 137 && offsetX < 253 && offsetY < 156) {
-            gui.renderTooltip(font, OFFSET_Y_TEXT, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, OFFSET_Y_TEXT, mouseX, mouseY);
         } else if (offsetX >= 235 && offsetY >= 159 && offsetX < 253 && offsetY < 178) {
-            gui.renderTooltip(font, OFFSET_Z_TEXT, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, OFFSET_Z_TEXT, mouseX, mouseY);
         } else if (offsetX >= 19 && offsetY >= 126 && offsetX < 37 && offsetY < 145) {
-            gui.renderTooltip(font, MOVE_TO_BEGIN_TEXT, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, MOVE_TO_BEGIN_TEXT, mouseX, mouseY);
         } else if (offsetX >= 61 && offsetY >= 126 && offsetX < 79 && offsetY < 145) {
-            gui.renderTooltip(font, MOVE_UPWARD_TEXT, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, MOVE_UPWARD_TEXT, mouseX, mouseY);
         } else if (offsetX >= 151 && offsetY >= 126 && offsetX < 169 && offsetY < 145) {
-            gui.renderTooltip(font, MOVE_DOWNWARD_TEXT, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, MOVE_DOWNWARD_TEXT, mouseX, mouseY);
         } else if (offsetX >= 193 && offsetY >= 126 && offsetX < 211 && offsetY < 145) {
-            gui.renderTooltip(font, MOVE_TO_END_TEXT, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, MOVE_TO_END_TEXT, mouseX, mouseY);
         } else if (offsetX >= 378 && offsetY >= 46 && offsetX < 396 && offsetY < 65) {
-            gui.renderTooltip(font, FLIP_TEXT, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, FLIP_TEXT, mouseX, mouseY);
         } else if (offsetX >= 350 && offsetY >= 46 && offsetX < 368 && offsetY < 65) {
-            gui.renderTooltip(font, ROTATE_TEXT, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, ROTATE_TEXT, mouseX, mouseY);
         } else if (offsetX >= 322 && offsetY >= 46 && offsetX < 340 && offsetY < 65) {
-            gui.renderTooltip(font, SINGLE_DOUBLE_SIDED_TEXT, mouseX, mouseY);
+            graphics.setTooltipForNextFrame(font, SINGLE_DOUBLE_SIDED_TEXT, mouseX, mouseY);
         } else if (offsetX >= 7 && offsetY >= 115 && offsetX < 223 && offsetY < 156) {
-            gui.renderTooltip(font, List.of(
+            graphics.setTooltipForNextFrame(font, List.of(
                     CONTAINER_HINT_TEXT.getVisualOrderText(),
                     CONTAINER_HINT_1_TEXT.getVisualOrderText(),
                     CONTAINER_HINT_2_TEXT.getVisualOrderText(),
@@ -502,14 +487,7 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         }
     }
 
-    @Override
-    public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
-        super.render(gui, mouseX, mouseY, partialTick);
-        this.renderTooltip(gui, mouseX, mouseY);
-    }
-
     private static class Button extends AbstractButton {
-
         private final Runnable callback;
         private final Component msg;
         private final float u;
@@ -524,16 +502,13 @@ public final class ProjectorScreen extends AbstractContainerScreen<ProjectorCont
         }
 
         @Override
-        public void onPress() {
-            callback.run();
+        public void onPress(InputWithModifiers input) {
+            this.callback.run();
         }
 
         @Override
-        public void renderWidget(GuiGraphics gui, int mouseX, int mouseY, float partialTicks) {
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-            RenderSystem.setShaderColor(1F, 1F, 1F, alpha);
-            gui.blit(GUI_TEXTURE, getX(), getY(), u, v, width, height, GUI_WIDTH, GUI_HEIGHT);
+        protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float a) {
+            graphics.blit(GUI_TEXTURED, GUI_TEXTURE, getX(), getY(), u, v, width, height, GUI_WIDTH, GUI_HEIGHT);
         }
 
         @Override
