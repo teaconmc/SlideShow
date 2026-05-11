@@ -165,6 +165,7 @@ public record Concrete(double topMicros, double rightMicros, double bottomMicros
 
     public sealed interface Position permits SinglePosition, PairPosition, PairPairPosition {
         Codec<Position> CODEC = Codec.STRING.xmap(Position::parse, Position::toString);
+        StreamCodec<ByteBuf, Position> STREAM_CODEC = ByteBufCodecs.STRING_UTF8.map(Position::parse, Position::toString);
         PairPosition DEFAULT = new PairPosition(ValuePosition.DEFAULT, ValuePosition.DEFAULT);
 
         static Position parse(String input) {

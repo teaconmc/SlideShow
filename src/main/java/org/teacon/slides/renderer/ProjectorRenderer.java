@@ -86,25 +86,29 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
 
     @Override
     public void submit(ProjectorRenderState state, PoseStack stack, SubmitNodeCollector snc, CameraRenderState camera) {
-        // render slide
-        stack.pushPose();
-        var last = stack.last();
-        state.transformMicros.transformToSlideSpaceMicros(last.pose(), last.normal());
-        var light = LightCoordsUtil.withBlock(state.lightCoords, ProjectorBlock.LIGHTNESS);
-        state.sequence.render(snc, stack, light, state.tickPhase, state.partialTickPhase);
-        stack.popPose();
-        // render outline
+        // check if outline is needed
+        var renderOutline = false;
         if (!state.renderModel.isEmpty()) {
-            stack.pushPose();
             var mc = Minecraft.getInstance();
             var handItems = List.of(Items.AIR, Items.AIR);
             if (mc.player != null) {
                 handItems = List.of(mc.player.getMainHandItem().getItem(), mc.player.getOffhandItem().getItem());
             }
-            if (handItems.contains(ModRegistries.PROJECTOR_BLOCK.get().asItem())) {
-                state.renderModel.submitOnlyOutline(stack, snc, state.lightCoords, NO_OVERLAY, 0xFFFFFFFF);
-            }
-            stack.popPose();
+            renderOutline = handItems.contains(ModRegistries.PROJECTOR_BLOCK.get().asItem());
+        }
+        // lightness
+        var light = LightCoordsUtil.withBlock(state.lightCoords, ProjectorBlock.LIGHTNESS);
+        // render slide and outline
+        stack.pushPose();
+        var last = stack.last();
+        state.transformMicros.transformToSlideSpaceMicros(last.pose(), last.normal());
+        state.sequence.render(snc, stack, light, state.tickPhase, state.partialTickPhase);
+        if (renderOutline) {
+            state.sequence.renderOutline(snc, stack, light, NO_OVERLAY, 0xFFFFFFFF);
+        }
+        stack.popPose();
+        if (renderOutline && !state.renderModel.isEmpty()) {
+            state.renderModel.submitOnlyOutline(stack, snc, light, NO_OVERLAY, 0xFFFFFFFF);
         }
     }
 

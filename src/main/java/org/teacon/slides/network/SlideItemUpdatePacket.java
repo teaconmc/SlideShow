@@ -28,9 +28,9 @@ import java.util.UUID;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public record SlideItemUpdatePacket(int slotId, Perm permissions,
-                                    UUID imgUniqueId, Optional<Log> oldLastLog,
-                                    Optional<ProjectorURL> url, Concrete.Size size) implements CustomPacketPayload {
+public record SlideItemUpdatePacket(int slotId, Perm permissions, UUID imgUniqueId,
+                                    Optional<Log> oldLastLog, Optional<ProjectorURL> url,
+                                    Concrete.Size size, Concrete.Position position) implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<SlideItemUpdatePacket> TYPE;
     public static final StreamCodec<RegistryFriendlyByteBuf, SlideItemUpdatePacket> CODEC;
 
@@ -43,6 +43,7 @@ public record SlideItemUpdatePacket(int slotId, Perm permissions,
                 Log.OPTIONAL_STREAM_CODEC, SlideItemUpdatePacket::oldLastLog,
                 ProjectorURL.OPTIONAL_STREAM_CODEC, SlideItemUpdatePacket::url,
                 Concrete.Size.STREAM_CODEC, SlideItemUpdatePacket::size,
+                Concrete.Position.STREAM_CODEC, SlideItemUpdatePacket::position,
                 SlideItemUpdatePacket::new);
     }
 
@@ -53,14 +54,14 @@ public record SlideItemUpdatePacket(int slotId, Perm permissions,
                 var item = sp.getInventory().getItem(this.slotId);
                 if (item.is(ModRegistries.SLIDE_ITEM)) {
                     var oldEntry = item.getOrDefault(ModRegistries.SLIDE_ENTRY, SlideItem.ENTRY_DEF);
-                    var newEntry = new SlideItem.Entry(this.imgUniqueId, this.size, oldEntry.position());
+                    var newEntry = new SlideItem.Entry(this.imgUniqueId, this.size, this.position);
                     if (data.getUrlById(newEntry.id()).isEmpty() && this.url.isPresent()) {
                         if (SlidePermission.canInteractCreateUrl(sp.createCommandSourceStack())) {
                             var imgId = data.getOrCreateIdByItem(this.url.get(), sp);
-                            newEntry = new SlideItem.Entry(imgId, this.size, oldEntry.position());
+                            newEntry = new SlideItem.Entry(imgId, this.size, this.position);
                         } else {
                             var imgId = data.getIdByUrl(this.url.get()).orElseGet(oldEntry::id);
-                            newEntry = new SlideItem.Entry(imgId, this.size, oldEntry.position());
+                            newEntry = new SlideItem.Entry(imgId, this.size, this.position);
                         }
                     }
                     if (!newEntry.equals(oldEntry)) {

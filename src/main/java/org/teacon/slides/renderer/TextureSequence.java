@@ -5,6 +5,7 @@ import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
@@ -26,6 +27,8 @@ import static net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class TextureSequence {
+    private static final Identifier BACKGROUND_ID = SlideShow.id("textures/gui/slide_default.png");
+
     private final int color;
     private final boolean back;
     private final boolean front;
@@ -122,6 +125,29 @@ public final class TextureSequence {
                 layer = -layer;
             }
         }
+    }
+
+    public void renderOutline(SubmitNodeCollector snc, PoseStack stack, int light, long tick, float partialTick) {
+        snc.submitCustomGeometry(stack, RenderTypes.outline(BACKGROUND_ID), (pose, consumer) -> {
+            var x = this.sizeMicros.x;
+            var y = this.sizeMicros.y;
+            consumer.addVertex(pose, 0, 0, y)
+                    .setColor(255F, 255F, 255F, 255F)
+                    .setUv(0, 1).setLight(light).setOverlay(NO_OVERLAY)
+                    .setNormal(pose, 0, 1, 0);
+            consumer.addVertex(pose, x, 0, y)
+                    .setColor(255F, 255F, 255F, 255F)
+                    .setUv(1, 1).setLight(light).setOverlay(NO_OVERLAY)
+                    .setNormal(pose, 0, 1, 0);
+            consumer.addVertex(pose, x, 0, 0)
+                    .setColor(255F, 255F, 255F, 255F)
+                    .setUv(1, 0).setLight(light).setOverlay(NO_OVERLAY)
+                    .setNormal(pose, 0, 1, 0);
+            consumer.addVertex(pose, 0, 0, 0)
+                    .setColor(255F, 255F, 255F, 255F)
+                    .setUv(0, 0).setLight(light).setOverlay(NO_OVERLAY)
+                    .setNormal(pose, 0, 1, 0);
+        });
     }
 
     public void clear() {
@@ -274,7 +300,7 @@ public final class TextureSequence {
     }
 
     private enum Background implements Elem {
-        DEFAULT(SlideShow.id("textures/gui/slide_default.png"));
+        DEFAULT(BACKGROUND_ID);
 
         private final RenderType iconRenderType;
 

@@ -85,10 +85,10 @@ public final class SlideItem extends Item {
         var item = player.getItemInHand(hand);
         if (player instanceof ServerPlayer serverPlayer) {
             var slotId = hand == InteractionHand.MAIN_HAND ? player.getInventory().getSelectedSlot() : Inventory.SLOT_OFFHAND;
-            var entry = item.getOrDefault(ModRegistries.SLIDE_ENTRY, ENTRY_DEF);
+            var e = item.getOrDefault(ModRegistries.SLIDE_ENTRY, ENTRY_DEF);
             var data = ProjectorURLSavedData.get(serverPlayer.level().getServer());
             var log = Optional.<ProjectorURLSavedData.Log>empty();
-            var imgUrl = data.getUrlById(entry.id());
+            var imgUrl = data.getUrlById(e.id());
             if (imgUrl.isPresent()) {
                 log = data.getLatestLog(imgUrl.get(), alwaysFalse(), Set.of(LogType.BLOCK, LogType.UNBLOCK));
                 if (log.isEmpty()) {
@@ -96,7 +96,7 @@ public final class SlideItem extends Item {
                 }
             }
             var perm = new SlideItemUpdatePacket.Perm(player);
-            var packet = new SlideItemUpdatePacket(slotId, perm, entry.id(), log, imgUrl, entry.size());
+            var packet = new SlideItemUpdatePacket(slotId, perm, e.id(), log, imgUrl, e.size(), e.position());
             player.openMenu(this.getMenuProvider(item, packet), buf -> SlideItemUpdatePacket.CODEC.encode(buf, packet));
         }
         player.awardStat(Stats.ITEM_USED.get(this));
@@ -126,8 +126,7 @@ public final class SlideItem extends Item {
             STREAM_CODEC = StreamCodec.composite(
                     UUIDUtil.STREAM_CODEC, Entry::id,
                     Size.STREAM_CODEC, Entry::size,
-                    // TODO: support editing on newer version
-                    StreamCodec.unit(Position.DEFAULT), e -> Position.DEFAULT, Entry::new);
+                    Position.STREAM_CODEC, Entry::position, Entry::new);
         }
 
         public static DataComponentType<Entry> createComponentType() {
