@@ -20,7 +20,6 @@ import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
 import org.teacon.content_disposition.ContentDisposition;
 
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.imageio.ImageIO;
@@ -81,8 +80,7 @@ public final class ImageCache {
         mHttpClient = CachingHttpClients.custom().setCacheConfig(CONFIG).setHttpCacheStorage(mCacheStorage).build();
     }
 
-    @Nonnull
-    public CompletableFuture<Map.Entry<String, byte[]>> getResource(@Nonnull URI location, boolean online) {
+    public CompletableFuture<Map.Entry<String, byte[]>> getResource(URI location, boolean online) {
         return CompletableFuture.supplyAsync(() -> {
             final HttpCacheContext context = HttpCacheContext.create();
             try (CloseableHttpResponse response = createResponse(location, context, online)) {
@@ -132,7 +130,7 @@ public final class ImageCache {
         return mHttpClient.execute(request, context);
     }
 
-    private void logRequestHeader(@Nonnull HttpCacheContext context) {
+    private void logRequestHeader(HttpCacheContext context) {
         LOGGER.debug(MARKER, " >> {}", context.getRequest().getRequestLine());
         for (Header header : context.getRequest().getAllHeaders()) {
             LOGGER.debug(MARKER, " >> {}", header);

@@ -26,7 +26,7 @@ import static org.teacon.slides.ModClientRegistries.SLIDE_PIPELINE;
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public class SlideRenderSetup extends RenderSetup {
+public final class SlideRenderSetup extends RenderSetup {
     private static final boolean USE_LIGHTMAP = true;
     private static final boolean NO_OVERLAY = false;
     private static final boolean AFFECTS_CRUMBLING = false;

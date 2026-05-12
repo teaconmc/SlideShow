@@ -8,13 +8,12 @@ import net.minecraft.core.Direction;
 import org.teacon.slides.block.ProjectorBlock;
 import org.teacon.slides.block.ProjectorBlockEntity;
 
-import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
-public class ProjectorRenderState extends BlockEntityRenderState {
+public final class ProjectorRenderState extends BlockEntityRenderState {
     long tickPhase = 0L;
     float partialTickPhase = 0F;
     BlockModelRenderState renderModel = new BlockModelRenderState();

@@ -1,6 +1,5 @@
 package org.teacon.slides.renderer.bitmap;
 
-import com.google.common.base.MoreObjects;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
@@ -16,9 +15,7 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 import static com.mojang.blaze3d.platform.NativeImage.Format.RGBA;
 import static com.mojang.blaze3d.textures.GpuTexture.USAGE_COPY_DST;
