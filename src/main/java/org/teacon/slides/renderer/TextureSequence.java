@@ -68,7 +68,7 @@ public final class TextureSequence {
             this.elements.removeIf(e -> e instanceof Background || e instanceof IconCentered);
             return;
         }
-        this.elements.add(IconCentered.DEFAULT_EMPTY);
+        this.elements.add(IconCentered.DEFAULT_FAILED);
     }
 
     public void addBlockedIcon() {
@@ -76,7 +76,7 @@ public final class TextureSequence {
             this.elements.removeIf(e -> e instanceof Background || e instanceof IconCentered);
             return;
         }
-        this.elements.add(IconCentered.DEFAULT_EMPTY);
+        this.elements.add(IconCentered.DEFAULT_BLOCKED);
     }
 
     public void addLoadingIcon() {
@@ -84,7 +84,7 @@ public final class TextureSequence {
             this.elements.removeIf(e -> e instanceof Background || e instanceof IconCentered);
             return;
         }
-        this.elements.add(IconCentered.DEFAULT_EMPTY);
+        this.elements.add(IconCentered.DEFAULT_LOADING);
     }
 
     public void addTexture(BitmapProvider provider, Concrete.Size size, Concrete.Position position) {
