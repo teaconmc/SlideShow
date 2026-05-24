@@ -31,13 +31,13 @@ import static com.mojang.blaze3d.textures.TextureFormat.RGBA8;
 @ParametersAreNonnullByDefault
 public final class WebPBitmapProvider implements BitmapProvider {
     public static boolean checkMagic(byte[] buf) {
-        if (buf.length >= 12) {
+        if (buf.length >= 16) {
             var wr = ByteBuffer.wrap(buf).order(ByteOrder.LITTLE_ENDIAN);
             var riff = wr.getInt() == 0x46464952; // RIFF in LITTLE ENDIAN
-            var size = wr.getInt() == buf.length - 8; // SIZE - 8 of image
+            wr.getInt(); // SIZE - 8 of image, ignored for prefix detection
             var webp = wr.getInt() == 0x50424557; // WEBP in LITTLE ENDIAN
             var vp8_ = ArrayUtils.contains(new int[]{0x58385056, 0x4C385056, 0x20385056}, wr.getInt()); // VP8[XL\x20] in LITTLE ENDIAN;
-            return riff && size && webp && vp8_;
+            return riff && webp && vp8_;
         }
         return false;
     }

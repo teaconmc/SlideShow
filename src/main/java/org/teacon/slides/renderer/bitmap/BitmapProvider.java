@@ -25,4 +25,10 @@ public interface BitmapProvider extends AutoCloseable {
 
     @Override
     void close();
+
+    interface Factory {
+        BitmapProvider createProvider();
+
+        String getName();
+    }
 }

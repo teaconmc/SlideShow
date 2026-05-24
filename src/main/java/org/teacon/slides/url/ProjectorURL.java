@@ -1,6 +1,5 @@
 package org.teacon.slides.url;
 
-import com.google.common.collect.ImmutableSet;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import io.netty.buffer.ByteBuf;
@@ -9,18 +8,14 @@ import net.minecraft.network.codec.StreamCodec;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Optional;
-
-import static com.google.common.base.Preconditions.checkArgument;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class ProjectorURL {
     public static final StreamCodec<ByteBuf, Optional<ProjectorURL>> OPTIONAL_STREAM_CODEC;
-
-    private static final ImmutableSet<String> ALLOWED_SCHEMES = ImmutableSet.of("http", "https");
-    private static final String NOT_ALLOWED_SCHEME = "the url scheme is neither http nor https";
 
     static {
         OPTIONAL_STREAM_CODEC = ByteBufCodecs.STRING_UTF8.map(str -> {
@@ -40,9 +35,23 @@ public final class ProjectorURL {
     private final URI urlObject;
 
     public ProjectorURL(String urlString) {
-        this.urlObject = URI.create(urlString);
-        this.urlString = this.urlObject.normalize().toASCIIString();
-        checkArgument(ALLOWED_SCHEMES.contains(this.urlObject.getScheme()), NOT_ALLOWED_SCHEME);
+        try {
+            this.urlObject = new URI(urlString);
+            var normalized = this.urlObject.normalize();
+            var scheme = normalized.getScheme();
+            var userInfo = normalized.getUserInfo();
+            var host = normalized.getHost();
+            var port = switch (scheme) {
+                case "http" -> normalized.getPort() == 80 ? -1 : normalized.getPort();
+                case "https" -> normalized.getPort() == 443 ? -1 : normalized.getPort();
+                case null, default -> throw new IllegalArgumentException("the url scheme is neither http nor https");
+            };
+            var path = normalized.getPath();
+            var query = normalized.getQuery();
+            this.urlString = new URI(scheme, userInfo, host, port, path, query, null).toASCIIString();
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
     }
 
     public URI toUrl() {
