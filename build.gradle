@@ -160,6 +160,7 @@ dependencies {
     jarJar implementation('org.teacon:urlpattern:1.0.1')
     jarJar implementation('org.teacon:content-disposition:1.0.0')
     jarJar implementation('dev.matrixlab.webp4j:webp4j-core:2.1.0')
+    jarJar implementation('commons-logging:commons-logging:1.2')
     jarJar implementation('org.apache.httpcomponents:httpcore:4.4.16')
     jarJar implementation('org.apache.httpcomponents:httpclient:4.5.14')
     jarJar implementation('org.apache.httpcomponents:httpclient-cache:4.5.14')
