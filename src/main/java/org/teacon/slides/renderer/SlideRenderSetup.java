@@ -2,6 +2,7 @@ package org.teacon.slides.renderer;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.datafixers.util.Either;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
@@ -32,20 +33,20 @@ public final class SlideRenderSetup extends RenderSetup {
     private static final boolean AFFECTS_CRUMBLING = false;
     private static final boolean SORT_ON_UPLOAD = true;
 
-    private final GpuTexture texture;
+    private final Either<GpuTexture, Identifier> texture;
 
     private SlideRenderSetup(GpuTexture slide) {
         super(SLIDE_PIPELINE, new HashMap<>(),
                 USE_LIGHTMAP, NO_OVERLAY, NO_LAYERING, MAIN_TARGET,
                 DEFAULT_TEXTURING, NONE, AFFECTS_CRUMBLING, SORT_ON_UPLOAD, 1536);
-        this.texture = slide;
+        this.texture = Either.left(slide);
     }
 
     private SlideRenderSetup(Identifier icon) {
         super(SLIDE_PIPELINE, new HashMap<>(),
                 USE_LIGHTMAP, NO_OVERLAY, NO_LAYERING, MAIN_TARGET,
                 DEFAULT_TEXTURING, NONE, AFFECTS_CRUMBLING, SORT_ON_UPLOAD, 1536);
-        this.texture = Minecraft.getInstance().getTextureManager().getTexture(icon).getTexture();
+        this.texture = Either.right(icon);
     }
 
     @Override
@@ -53,7 +54,10 @@ public final class SlideRenderSetup extends RenderSetup {
         var device = RenderSystem.getDevice();
         var samplers = RenderSystem.getSamplerCache();
         return Util.make(new HashMap<>(2), map -> {
-            var view = device.createTextureView(this.texture);
+            var view = this.texture.map(device::createTextureView, icon -> {
+                var textureManager = Minecraft.getInstance().getTextureManager();
+                return device.createTextureView(textureManager.getTexture(icon).getTexture());
+            });
             map.put("Sampler0", new TextureAndSampler(view, samplers.getRepeat(NEAREST, false)));
             var lightmap = Minecraft.getInstance().gameRenderer.lightmap();
             map.put("Sampler2", new TextureAndSampler(lightmap, samplers.getRepeat(LINEAR, false)));
