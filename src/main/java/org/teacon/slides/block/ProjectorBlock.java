@@ -38,6 +38,7 @@ import org.joml.Vector4d;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.inventory.ProjectorContainerMenu;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
 import java.util.Locale;
@@ -81,12 +82,9 @@ public final class ProjectorBlock extends Block implements EntityBlock {
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter world, BlockPos pos, CollisionContext context) {
         return switch (state.getValue(BASE)) {
-            case DOWN:
-                yield SHAPE_WITH_BASE_DOWN;
-            case UP:
-                yield SHAPE_WITH_BASE_UP;
-            default:
-                throw new AssertionError();
+            case DOWN -> SHAPE_WITH_BASE_DOWN;
+            case UP -> SHAPE_WITH_BASE_UP;
+            default -> throw new AssertionError();
         };
     }
 
@@ -137,7 +135,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
 
     @Override
     public void neighborChanged(BlockState state, Level level,
-                                BlockPos pos, Block block, Orientation orientation, boolean isMoving) {
+                                BlockPos pos, Block block, @Nullable Orientation orientation, boolean isMoving) {
         var newPowered = level.hasNeighborSignal(pos);
         var oldPowered = state.getValue(POWERED);
         if (newPowered != oldPowered) {
@@ -204,7 +202,7 @@ public final class ProjectorBlock extends Block implements EntityBlock {
         if (level.isClientSide()) {
             return InteractionResult.SUCCESS;
         }
-        if (level.getBlockEntity(pos) instanceof ProjectorBlockEntity tile) {
+        if (player.mayBuild() && level.getBlockEntity(pos) instanceof ProjectorBlockEntity tile) {
             ProjectorContainerMenu.openGui(player, tile);
         }
         return InteractionResult.CONSUME;
