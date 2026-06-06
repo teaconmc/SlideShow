@@ -42,7 +42,8 @@ tasks.named('wrapper', Wrapper).configure {
     distributionType = Wrapper.DistributionType.BIN
 }
 
-version = mod_version
+// Modified by TeaCon
+version = System.getenv('VERSION_IDENTIFIER') ? "${mod_version}-${System.getenv('VERSION_IDENTIFIER')}" : mod_version
 group = mod_group_id
 
 sourceSets.main.resources {
@@ -176,7 +177,8 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             mod_id                 : mod_id,
             mod_name               : mod_name,
             mod_license            : mod_license,
-            mod_version            : mod_version,
+            // Modified by TeaCon
+            mod_version            : project.version,
             // Added by TeaCon
             mod_authors            : mod_authors,
             // Added by TeaCon
