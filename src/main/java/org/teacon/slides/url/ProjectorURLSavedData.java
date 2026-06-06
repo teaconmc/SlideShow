@@ -61,9 +61,8 @@ public final class ProjectorURLSavedData extends SavedData {
     private static final Comparator<ProjectorURL> PROJECTOR_URL_ASC = Comparator.comparing(ProjectorURL::toString);
     private static final Comparator<Log> LOG_TIME_ASC = Comparator.comparing(Log::time);
 
-    public static ProjectorURLSavedData get(@Nullable MinecraftServer server) {
-        var dataStorage = Objects.requireNonNull(server).overworld().getDataStorage();
-        return Objects.requireNonNull(dataStorage.computeIfAbsent(TYPE));
+    public static ProjectorURLSavedData get(MinecraftServer server) {
+        return server.getDataStorage().computeIfAbsent(TYPE);
     }
 
     @SubscribeEvent
@@ -95,10 +94,6 @@ public final class ProjectorURLSavedData extends SavedData {
 
     public Optional<UUID> getIdByUrl(ProjectorURL url) {
         return Optional.ofNullable(this.idToUrlStr.inverse().get(url));
-    }
-
-    public boolean isUrlBlocked(UUID id) {
-        return this.blockedIdCollection.contains(id);
     }
 
     public Optional<Log> getLatestLog(ProjectorURL url, Predicate<GlobalPos> filterProjectorPos, Collection<LogType> filterTypes) {
@@ -426,7 +421,7 @@ public final class ProjectorURLSavedData extends SavedData {
 
         @Override
         public void run(Consumer<CustomPacketPayload> consumer) {
-            var data = get(ServerLifecycleHooks.getCurrentServer());
+            var data = get(Objects.requireNonNull(ServerLifecycleHooks.getCurrentServer()));
             var packet = data.cachedSummaryPacket;
             if (packet == null) {
                 packet = new SlideSummaryPacket(data.idToUrlStr, data.blockedIdCollection);

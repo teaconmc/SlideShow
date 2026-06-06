@@ -31,13 +31,12 @@ public final class ProjectorURL {
         });
     }
 
-    private final String urlString;
     private final URI urlObject;
+    private final String urlString;
 
     public ProjectorURL(String urlString) {
         try {
-            this.urlObject = new URI(urlString);
-            var normalized = this.urlObject.normalize();
+            var normalized = new URI(urlString).normalize();
             var scheme = normalized.getScheme();
             var userInfo = normalized.getUserInfo();
             var host = normalized.getHost();
@@ -48,7 +47,8 @@ public final class ProjectorURL {
             };
             var path = normalized.getPath();
             var query = normalized.getQuery();
-            this.urlString = new URI(scheme, userInfo, host, port, path, query, null).toASCIIString();
+            this.urlObject = new URI(scheme, userInfo, host, port, path, query, null);
+            this.urlString = this.urlObject.toASCIIString();
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
         }
