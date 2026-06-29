@@ -32,11 +32,12 @@ public final class ProjectorURL {
     }
 
     private final URI urlObject;
-    private final String urlString;
+    private final String urlNormalizedString;
 
     public ProjectorURL(String urlString) {
         try {
-            var normalized = new URI(urlString).normalize();
+            this.urlObject = new URI(urlString);
+            var normalized = this.urlObject.normalize();
             var scheme = normalized.getScheme();
             var userInfo = normalized.getUserInfo();
             var host = normalized.getHost();
@@ -47,8 +48,7 @@ public final class ProjectorURL {
             };
             var path = normalized.getPath();
             var query = normalized.getQuery();
-            this.urlObject = new URI(scheme, userInfo, host, port, path, query, null);
-            this.urlString = this.urlObject.toASCIIString();
+            this.urlNormalizedString = new URI(scheme, userInfo, host, port, path, query, null).toASCIIString();
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
         }
@@ -60,17 +60,17 @@ public final class ProjectorURL {
 
     @Override
     public String toString() {
-        return this.urlString;
+        return this.urlNormalizedString;
     }
 
     @Override
     public int hashCode() {
-        return this.urlString.hashCode();
+        return this.urlNormalizedString.hashCode();
     }
 
     @Override
     public boolean equals(Object o) {
-        return this == o || o instanceof ProjectorURL that && this.urlString.equals(that.urlString);
+        return this == o || o instanceof ProjectorURL that && this.urlNormalizedString.equals(that.urlNormalizedString);
     }
 
     public enum Status {
