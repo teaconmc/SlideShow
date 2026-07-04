@@ -8,6 +8,7 @@ import net.minecraft.server.permissions.Permission;
 import net.minecraft.server.permissions.PermissionLevel;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.server.permission.PermissionAPI;
 import net.neoforged.neoforge.server.permission.events.PermissionGatherEvent;
 import net.neoforged.neoforge.server.permission.nodes.PermissionDynamicContext;
 import net.neoforged.neoforge.server.permission.nodes.PermissionNode;
@@ -16,6 +17,7 @@ import org.teacon.slides.SlideShow;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Objects;
 import java.util.UUID;
 
 @FieldsAreNonnullByDefault
@@ -48,66 +50,40 @@ public final class SlidePermission {
     }
 
     public static boolean canInteract(CommandSourceStack source) {
-        return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.ALL));
-        /* TODO
-        if (source instanceof ServerPlayer sp) {
-            return PermissionAPI.getPermission(sp, Objects.requireNonNull(INTERACT_PERM));
-        }
-        return false;*/
+        return test(source, Objects.requireNonNull(INTERACT_PERM));
     }
 
     public static boolean canInteractCreateUrl(CommandSourceStack source) {
-        return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.ALL));
-        /* TODO
-        if (source instanceof ServerPlayer serverPlayer) {
-            return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(INTERACT_CREATE_PERM));
-        }
-        return false;*/
+        return test(source, Objects.requireNonNull(INTERACT_CREATE_PERM));
     }
 
     public static boolean canInteractEditSlide(CommandSourceStack source) {
-        return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.ALL));
-        /* TODO
-        if (source instanceof ServerPlayer serverPlayer) {
-            return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(INTERACT_EDIT_PERM));
-        }
-        return false;*/
+        return test(source, Objects.requireNonNull(INTERACT_EDIT_PERM));
     }
 
     public static boolean canListUrl(CommandSourceStack source) {
-        return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS));
-        /* TODO
-        if (source instanceof MinecraftServer || source instanceof RconConsoleSource) {
-            return true;
-        }
-        if (source instanceof ServerPlayer serverPlayer) {
-            return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(LIST_PERM));
-        }
-        return false;*/
+        return test(source, Objects.requireNonNull(LIST_PERM));
     }
 
     public static boolean canBlockUrl(CommandSourceStack source) {
-        return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS));
-        /* TODO
-        if (source instanceof MinecraftServer || source instanceof RconConsoleSource) {
-            return true;
-        }
-        if (source instanceof ServerPlayer serverPlayer) {
-            return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(BLOCK_PERM));
-        }
-        return false;*/
+        return test(source, Objects.requireNonNull(BLOCK_PERM));
     }
 
     public static boolean canUnblockUrl(CommandSourceStack source) {
-        return source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS));
-        /* TODO
-        if (source instanceof MinecraftServer || source instanceof RconConsoleSource) {
-            return true;
+        return test(source, Objects.requireNonNull(UNBLOCK_PERM));
+    }
+
+    private static boolean test(CommandSourceStack source, PermissionNode<Boolean> node) {
+        var profile = source.getSourceProfile();
+        if (profile.isPresent()) {
+            var uuid = profile.get().id();
+            var player = source.getServer().getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                return PermissionAPI.getPermission(player, node);
+            }
+            return PermissionAPI.getOfflinePermission(uuid, node);
         }
-        if (source instanceof ServerPlayer serverPlayer) {
-            return PermissionAPI.getPermission(serverPlayer, Objects.requireNonNull(UNBLOCK_PERM));
-        }
-        return false;*/
+        return false;
     }
 
     private static boolean everyone(@Nullable ServerPlayer player, UUID uuid, PermissionDynamicContext<?>... context) {
