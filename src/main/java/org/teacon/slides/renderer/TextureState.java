@@ -188,11 +188,11 @@ public final class TextureState {
     }
 
     public static boolean getImgBlocked(ProjectorURL imgUrl) {
-        return SlideShow.checkBlock(imgUrl).isBlocked();
+        return SlideShow.checkBlock(imgUrl).isBlocked() || !SlideShow.isUrlAllowed(imgUrl);
     }
 
     public static boolean getImgAllowed(ProjectorURL imgUrl) {
-        return SlideShow.checkBlock(imgUrl).isAllowed();
+        return SlideShow.checkBlock(imgUrl).isAllowed() && SlideShow.isUrlAllowed(imgUrl);
     }
 
     public static void applyPrefetch(Set<UUID> nonExistent, Map<UUID, ProjectorURL> existent) {
@@ -222,7 +222,7 @@ public final class TextureState {
             return;
         }
         var blockTestResult = SlideShow.checkBlock(imageUrl);
-        if (blockTestResult.isBlocked()) {
+        if (blockTestResult.isBlocked() || !SlideShow.isUrlAllowed(imageUrl)) {
             sequence.addBackground();
             sequence.addBlockedIcon();
             return;

@@ -10,12 +10,15 @@ import org.apache.logging.log4j.Logger;
 import org.teacon.slides.block.ProjectorBlockEntity;
 import org.teacon.slides.item.SlideItem;
 import org.teacon.slides.url.ProjectorURL;
+import org.teacon.slides.url.ProjectorURLSavedData;
+import org.teacon.urlpattern.URLPattern;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 @Mod(SlideShow.ID)
 @FieldsAreNonnullByDefault
@@ -29,6 +32,15 @@ public final class SlideShow {
     private static volatile BiConsumer<Set<UUID>, Map<UUID, ProjectorURL>> applyPrefetch = Objects::hash;
     private static volatile Function<SlideItem.Entry, SequencedCollection<String>> fetchRecommends = e -> List.of();
     private static volatile Function<Either<UUID, ProjectorURL>, ProjectorURL.Status> checkBlock = url -> ProjectorURL.Status.UNKNOWN;
+    private static volatile List<URLPattern> allowPatterns = ProjectorURLSavedData.DEFAULT_ALLOW_PATTERNS.stream().map(URLPattern::new).toList();
+
+    public static void setAllowPatterns(List<String> raws) {
+        SlideShow.allowPatterns = raws.stream().map(URLPattern::new).toList();
+    }
+
+    public static boolean isUrlAllowed(ProjectorURL url) {
+        return allowPatterns.stream().anyMatch(pattern -> pattern.exec(url.toUrl()).isPresent());
+    }
 
     public static void setRequestUrlPrefetch(Consumer<ProjectorBlockEntity> requestUrlPrefetch) {
         SlideShow.requestUrlPrefetch = requestUrlPrefetch;

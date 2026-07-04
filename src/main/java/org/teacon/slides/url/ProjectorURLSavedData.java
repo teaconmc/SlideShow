@@ -16,6 +16,7 @@ import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -36,6 +37,7 @@ import net.neoforged.neoforge.network.event.RegisterConfigurationTasksEvent;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.item.SlideItem;
+import org.teacon.slides.network.SlideAllowPacket;
 import org.teacon.slides.network.SlideSummaryPacket;
 import org.teacon.slides.network.SlideURLPrefetchPacket;
 import org.teacon.urlpattern.URLPattern;
@@ -61,6 +63,8 @@ public final class ProjectorURLSavedData extends SavedData {
     private static final Comparator<ProjectorURL> PROJECTOR_URL_ASC = Comparator.comparing(ProjectorURL::toString);
     private static final Comparator<Log> LOG_TIME_ASC = Comparator.comparing(Log::time);
 
+    public static final List<String> DEFAULT_ALLOW_PATTERNS = List.of("http://*:*@*:*/*\\?*#*", "https://*:*@*:*/*\\?*#*");
+
     public static ProjectorURLSavedData get(MinecraftServer server) {
         return server.getDataStorage().computeIfAbsent(TYPE);
     }
@@ -74,6 +78,7 @@ public final class ProjectorURLSavedData extends SavedData {
     private final TreeMultimap<ProjectorURL, Log> urlStrToLogs;
     private final BiMap<UUID, ProjectorURL> idToUrlStr;
     private final Set<UUID> blockedIdCollection;
+    private final Map<URLPattern, String> allowPatterns;
     private long maxLogTimestamp = 0L;
 
     public IntObjectPair<Map<UUID, URLPattern.Result<String>>> getUrlMatchResults(URLPattern pattern, int limit) {
@@ -112,40 +117,75 @@ public final class ProjectorURLSavedData extends SavedData {
         return Optional.empty();
     }
 
-    public UUID getOrCreateIdByCommand(ProjectorURL url, CommandSourceStack creator) {
-        var result = this.idToUrlStr.inverse().get(url);
-        if (result == null) {
-            result = UUID.randomUUID();
-            this.logWithoutPos(LogType.CREATE, url, getProfile(creator));
-            Preconditions.checkArgument(this.idToUrlStr.put(result, url) == null);
-            this.refreshAndSendSummaryToPlayers();
-            this.setDirty();
+    public Optional<UUID> getOrCreateIdByCommand(ProjectorURL url, CommandSourceStack creator) {
+        var result = Optional.ofNullable(this.idToUrlStr.inverse().get(url));
+        if (result.isEmpty()) {
+            var uri = url.toUrl();
+            if (this.allowPatterns.keySet().stream().anyMatch(pattern -> pattern.exec(uri).isPresent())) {
+                var uuid = UUID.randomUUID();
+                this.logWithoutPos(LogType.CREATE, url, getProfile(creator));
+                Preconditions.checkArgument(this.idToUrlStr.put(uuid, url) == null);
+                this.refreshAndSendSummaryToPlayers();
+                result = Optional.of(uuid);
+                this.setDirty();
+            }
         }
         return result;
     }
 
-    public UUID getOrCreateIdByItem(ProjectorURL url, Player creator) {
-        var result = this.idToUrlStr.inverse().get(url);
-        if (result == null) {
-            result = UUID.randomUUID();
-            this.logWithoutPos(LogType.CREATE, url, creator.getGameProfile());
-            Preconditions.checkArgument(this.idToUrlStr.put(result, url) == null);
-            this.refreshAndSendSummaryToPlayers();
-            this.setDirty();
+    public Optional<UUID> getOrCreateIdByItem(ProjectorURL url, Player creator) {
+        var result = Optional.ofNullable(this.idToUrlStr.inverse().get(url));
+        if (result.isEmpty()) {
+            var uri = url.toUrl();
+            if (this.allowPatterns.keySet().stream().anyMatch(pattern -> pattern.exec(uri).isPresent())) {
+                var uuid = UUID.randomUUID();
+                this.logWithoutPos(LogType.CREATE, url, creator.getGameProfile());
+                Preconditions.checkArgument(this.idToUrlStr.put(uuid, url) == null);
+                this.refreshAndSendSummaryToPlayers();
+                result = Optional.of(uuid);
+                this.setDirty();
+            }
         }
         return result;
     }
 
-    public UUID getOrCreateIdByProjector(ProjectorURL url, Player creator, GlobalPos projectorPos) {
-        var result = this.idToUrlStr.inverse().get(url);
-        if (result == null) {
-            result = UUID.randomUUID();
-            this.logWithPos(LogType.CREATE, projectorPos, url, creator.getGameProfile());
-            Preconditions.checkArgument(this.idToUrlStr.put(result, url) == null);
-            this.refreshAndSendSummaryToPlayers();
-            this.setDirty();
+    public Optional<UUID> getOrCreateIdByProjector(ProjectorURL url, Player creator, GlobalPos projectorPos) {
+        var result = Optional.ofNullable(this.idToUrlStr.inverse().get(url));
+        if (result.isEmpty()) {
+            var uri = url.toUrl();
+            if (this.allowPatterns.keySet().stream().anyMatch(pattern -> pattern.exec(uri).isPresent())) {
+                var uuid = UUID.randomUUID();
+                this.logWithPos(LogType.CREATE, projectorPos, url, creator.getGameProfile());
+                Preconditions.checkArgument(this.idToUrlStr.put(uuid, url) == null);
+                this.refreshAndSendSummaryToPlayers();
+                result = Optional.of(uuid);
+                this.setDirty();
+            }
         }
         return result;
+    }
+
+    public boolean addAllowRule(URLPattern pattern, String raw) {
+        if (!this.allowPatterns.containsKey(pattern)) {
+            this.allowPatterns.put(pattern, raw);
+            this.setDirty();
+            this.broadcastAllowPatterns();
+            return true;
+        }
+        return false;
+    }
+
+    public boolean removeAllowRule(URLPattern pattern) {
+        if (this.allowPatterns.remove(pattern) != null) {
+            this.setDirty();
+            this.broadcastAllowPatterns();
+            return true;
+        }
+        return false;
+    }
+
+    public List<String> getAllowPatterns() {
+        return List.copyOf(this.allowPatterns.values());
     }
 
     public void applyIdChangeByItem(SlideItem.Entry oldEntry, SlideItem.Entry newEntry, Player creator) {
@@ -221,6 +261,11 @@ public final class ProjectorURLSavedData extends SavedData {
             mappings.add(mappingRecord);
         }
         tag.put("Mappings", mappings);
+        var allowPatterns = new ListTag();
+        for (var raw : this.allowPatterns.values()) {
+            allowPatterns.add(StringTag.valueOf(raw));
+        }
+        tag.put("AllowPatterns", allowPatterns);
         return tag;
     }
 
@@ -232,6 +277,7 @@ public final class ProjectorURLSavedData extends SavedData {
         this.urlStrToLogs = TreeMultimap.create(PROJECTOR_URL_ASC, LOG_TIME_ASC);
         this.idToUrlStr = HashBiMap.create(16);
         this.blockedIdCollection = new HashSet<>();
+        this.allowPatterns = new LinkedHashMap<>();
     }
 
     private ProjectorURLSavedData(CompoundTag tag) {
@@ -257,6 +303,32 @@ public final class ProjectorURLSavedData extends SavedData {
             Preconditions.checkArgument(this.idToUrlStr.put(mappingId, mappingUrl) == null);
             if (mappingRecord.getBooleanOr("Blocked", false)) {
                 this.blockedIdCollection.add(mappingId);
+            }
+        }
+        this.allowPatterns = new LinkedHashMap<>();
+        var allowPatternsTag = tag.getListOrEmpty("AllowPatterns");
+        for (var i = 0; i < allowPatternsTag.size(); ++i) {
+            var raw = allowPatternsTag.getStringOr(i, "");
+            if (!raw.isEmpty()) {
+                this.allowPatterns.put(new URLPattern(raw), raw);
+            }
+        }
+        if (this.allowPatterns.isEmpty()) {
+            for (var raw : DEFAULT_ALLOW_PATTERNS) {
+                this.allowPatterns.put(new URLPattern(raw), raw);
+            }
+            this.setDirty();
+        }
+    }
+
+    private void broadcastAllowPatterns() {
+        var server = ServerLifecycleHooks.getCurrentServer();
+        if (server != null && server.isRunning()) {
+            var packet = new SlideAllowPacket(List.copyOf(this.allowPatterns.values()));
+            for (var player : server.getPlayerList().getPlayers()) {
+                if (player.connection.hasChannel(SlideAllowPacket.TYPE)) {
+                    PacketDistributor.sendToPlayer(player, packet);
+                }
             }
         }
     }
@@ -428,6 +500,10 @@ public final class ProjectorURLSavedData extends SavedData {
                 data.cachedSummaryPacket = packet;
             }
             consumer.accept(packet);
+            if (event.getListener().hasChannel(SlideAllowPacket.TYPE)) {
+                var allowPacket = new SlideAllowPacket(List.copyOf(data.allowPatterns.values()));
+                consumer.accept(allowPacket);
+            }
             event.getListener().finishCurrentTask(TYPE);
         }
 

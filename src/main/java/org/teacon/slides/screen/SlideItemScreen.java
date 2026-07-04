@@ -163,8 +163,7 @@ public final class SlideItemScreen extends AbstractContainerScreen<SlideItemCont
                 try {
                     mSlideUrl = new ProjectorURL(text);
                     if (mInitPacket.permissions().create()) {
-                        var blocked = TextureState.getImgBlocked(mSlideUrl);
-                        mUrlStatus = blocked ? UrlStatus.BLOCKED : UrlStatus.NORMAL;
+                        mUrlStatus = TextureState.getImgBlocked(mSlideUrl) ? UrlStatus.BLOCKED : UrlStatus.NORMAL;
                     } else {
                         var allowed = TextureState.getImgAllowed(mSlideUrl);
                         mUrlStatus = allowed ? UrlStatus.NORMAL : UrlStatus.INVALID;

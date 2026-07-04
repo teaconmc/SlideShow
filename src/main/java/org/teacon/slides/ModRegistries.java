@@ -95,6 +95,7 @@ public final class ModRegistries {
         pr.playToClient(SlideURLPrefetchPacket.TYPE, SlideURLPrefetchPacket.CODEC, SlideURLPrefetchPacket::handle);
         pr.playToServer(SlideURLRequestPacket.TYPE, SlideURLRequestPacket.CODEC, SlideURLRequestPacket::handle);
         pr.commonToClient(SlideSummaryPacket.TYPE, SlideSummaryPacket.CODEC, SlideSummaryPacket::handle);
+        pr.commonToClient(SlideAllowPacket.TYPE, SlideAllowPacket.CODEC, SlideAllowPacket::handle);
         SlideShow.LOGGER.info("Registered related network packages (version {})", NETWORK_VERSION);
     }
 

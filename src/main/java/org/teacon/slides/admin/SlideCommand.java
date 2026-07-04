@@ -47,6 +47,12 @@ public final class SlideCommand {
 
     private static final SimpleCommandExceptionType PERM_NOT_EXIST = new SimpleCommandExceptionType(Component.translatable("command.slide_show.failed.perm_not_exist").withStyle(ChatFormatting.RED));
 
+    private static final DynamicCommandExceptionType URL_NOT_ALLOWED = new DynamicCommandExceptionType(v -> Component.translatable("command.slide_show.failed.url_not_allowed", v));
+
+    private static final SimpleCommandExceptionType ALLOW_RULE_NOT_EXIST = new SimpleCommandExceptionType(Component.translatable("command.slide_show.failed.allow_rule_not_exist").withStyle(ChatFormatting.RED));
+
+    private static final SimpleCommandExceptionType ALLOW_RULE_ALREADY_EXIST = new SimpleCommandExceptionType(Component.translatable("command.slide_show.failed.allow_rule_already_exist").withStyle(ChatFormatting.RED));
+
     @SubscribeEvent
     public static void onCommandsRegister(RegisterCommandsEvent event) {
         var node = event.getDispatcher().register(command(SlideShow.ID.replace('_', '-')));
@@ -58,7 +64,7 @@ public final class SlideCommand {
                 .then(literal("list")
                         .then(argument("pattern", new ProjectorURLPatternArgument())
                                 .executes(context -> list(context.getSource(),
-                                        ProjectorURLPatternArgument.getUrl(context, "pattern"),
+                                        ProjectorURLPatternArgument.getInput(context, "pattern").getValue(),
                                         ProjectorURLSavedData.get(context.getSource().getServer()))))
                         .executes(context -> list(context.getSource(),
                                 new URLPattern(Map.of(URLPattern.ComponentType.PROTOCOL, "http(s?)")),
@@ -99,6 +105,19 @@ public final class SlideCommand {
                         .then(argument("url", new ProjectorURLArgument())
                                 .executes(context -> unblock(context.getSource(),
                                         ProjectorURLArgument.getUrl(context, "url"),
+                                        ProjectorURLSavedData.get(context.getSource().getServer())))))
+                .then(literal("allow")
+                        .then(argument("pattern", new ProjectorURLPatternArgument())
+                                .executes(context -> allow(context.getSource(),
+                                        ProjectorURLPatternArgument.getInput(context, "pattern"),
+                                        ProjectorURLSavedData.get(context.getSource().getServer()))))
+                        .then(literal("list")
+                                .executes(context -> listAllowRules(context.getSource(),
+                                        ProjectorURLSavedData.get(context.getSource().getServer())))))
+                .then(literal("unallow")
+                        .then(argument("pattern", new ProjectorURLPatternArgument())
+                                .executes(context -> unallow(context.getSource(),
+                                        ProjectorURLPatternArgument.getInput(context, "pattern"),
                                         ProjectorURLSavedData.get(context.getSource().getServer())))));
     }
 
@@ -149,18 +168,22 @@ public final class SlideCommand {
                                 Either<UUID, ProjectorURL> urlArgument,
                                 ProjectorURLSavedData data) throws CommandSyntaxException {
         var urlOptional = urlArgument.map(data::getUrlById, Optional::of);
-        if (urlOptional.isPresent()) {
-            var url = urlOptional.get();
-            var uuidOptional = data.getIdByUrl(url);
-            if (uuidOptional.isPresent() || SlidePermission.canInteractCreateUrl(source)) {
-                var uuid = uuidOptional.orElseGet(() -> data.getOrCreateIdByCommand(url, source));
-                PacketDistributor.sendToAllPlayers(new SlideURLPrefetchPacket(Set.of(uuid), data));
-                var msg = Component.translatable("command.slide_show.prefetch_projector_url.success", toText(uuid, url));
-                source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
-                return Command.SINGLE_SUCCESS;
-            }
+        if (urlOptional.isEmpty()) {
+            throw URL_NOT_EXIST.create(urlArgument.map(SlideCommand::toText, SlideCommand::toText));
         }
-        throw URL_NOT_EXIST.create(urlArgument.map(SlideCommand::toText, SlideCommand::toText));
+        var url = urlOptional.get();
+        var uuidOptional = data.getIdByUrl(url);
+        if (uuidOptional.isEmpty() && SlidePermission.canInteractCreateUrl(source)) {
+            uuidOptional = data.getOrCreateIdByCommand(url, source);
+        }
+        if (uuidOptional.isEmpty()) {
+            throw URL_NOT_ALLOWED.create(toText(url));
+        }
+        var uuid = uuidOptional.get();
+        PacketDistributor.sendToAllPlayers(new SlideURLPrefetchPacket(Set.of(uuid), data));
+        var msg = Component.translatable("command.slide_show.prefetch_projector_url.success", toText(uuid, url));
+        source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int list(CommandSourceStack source,
@@ -246,5 +269,49 @@ public final class SlideCommand {
         var text = StringUtils.abbreviate(id.toString(), 15);
         var hover = new HoverEvent.ShowText(Component.literal("UUID:\n" + id));
         return Component.literal(text).withStyle(s -> s.withColor(ChatFormatting.AQUA).withHoverEvent(hover));
+    }
+
+    private static int allow(CommandSourceStack source,
+                             Map.Entry<String, URLPattern> input,
+                             ProjectorURLSavedData data) throws CommandSyntaxException {
+        if (SlidePermission.canBlockUrl(source)) {
+            if (data.addAllowRule(input.getValue(), input.getKey())) {
+                var msg = Component.translatable("command.slide_show.allow_projector_url.success", Component.literal(input.getKey()).withStyle(ChatFormatting.AQUA));
+                source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
+                return Command.SINGLE_SUCCESS;
+            }
+            throw ALLOW_RULE_ALREADY_EXIST.create();
+        }
+        throw PERM_NOT_EXIST.create();
+    }
+
+    private static int unallow(CommandSourceStack source,
+                               Map.Entry<String, URLPattern> input,
+                               ProjectorURLSavedData data) throws CommandSyntaxException {
+        if (SlidePermission.canUnblockUrl(source)) {
+            if (data.removeAllowRule(input.getValue())) {
+                var msg = Component.translatable("command.slide_show.unallow_projector_url.success", Component.literal(input.getKey()).withStyle(ChatFormatting.AQUA));
+                source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
+                if (data.getAllowPatterns().isEmpty()) {
+                    source.sendSuccess(() -> Component.translatable("command.slide_show.unallow_projector_url.warn_empty").withStyle(ChatFormatting.YELLOW), false);
+                }
+                return Command.SINGLE_SUCCESS;
+            }
+            throw ALLOW_RULE_NOT_EXIST.create();
+        }
+        throw PERM_NOT_EXIST.create();
+    }
+
+    private static int listAllowRules(CommandSourceStack source,
+                                      ProjectorURLSavedData data) throws CommandSyntaxException {
+        if (SlidePermission.canBlockUrl(source)) {
+            var rules = data.getAllowPatterns();
+            var components = rules.stream().map(raw -> Component.literal(raw).withStyle(ChatFormatting.AQUA)).toArray(Component[]::new);
+            var component = ComponentUtils.formatList(Arrays.asList(components), Function.identity());
+            var msg = Component.translatable("command.slide_show.list_allow_projector_url.success", rules.size(), component);
+            source.sendSuccess(() -> msg.withStyle(ChatFormatting.GREEN), true);
+            return Command.SINGLE_SUCCESS;
+        }
+        throw PERM_NOT_EXIST.create();
     }
 }

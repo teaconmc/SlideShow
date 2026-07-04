@@ -56,13 +56,9 @@ public record SlideItemUpdatePacket(int slotId, Perm permissions, UUID imgUnique
                     var oldEntry = item.getOrDefault(ModRegistries.SLIDE_ENTRY, SlideItem.ENTRY_DEF);
                     var newEntry = new SlideItem.Entry(this.imgUniqueId, this.size, this.position);
                     if (data.getUrlById(newEntry.id()).isEmpty() && this.url.isPresent()) {
-                        if (SlidePermission.canInteractCreateUrl(sp.createCommandSourceStack())) {
-                            var imgId = data.getOrCreateIdByItem(this.url.get(), sp);
-                            newEntry = new SlideItem.Entry(imgId, this.size, this.position);
-                        } else {
-                            var imgId = data.getIdByUrl(this.url.get()).orElseGet(oldEntry::id);
-                            newEntry = new SlideItem.Entry(imgId, this.size, this.position);
-                        }
+                        var canCreate = SlidePermission.canInteractCreateUrl(sp.createCommandSourceStack());
+                        var imgId = canCreate ? data.getOrCreateIdByItem(this.url.get(), sp) : data.getIdByUrl(this.url.get());
+                        newEntry = new SlideItem.Entry(imgId.orElseGet(oldEntry::id), this.size, this.position);
                     }
                     if (!newEntry.equals(oldEntry)) {
                         item.set(ModRegistries.SLIDE_ENTRY, newEntry);
