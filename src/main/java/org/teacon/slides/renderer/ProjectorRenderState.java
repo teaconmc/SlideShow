@@ -16,6 +16,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 public final class ProjectorRenderState extends BlockEntityRenderState {
     long tickPhase = 0L;
     float partialTickPhase = 0F;
+    boolean renderOutline = false;
     BlockModelRenderState renderModel = new BlockModelRenderState();
     TextureSequence sequence = new TextureSequence(1, 1, new ProjectorBlockEntity.ColorTransform(), false);
     ProjectorBlockEntity.TransformMicros transformMicros = new ProjectorBlockEntity.TransformMicros(Direction.UP, ProjectorBlock.InternalRotation.NONE, 1, 1, 0, 0, 0);

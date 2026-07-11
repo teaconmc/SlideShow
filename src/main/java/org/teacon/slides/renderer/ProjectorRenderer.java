@@ -62,9 +62,16 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
         // phase
         state.tickPhase = TextureState.getAnimationTick();
         state.partialTickPhase = partialTicks;
+        // check if outline is needed
+        var mc = Minecraft.getInstance();
+        var handItems = List.of(Items.AIR, Items.AIR);
+        if (mc.player != null) {
+            handItems = List.of(mc.player.getMainHandItem().getItem(), mc.player.getOffhandItem().getItem());
+        }
+        state.renderOutline = handItems.contains(ModRegistries.PROJECTOR_BLOCK.get().asItem());
         // model
         var blockState = blockEntity.getBlockState();
-        if (blockEntity.hasLevel()) {
+        if (blockEntity.hasLevel() && state.renderOutline) {
             this.blockModelResolver.update(state.renderModel, blockState, BLOCK_DISPLAY_CONTEXT);
         }
         // construct sequence instance
@@ -85,16 +92,6 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
 
     @Override
     public void submit(ProjectorRenderState state, PoseStack stack, SubmitNodeCollector snc, CameraRenderState camera) {
-        // check if outline is needed
-        var renderOutline = false;
-        if (!state.renderModel.isEmpty()) {
-            var mc = Minecraft.getInstance();
-            var handItems = List.of(Items.AIR, Items.AIR);
-            if (mc.player != null) {
-                handItems = List.of(mc.player.getMainHandItem().getItem(), mc.player.getOffhandItem().getItem());
-            }
-            renderOutline = handItems.contains(ModRegistries.PROJECTOR_BLOCK.get().asItem());
-        }
         // lightness
         var light = LightCoordsUtil.withBlock(state.lightCoords, ProjectorBlock.LIGHTNESS);
         // render slide and outline
@@ -102,11 +99,11 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
         var last = stack.last();
         state.transformMicros.transformToSlideSpaceMicros(last.pose(), last.normal());
         state.sequence.render(snc, stack, light, state.tickPhase, state.partialTickPhase);
-        if (renderOutline) {
+        if (state.renderOutline) {
             state.sequence.renderOutline(snc, stack, light, NO_OVERLAY, 0xFFFFFFFF);
         }
         stack.popPose();
-        if (renderOutline && !state.renderModel.isEmpty()) {
+        if (state.renderOutline && !state.renderModel.isEmpty()) {
             state.renderModel.submitOnlyOutline(stack, snc, light, NO_OVERLAY, 0xFFFFFFFF);
         }
     }
