@@ -52,7 +52,7 @@ import static org.apache.commons.lang3.StringUtils.abbreviateMiddle;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class SlideItem extends Item {
-    public static final Entry ENTRY_DEF = new Entry(new UUID(0L, 0L), Size.DEFAULT, Position.DEFAULT);
+    public static final Entry ENTRY_DEF = new Entry(new UUID(0L, 0L), Size.ENTRY_DEF, Position.ENTRY_DEF);
 
     public SlideItem(Identifier identifier) {
         super(new Properties()
@@ -86,6 +86,7 @@ public final class SlideItem extends Item {
         if (player instanceof ServerPlayer serverPlayer) {
             var slotId = hand == InteractionHand.MAIN_HAND ? player.getInventory().getSelectedSlot() : Inventory.SLOT_OFFHAND;
             var e = item.getOrDefault(ModRegistries.SLIDE_ENTRY, ENTRY_DEF);
+            // noinspection resource
             var data = ProjectorURLSavedData.get(serverPlayer.level().getServer());
             var log = Optional.<ProjectorURLSavedData.Log>empty();
             var imgUrl = data.getUrlById(e.id());

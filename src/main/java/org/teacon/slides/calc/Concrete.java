@@ -78,6 +78,8 @@ public record Concrete(double topMicros, double rightMicros, double bottomMicros
     public sealed interface Size permits KeywordSize, ValueSize, AutoValueSize, ValueAutoSize, ValueValueSize {
         Codec<Size> CODEC = Codec.STRING.xmap(Size::parse, Size::toString);
         StreamCodec<ByteBuf, Size> STREAM_CODEC = ByteBufCodecs.STRING_UTF8.map(Size::parse, Size::toString);
+
+        KeywordSize ENTRY_DEF = KeywordSize.CONTAIN;
         ValueValueSize DEFAULT = new ValueValueSize(new CalcBasic(100D), new CalcBasic(100D));
 
         static Size parse(String input) {
@@ -166,6 +168,8 @@ public record Concrete(double topMicros, double rightMicros, double bottomMicros
     public sealed interface Position permits SinglePosition, PairPosition, PairPairPosition {
         Codec<Position> CODEC = Codec.STRING.xmap(Position::parse, Position::toString);
         StreamCodec<ByteBuf, Position> STREAM_CODEC = ByteBufCodecs.STRING_UTF8.map(Position::parse, Position::toString);
+
+        KeywordPosition ENTRY_DEF = KeywordPosition.CENTER;
         PairPosition DEFAULT = new PairPosition(ValuePosition.DEFAULT, ValuePosition.DEFAULT);
 
         static Position parse(String input) {
