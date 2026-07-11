@@ -13,7 +13,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.http.HttpClient;
+import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
+import java.net.URI;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -69,11 +71,21 @@ public final class TempDownloadFile implements Closeable {
         }
     }
 
+    /** The current temporary location, used while a no-store entry remains live. */
+    public Path path() throws IOException {
+        return this.retrieve();
+    }
+
     public CompletableFuture<Entry> download(HttpClient client, HttpRequest request) throws IOException {
         var transferred = new TempDownloadFile(this);
         var location = transferred.retrieve();
         var pending = client.sendAsync(request, ignored -> new HashFileSubscriber(Entry.HASH_FUNCTION, location));
         var result = pending.<Entry>newIncompleteFuture();
+        result.whenComplete((ignored, throwable) -> {
+            if (result.isCancelled()) {
+                pending.cancel(true);
+            }
+        });
         pending.whenComplete((response, throwable) -> {
             try {
                 if (throwable != null) {
@@ -83,7 +95,7 @@ public final class TempDownloadFile implements Closeable {
                 if (statusCode >= HttpURLConnection.HTTP_BAD_REQUEST) {
                     throw new IOException("Bad status code (" + statusCode + ")");
                 }
-                result.complete(new Entry(response.body(), transferred));
+                result.complete(new Entry(response.body(), transferred, statusCode, response.headers(), response.uri()));
             } catch (Throwable t) {
                 try {
                     transferred.close();
@@ -105,7 +117,9 @@ public final class TempDownloadFile implements Closeable {
         }
     }
 
-    public record Entry(HashCode sha256, TempDownloadFile location) {
-        private static final HashFunction HASH_FUNCTION = Hashing.sha256();
+    public record Entry(HashCode sha1, TempDownloadFile location, int statusCode,
+                        HttpHeaders headers, URI uri) {
+        @SuppressWarnings("deprecation")
+        private static final HashFunction HASH_FUNCTION = Hashing.sha1();
     }
 }

@@ -1,13 +1,8 @@
 package org.teacon.slides.renderer;
 
 import com.google.common.collect.ImmutableSet;
-import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
-import dev.matrixlab.webp4j.internal.NativeWebP;
-import dev.matrixlab.webp4j.model.AnimatedWebPData;
-import dev.matrixlab.webp4j.model.VP8StatusCode;
-import dev.matrixlab.webp4j.model.WebPBitstreamFeatures;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntLists;
@@ -27,28 +22,22 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterDebugEntriesEvent;
+import net.neoforged.neoforge.client.event.lifecycle.ClientStoppingEvent;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
-import org.lwjgl.stb.STBImage;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
 import org.teacon.slides.block.ProjectorBlockEntity;
-import org.teacon.slides.cache.ImageCache;
+import org.teacon.slides.cache2.CacheStorage;
 import org.teacon.slides.item.SlideItem;
 import org.teacon.slides.network.SlideURLRequestPacket;
 import org.teacon.slides.renderer.bitmap.BitmapProvider;
-import org.teacon.slides.renderer.bitmap.GIFBitmapProvider;
-import org.teacon.slides.renderer.bitmap.StaticBitmapProvider;
-import org.teacon.slides.renderer.bitmap.WebPBitmapProvider;
-import org.teacon.slides.renderer.decoder.GIFDecoder;
 import org.teacon.slides.url.ProjectorURL;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.io.IOException;
+import java.net.http.HttpClient;
+import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -71,12 +60,9 @@ public final class TextureState {
     private static final int RETRY_INTERVAL_SECONDS = 30; // 30s
     private static long sAnimationTick = 0L;
 
-    // cleaner related
-    private static final int CLEANER_INTERVAL_SECONDS = 720; // 12min
-    private static int sCleanerTimer = 0;
-
     // cache related
     private static final AtomicReference<ConcurrentHashMap<ProjectorURL, TextureState>> sCache;
+    private static volatile @Nullable CacheStorage sCacheStorage;
 
     static {
         sCache = new AtomicReference<>(new ConcurrentHashMap<>());
@@ -93,6 +79,15 @@ public final class TextureState {
     @SubscribeEvent
     public static void onPlayerLeft(ClientPlayerNetworkEvent.LoggingOut event) {
         Minecraft.getInstance().schedule(TextureState::clear);
+    }
+
+    @SubscribeEvent
+    public static void onClientStopping(ClientStoppingEvent event) {
+        var storage = sCacheStorage;
+        if (storage != null) {
+            storage.close();
+            sCacheStorage = null;
+        }
     }
 
     @SubscribeEvent
@@ -125,13 +120,6 @@ public final class TextureState {
             var map = sCache.getAcquire();
             if (!map.isEmpty()) {
                 Minecraft.getInstance().schedule(() -> map.entrySet().removeIf(e -> e.getValue().update(e.getKey())));
-            }
-            if (++sCleanerTimer > CLEANER_INTERVAL_SECONDS) {
-                var n = ImageCache.getInstance().cleanResources();
-                if (n != 0) {
-                    SlideShow.LOGGER.debug("Cleanup {} http cache image resources", n);
-                }
-                sCleanerTimer = 0;
             }
         }
     }
@@ -261,19 +249,38 @@ public final class TextureState {
 
     private void refresh(ProjectorURL location) {
         var requestCounter = mRequestCounter;
-        ImageCache.getInstance().getResource(location.toUrl(), true).thenCompose(entry -> {
+        // noinspection resource
+        storage().offline(location).thenCompose(factory -> {
             var future = new CompletableFuture<BitmapProvider>();
-            var providerFactory = dispatchProviderFactory(entry);
             Minecraft.getInstance().schedule(() -> {
                 try {
-                    future.complete(providerFactory.call());
+                    future.complete(factory.createProvider());
+                } catch (Exception e) {
+                    SlideShow.LOGGER.error("Failed to load offline texture provider from {}", location, e);
+                    future.completeExceptionally(e);
+                }
+            });
+            return future;
+        }).whenComplete((provider, ignored) -> Minecraft.getInstance().schedule(() -> {
+            if (requestCounter == mRequestCounter) {
+                if (provider != null) {
+                    this.transferState(State.OFFLINE, provider);
+                }
+            }
+        }));
+        // noinspection resource
+        storage().online(location).thenCompose(factory -> {
+            var future = new CompletableFuture<BitmapProvider>();
+            Minecraft.getInstance().schedule(() -> {
+                try {
+                    future.complete(factory.createProvider());
                 } catch (Exception e) {
                     SlideShow.LOGGER.error("Failed to load online texture provider from {}", location, e);
                     future.completeExceptionally(e);
                 }
             });
             return future;
-        }).whenComplete((provider, throwable) -> Minecraft.getInstance().schedule(() -> {
+        }).whenComplete((provider, ignored) -> Minecraft.getInstance().schedule(() -> {
             if (requestCounter == mRequestCounter) {
                 if (mState == State.INITIAL) {
                     this.transferState(State.FAILURE, null);
@@ -283,25 +290,6 @@ public final class TextureState {
                     mRecycleCounter += RECYCLE_SECONDS - RETRY_INTERVAL_SECONDS;
                 }
                 mRequestCounter = requestCounter + 1;
-            }
-        }));
-        ImageCache.getInstance().getResource(location.toUrl(), false).thenCompose(entry -> {
-            var future = new CompletableFuture<BitmapProvider>();
-            var providerFactory = dispatchProviderFactory(entry);
-            Minecraft.getInstance().schedule(() -> {
-                try {
-                    future.complete(providerFactory.call());
-                } catch (Exception e) {
-                    SlideShow.LOGGER.error("Failed to load offline texture provider from {}", location, e);
-                    future.completeExceptionally(e);
-                }
-            });
-            return future;
-        }).whenComplete((provider, throwable) -> Minecraft.getInstance().schedule(() -> {
-            if (requestCounter == mRequestCounter) {
-                if (provider != null) {
-                    this.transferState(State.OFFLINE, provider);
-                }
             }
         }));
     }
@@ -344,83 +332,19 @@ public final class TextureState {
                 "counter=" + mRecycleCounter + ", requests=" + mRequestCounter + "}";
     }
 
-    private static Callable<BitmapProvider> throwIOE(String message) {
-        return () -> {
-            throw new IOException(message);
-        };
-    }
-
-    /**
-     * Decode image and create texture.
-     *
-     * @param nameDataEntry image file name & compressed image data
-     * @return texture
-     */
-    private static Callable<BitmapProvider> dispatchProviderFactory(Map.Entry<String, byte[]> nameDataEntry) {
-        var name = nameDataEntry.getKey();
-        var data = nameDataEntry.getValue();
-        // gif
-        var isGif = name.endsWith(".gif") || GIFDecoder.checkMagic(data);
-        if (isGif) {
-            // TODO: decode GIFs asynchronously
-            return () -> new GIFBitmapProvider(name, data);
-        }
-        // webp detector
-        var featureWebP = name.endsWith(".webp") || WebPBitmapProvider.checkMagic(data) ? new WebPBitstreamFeatures() : null;
-        if (featureWebP != null) {
-            var success = VP8StatusCode.getStatusCode(NativeWebP.getFeatures(data, data.length, featureWebP));
-            if (success != VP8StatusCode.VP8_STATUS_OK) {
-                return throwIOE("Failed to decode webp image features.");
-            }
-        }
-        // animated webp
-        if (featureWebP != null && featureWebP.isHasAnimation()) {
-            var webPData = new AnimatedWebPData();
-            var success = NativeWebP.decodeAnimatedWebP(data, webPData);
-            if (!success) {
-                return throwIOE("Failed to decode animated webp image.");
-            }
-            if (webPData.getFrameCount() > 1) {
-                return () -> new WebPBitmapProvider(name, data.length, webPData, featureWebP.isHasAlpha());
-            }
-        }
-        var img = new NativeImage[1];
-        // static webp
-        if (featureWebP != null) {
-            var width = featureWebP.getWidth();
-            var height = featureWebP.getHeight();
-            var bytes = new byte[width * height * 4];
-            if (!NativeWebP.decodeRGBAInto(data, bytes, width * 4)) {
-                return throwIOE("Failed to decode static webp image.");
-            }
-            var format = NativeImage.Format.RGBA;
-            var loaded = MemoryUtil.memAlloc(bytes.length).put(bytes).rewind();
-            // noinspection resource
-            img[0] = new NativeImage(format, width, height, false, MemoryUtil.memAddress(loaded));
-        }
-        // static image by stbi
-        if (img[0] == null) {
-            // copy to native memory
-            var buffer = MemoryUtil.memAlloc(data.length).put(data).rewind();
-            // load rgba image
-            try (var stack = MemoryStack.stackPush()) {
-                var width = stack.mallocInt(1);
-                var height = stack.mallocInt(1);
-                var channels = stack.mallocInt(1);
-                var format = NativeImage.Format.RGBA;
-                var loaded = STBImage.stbi_load_from_memory(buffer, width, height, channels, format.components());
-                if (loaded == null) {
-                    return throwIOE("Failed to decode image from stbi (" + STBImage.stbi_failure_reason() + ").");
+    private static CacheStorage storage() {
+        var result = sCacheStorage;
+        if (result == null) {
+            synchronized (TextureState.class) {
+                result = sCacheStorage;
+                if (result == null) {
+                    var client = HttpClient.newBuilder().executor(net.minecraft.util.Util.nonCriticalIoPool())
+                            .followRedirects(HttpClient.Redirect.ALWAYS).build();
+                    sCacheStorage = result = new CacheStorage(client, Path.of("slideshow"));
                 }
-                var addr = MemoryUtil.memAddress(loaded);
-                // noinspection resource
-                img[0] = new NativeImage(format, width.get(0), height.get(0), true, addr);
-            } finally {
-                MemoryUtil.memFree(buffer);
             }
         }
-        // construct static provider
-        return () -> new StaticBitmapProvider(name, Objects.requireNonNull(img[0]));
+        return result;
     }
 
     public enum State {

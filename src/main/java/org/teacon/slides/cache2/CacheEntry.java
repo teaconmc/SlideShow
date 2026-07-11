@@ -43,6 +43,10 @@ public sealed interface CacheEntry permits CacheEntry.Transient, CacheEntry.Upda
     });
     TomlParser PARSER = new TomlParser();
 
+    String ACCEPT = "image/jpeg, image/png, image/bmp, image/gif, image/webp";
+    String REFERER = "https://github.com/teaconmc/SlideShow";
+    String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.1";
+
     static CacheEntry from(String name, Path file, ProjectorURL url, HttpHeaders headers) {
         if (noStore(headers) != null) {
             return new Transient(name, file, url);
@@ -124,14 +128,19 @@ public sealed interface CacheEntry permits CacheEntry.Transient, CacheEntry.Upda
 
     Optional<HttpRequest> request();
 
+    static HttpRequest request(ProjectorURL url) {
+        return HttpRequest.newBuilder(url.toUrl())
+                .header("Accept", ACCEPT).header("Cache-Control", "no-cache")
+                .header("Referer", REFERER).header("User-Agent", USER_AGENT).GET().build();
+    }
+
     @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
     record Transient(String name, Path file, ProjectorURL url) implements CacheEntry {
         @Override
         public Optional<HttpRequest> request() {
-            var builder = HttpRequest.newBuilder(this.url.toUrl());
-            return Optional.ofNullable(builder.header("Cache-Control", "no-cache").GET().build());
+            return Optional.of(CacheEntry.request(this.url));
         }
     }
 
@@ -142,7 +151,9 @@ public sealed interface CacheEntry permits CacheEntry.Transient, CacheEntry.Upda
                      Optional<String> etag, Optional<Instant> lastModified) implements CacheEntry {
         @Override
         public Optional<HttpRequest> request() {
-            var builder = HttpRequest.newBuilder(this.url.toUrl());
+            var builder = HttpRequest.newBuilder(this.url.toUrl())
+                    .header("Accept", ACCEPT).header("Cache-Control", "no-cache")
+                    .header("Referer", REFERER).header("User-Agent", USER_AGENT);
             if (this.etag.isPresent()) {
                 builder = builder.header("If-None-Match", this.etag.get());
             }
@@ -151,7 +162,7 @@ public sealed interface CacheEntry permits CacheEntry.Transient, CacheEntry.Upda
                 var str = rfc1123.format(this.lastModified.get().atOffset(ZoneOffset.UTC));
                 builder = builder.header("If-Modified-Since", str);
             }
-            return Optional.ofNullable(builder.header("Cache-Control", "no-cache").GET().build());
+            return Optional.of(builder.GET().build());
         }
     }
 
