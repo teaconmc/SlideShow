@@ -260,10 +260,7 @@ public final class TextureState {
     private void refresh(ProjectorURL location) {
         var requestCounter = mRequestCounter;
         var providerExecutor = Minecraft.getInstance();
-        Objects.requireNonNull(sCacheStorage).offline(location).whenCompleteAsync((provider, throwable) -> {
-            if (throwable != null) {
-                SlideShow.LOGGER.error("Failed to load offline texture provider from {}", location, throwable);
-            }
+        Objects.requireNonNull(sCacheStorage).offline(location).whenCompleteAsync((provider, ignored) -> {
             if (mDisposed || requestCounter != mRequestCounter) {
                 if (provider != null) {
                     provider.close();
@@ -274,10 +271,7 @@ public final class TextureState {
                 this.transferState(State.OFFLINE, provider);
             }
         }, providerExecutor);
-        Objects.requireNonNull(sCacheStorage).online(location).whenCompleteAsync((provider, throwable) -> {
-            if (throwable != null) {
-                SlideShow.LOGGER.error("Failed to load online texture provider from {}", location, throwable);
-            }
+        Objects.requireNonNull(sCacheStorage).online(location).whenCompleteAsync((provider, ignored) -> {
             if (mDisposed || requestCounter != mRequestCounter) {
                 if (provider != null) {
                     provider.close();

@@ -87,7 +87,7 @@ public final class CacheStorage implements Closeable {
             return this.acquire(CompletableFuture.failedFuture(new IOException("No offline cache entry for " + url)));
         }
         // Reopen cached bytes on the IO executor before creating a caller-owned provider.
-        return this.acquire(CompletableFuture.supplyAsync(() -> source(entry), this.clientExecutor));
+        return this.acquire(CompletableFuture.supplyAsync(() -> this.source(entry), this.clientExecutor));
     }
 
     public CompletableFuture<BitmapProvider> online(ProjectorURL url) {
@@ -96,10 +96,10 @@ public final class CacheStorage implements Closeable {
             return this.acquire(CompletableFuture.failedFuture(new IOException("Cache storage is closed")));
         }
         // Share an in-flight source request while creating one provider per caller.
-        return this.acquire(this.requestSource(url));
+        return this.acquire(this.source(url));
     }
 
-    private CompletableFuture<ImageSource> requestSource(ProjectorURL url) {
+    private CompletableFuture<ImageSource> source(ProjectorURL url) {
         // Reuse an in-flight source request when one is already registered.
         var existing = this.requests.get(url);
         if (existing != null) {
@@ -123,6 +123,8 @@ public final class CacheStorage implements Closeable {
             });
             loading.whenComplete((source, throwable) -> {
                 if (throwable != null) {
+                    LOGGER.info("Failed to fetch source for {}", url);
+                    LOGGER.debug("Failed to fetch source for {}", url, throwable);
                     result.completeExceptionally(throwable);
                 } else {
                     result.complete(source);
@@ -130,6 +132,8 @@ public final class CacheStorage implements Closeable {
             });
         } catch (Exception e) {
             // Surface synchronous fetch setup failures through the request future.
+            LOGGER.info("Failed to start source request for {}", url);
+            LOGGER.debug("Failed to start source request for {}", url, e);
             result.completeExceptionally(e);
         }
         return result;
@@ -143,7 +147,7 @@ public final class CacheStorage implements Closeable {
         // Immutable entries can be reopened without a network revalidation.
         var old = this.entries.get(url);
         if (old instanceof CacheEntry.Immutable) {
-            return CompletableFuture.supplyAsync(() -> source(old), this.clientExecutor);
+            return CompletableFuture.supplyAsync(() -> this.source(old), this.clientExecutor);
         }
         // Revalidate an existing entry or download a missing entry into a temporary file.
         var request = old == null ? CacheEntry.request(url) : old.request().orElseThrow();
@@ -195,7 +199,7 @@ public final class CacheStorage implements Closeable {
         // Reuse cached bytes for a not-modified response and refresh its metadata.
         if (temp.statusCode() == 304 && old != null) {
             closeQuietly(file);
-            var source = source(old);
+            var source = this.source(old);
             // Only cacheable entries need their revalidation metadata persisted.
             if (!(old instanceof CacheEntry.Transient)) {
                 var updated = CacheEntry.from(old, temp.headers());
@@ -257,6 +261,8 @@ public final class CacheStorage implements Closeable {
             return new ImageSource(entry.name(), file);
         } catch (IOException e) {
             // Convert cache-file read failures into provider-loading failures.
+            LOGGER.info("Failed to read cache file {} for {}", entry.file(), entry.url());
+            LOGGER.debug("Failed to read cache file {} for {}", entry.file(), entry.url(), e);
             throw new IllegalStateException("Failed to open cache file " + entry.file(), e);
         }
     }
