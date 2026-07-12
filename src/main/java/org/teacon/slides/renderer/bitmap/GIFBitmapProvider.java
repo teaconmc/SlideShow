@@ -66,7 +66,7 @@ public final class GIFBitmapProvider implements BitmapProvider {
             encoder.writeToTexture(mTexture, mFrame.rewind(), RGBA, 0, 0, 0, 0, width, height);
             mRenderType = SlideRenderSetup.createSlideType(mTexture);
             mRecommendedName = name;
-        } catch (Exception e) {
+        } catch (IOException | RuntimeException e) {
             this.close();
             throw e;
         }
@@ -123,13 +123,17 @@ public final class GIFBitmapProvider implements BitmapProvider {
 
     @Override
     public void close() {
-        // noinspection ConstantValue
-        if (mTexture != null) {
-            mTexture.close();
-        }
-        if (mFrame != null) {
-            MemoryUtil.memFree(mFrame);
+        var frame = mFrame;
+        if (frame != null) {
             mFrame = null;
+            try {
+                // noinspection ConstantValue
+                if (mTexture != null) {
+                    mTexture.close();
+                }
+            } finally {
+                MemoryUtil.memFree(frame);
+            }
         }
     }
 }

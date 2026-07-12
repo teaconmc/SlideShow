@@ -42,7 +42,8 @@ public final class WebPBitmapProvider implements BitmapProvider {
         return false;
     }
 
-    private final GpuTexture mTexture;
+    @Nullable
+    private GpuTexture mTexture;
     private final RenderType mRenderType;
 
     private int mCurrentRawFrame;
@@ -123,7 +124,7 @@ public final class WebPBitmapProvider implements BitmapProvider {
             encoder.writeToTexture(mTexture, mFrame.rewind(), format, 0, 0, 0, 0, width, height);
             mRenderType = SlideRenderSetup.createSlideType(mTexture);
             mRecommendedName = name;
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             this.close();
             throw e;
         }
@@ -188,13 +189,18 @@ public final class WebPBitmapProvider implements BitmapProvider {
 
     @Override
     public void close() {
-        // noinspection ConstantValue
-        if (mTexture != null) {
-            mTexture.close();
-        }
-        if (mFrame != null) {
-            MemoryUtil.memFree(mFrame);
+        var texture = mTexture;
+        try {
+            if (texture != null) {
+                mTexture = null;
+                texture.close();
+            }
+        } finally {
+            var frame = mFrame;
             mFrame = null;
+            if (frame != null) {
+                MemoryUtil.memFree(frame);
+            }
         }
     }
 }

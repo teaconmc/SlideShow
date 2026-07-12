@@ -13,6 +13,7 @@ import net.minecraft.client.gui.components.debug.DebugEntryCategory;
 import net.minecraft.client.gui.components.debug.DebugScreenDisplayer;
 import net.minecraft.client.gui.components.debug.DebugScreenEntry;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.Util;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -22,6 +23,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterDebugEntriesEvent;
+import net.neoforged.neoforge.client.event.lifecycle.ClientStartedEvent;
 import net.neoforged.neoforge.client.event.lifecycle.ClientStoppingEvent;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.teacon.slides.ModRegistries;
@@ -38,7 +40,6 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.net.http.HttpClient;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -79,6 +80,13 @@ public final class TextureState {
     @SubscribeEvent
     public static void onPlayerLeft(ClientPlayerNetworkEvent.LoggingOut event) {
         Minecraft.getInstance().schedule(TextureState::clear);
+    }
+
+    @SubscribeEvent
+    public static void onClientStarted(ClientStartedEvent event) {
+        var client = HttpClient.newBuilder().executor(Util.nonCriticalIoPool())
+                .followRedirects(HttpClient.Redirect.ALWAYS).build();
+        sCacheStorage = new CacheStorage(client, Minecraft.getInstance(), Path.of("slideshow"));
     }
 
     @SubscribeEvent
@@ -153,7 +161,7 @@ public final class TextureState {
     private static void clear() {
         sBlockPending.clear();
         var map = sCache.getAndSet(new ConcurrentHashMap<>());
-        map.values().forEach(s -> s.transferState(State.TIMEOUT, null));
+        map.values().forEach(TextureState::release);
         SlideShow.LOGGER.debug("Release {} slide images", map.size());
         map.clear();
     }
@@ -237,6 +245,7 @@ public final class TextureState {
     private int mRecycleCounter;
     private int mRequestCounter;
     private boolean mTimeoutCheckAtUpdate;
+    private boolean mDisposed;
     private @Nullable BitmapProvider mProvider;
 
     private TextureState(ProjectorURL location) {
@@ -244,54 +253,46 @@ public final class TextureState {
         mRecycleCounter = RETRY_INTERVAL_SECONDS;
         mRequestCounter = 0;
         mTimeoutCheckAtUpdate = false;
+        mDisposed = false;
         this.refresh(location);
     }
 
     private void refresh(ProjectorURL location) {
         var requestCounter = mRequestCounter;
-        // noinspection resource
-        storage().offline(location).thenCompose(factory -> {
-            var future = new CompletableFuture<BitmapProvider>();
-            Minecraft.getInstance().schedule(() -> {
-                try {
-                    future.complete(factory.createProvider());
-                } catch (Exception e) {
-                    SlideShow.LOGGER.error("Failed to load offline texture provider from {}", location, e);
-                    future.completeExceptionally(e);
-                }
-            });
-            return future;
-        }).whenComplete((provider, ignored) -> Minecraft.getInstance().schedule(() -> {
-            if (requestCounter == mRequestCounter) {
-                if (provider != null) {
-                    this.transferState(State.OFFLINE, provider);
-                }
+        var providerExecutor = Minecraft.getInstance();
+        Objects.requireNonNull(sCacheStorage).offline(location).whenCompleteAsync((provider, throwable) -> {
+            if (throwable != null) {
+                SlideShow.LOGGER.error("Failed to load offline texture provider from {}", location, throwable);
             }
-        }));
-        // noinspection resource
-        storage().online(location).thenCompose(factory -> {
-            var future = new CompletableFuture<BitmapProvider>();
-            Minecraft.getInstance().schedule(() -> {
-                try {
-                    future.complete(factory.createProvider());
-                } catch (Exception e) {
-                    SlideShow.LOGGER.error("Failed to load online texture provider from {}", location, e);
-                    future.completeExceptionally(e);
-                }
-            });
-            return future;
-        }).whenComplete((provider, ignored) -> Minecraft.getInstance().schedule(() -> {
-            if (requestCounter == mRequestCounter) {
-                if (mState == State.INITIAL) {
-                    this.transferState(State.FAILURE, null);
-                }
+            if (mDisposed || requestCounter != mRequestCounter) {
                 if (provider != null) {
-                    this.transferState(State.SUCCESS, provider);
-                    mRecycleCounter += RECYCLE_SECONDS - RETRY_INTERVAL_SECONDS;
+                    provider.close();
                 }
-                mRequestCounter = requestCounter + 1;
+                return;
             }
-        }));
+            if (provider != null) {
+                this.transferState(State.OFFLINE, provider);
+            }
+        }, providerExecutor);
+        Objects.requireNonNull(sCacheStorage).online(location).whenCompleteAsync((provider, throwable) -> {
+            if (throwable != null) {
+                SlideShow.LOGGER.error("Failed to load online texture provider from {}", location, throwable);
+            }
+            if (mDisposed || requestCounter != mRequestCounter) {
+                if (provider != null) {
+                    provider.close();
+                }
+                return;
+            }
+            if (mState == State.INITIAL) {
+                this.transferState(State.FAILURE, null);
+            }
+            if (provider != null) {
+                this.transferState(State.SUCCESS, provider);
+                mRecycleCounter += RECYCLE_SECONDS - RETRY_INTERVAL_SECONDS;
+            }
+            mRequestCounter = requestCounter + 1;
+        }, providerExecutor);
     }
 
     private void transferState(State state, @Nullable BitmapProvider provider) {
@@ -301,6 +302,14 @@ public final class TextureState {
             old.close();
         }
         mState = state;
+    }
+
+    private void release() {
+        if (!mDisposed) {
+            mDisposed = true;
+            ++mRequestCounter;
+            this.transferState(State.TIMEOUT, null);
+        }
     }
 
     /**
@@ -322,7 +331,7 @@ public final class TextureState {
             this.refresh(location);
             return false;
         }
-        this.transferState(State.TIMEOUT, null);
+        this.release();
         return true;
     }
 
@@ -330,21 +339,6 @@ public final class TextureState {
     public String toString() {
         return "SlideState{provider=" + mProvider + ", state=" + mState + ", " +
                 "counter=" + mRecycleCounter + ", requests=" + mRequestCounter + "}";
-    }
-
-    private static CacheStorage storage() {
-        var result = sCacheStorage;
-        if (result == null) {
-            synchronized (TextureState.class) {
-                result = sCacheStorage;
-                if (result == null) {
-                    var client = HttpClient.newBuilder().executor(net.minecraft.util.Util.nonCriticalIoPool())
-                            .followRedirects(HttpClient.Redirect.ALWAYS).build();
-                    sCacheStorage = result = new CacheStorage(client, Path.of("slideshow"));
-                }
-            }
-        }
-        return result;
     }
 
     public enum State {

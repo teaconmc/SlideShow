@@ -9,6 +9,7 @@ import net.minecraft.client.renderer.rendertype.RenderType;
 import org.joml.Vector2i;
 import org.teacon.slides.renderer.SlideRenderSetup;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.IOException;
 
@@ -21,13 +22,14 @@ import static com.mojang.blaze3d.textures.TextureFormat.RGBA8;
 @ParametersAreNonnullByDefault
 public final class StaticBitmapProvider implements BitmapProvider {
 
-    private final GpuTexture mTexture;
+    @Nullable
+    private GpuTexture mTexture;
     private final RenderType mRenderType;
     private final String mRecommendedName;
     private final int mWidth, mHeight;
 
     public StaticBitmapProvider(String name, NativeImage image) throws IOException {
-        try {
+        try (image) {
             mWidth = image.getWidth();
             mHeight = image.getHeight();
             if (mWidth > MAX_TEXTURE_SIZE || mHeight > MAX_TEXTURE_SIZE) {
@@ -37,14 +39,12 @@ public final class StaticBitmapProvider implements BitmapProvider {
             var device = RenderSystem.getDevice();
             mTexture = device.createTexture(name, USAGE_COPY_DST + USAGE_TEXTURE_BINDING, RGBA8, mWidth, mHeight, 1, 1);
 
-            try (image) {
-                var encoder = device.createCommandEncoder();
-                encoder.writeToTexture(mTexture, image, 0, 0, 0, 0, mWidth, mHeight, 0, 0);
-            }
+            var encoder = device.createCommandEncoder();
+            encoder.writeToTexture(mTexture, image, 0, 0, 0, 0, mWidth, mHeight, 0, 0);
 
             mRenderType = SlideRenderSetup.createSlideType(mTexture);
             mRecommendedName = name;
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             this.close();
             throw e;
         }
@@ -77,9 +77,10 @@ public final class StaticBitmapProvider implements BitmapProvider {
 
     @Override
     public void close() {
-        // noinspection ConstantValue
-        if (mTexture != null) {
-            mTexture.close();
+        var texture = mTexture;
+        if (texture != null) {
+            mTexture = null;
+            texture.close();
         }
     }
 }

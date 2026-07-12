@@ -7,6 +7,7 @@ import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.teacon.slides.renderer.bitmap.BitmapProvider.ImageSource;
 import org.teacon.slides.url.ProjectorURL;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -86,7 +87,7 @@ final class LegacyCacheMigration {
         var url = new ProjectorURL(legacyUrl);
         var headers = legacyHeaders(legacy, legacyUrl);
         var file = legacyFile(folder, requiredString(legacy, "resource"));
-        var entry = CacheEntry.from(CacheStorage.recommendedName(headers, url.toUrl()), file, url, headers);
+        var entry = CacheEntry.from(ImageSource.detectName(headers, url.toUrl()), file, url, headers);
         if (entry instanceof CacheEntry.Transient) {
             throw new IllegalArgumentException("Legacy response has Cache-Control: no-store");
         }
