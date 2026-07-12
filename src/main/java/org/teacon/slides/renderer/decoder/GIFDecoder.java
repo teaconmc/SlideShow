@@ -24,7 +24,6 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
-import java.util.Objects;
 
 /**
  * GIF decoder that created with compressed data and decode frame by frame,
@@ -44,11 +43,11 @@ public final class GIFDecoder {
     private final int mScreenWidth;
     private final int mScreenHeight;
     @Nullable
-    private final byte[] mGlobalPalette; // rgba0 rgba1 ...
-    private final byte[] mImage; // rgba0 rgba1 ...
+    private final int[] mGlobalPalette; // rgba0 rgba1 ...
+    private final int[] mImage; // rgba0 rgba1 ...
 
     @Nullable
-    private byte[] mTmpPalette; // rgba0 rgba1 ...
+    private int[] mTmpPalette; // rgba0 rgba1 ...
     private final byte[] mTmpImage; // index0 index1 ...
 
     private final int[] mTmpInterlace;
@@ -72,7 +71,7 @@ public final class GIFDecoder {
         } else {
             mGlobalPalette = null;
         }
-        mImage = new byte[mScreenWidth * mScreenHeight * 4];
+        mImage = new int[mScreenWidth * mScreenHeight];
         mTmpImage = new byte[mScreenWidth * mScreenHeight];
 
         mTmpInterlace = new int[mScreenHeight];
@@ -119,12 +118,15 @@ public final class GIFDecoder {
         boolean isInterlaced = (packedField & 0x40) != 0;
 
         int paletteSize = 2 << (packedField & 7);
-        if (mTmpPalette == null || mTmpPalette.length < paletteSize * 4) {
-            mTmpPalette = new byte[paletteSize * 4];
+        if (mTmpPalette == null || mTmpPalette.length < paletteSize) {
+            mTmpPalette = new int[paletteSize];
         }
-        byte[] palette = localPalette
+        int[] palette = localPalette
                 ? readPalette(paletteSize, transparentIndex, mTmpPalette)
-                : Objects.requireNonNull(mGlobalPalette);
+                : mGlobalPalette;
+        if (palette == null) {
+            throw new IOException();
+        }
 
         int delayTime = imageControlCode & 0xFFFF; // frame duration in centi-seconds
 
@@ -140,19 +142,17 @@ public final class GIFDecoder {
     }
 
     @Nonnull
-    private byte[] readPalette(int size, int transparentIndex, @Nullable byte[] palette) throws IOException {
+    private int[] readPalette(int size, int transparentIndex, @Nullable int[] palette) throws IOException {
         // max size is 256, flatten the array [r0 g0 b0 a0 r1 g1 b1 a1 ...]
         if (palette == null) {
-            palette = new byte[size * 4];
+            palette = new int[size];
         }
-        for (int i = 0, iPos = 0; i < size; ++i) {
-            try {
-                mBuf.get(palette, iPos, 3);
-            } catch (BufferUnderflowException e) {
-                throw new EOFException();
-            }
-            palette[iPos + 3] = (i == transparentIndex) ? 0 : (byte) 0xFF;
-            iPos += 4;
+        for (int i = 0; i < size; ++i) {
+            int r = readByte();
+            int g = readByte();
+            int b = readByte();
+            int a = (i == transparentIndex) ? 0 : 255;
+            palette[i] = (r) | (g << 8) | (b << 16) | (a << 24);
         }
         return palette;
     }
@@ -176,6 +176,36 @@ public final class GIFDecoder {
             throw new IOException();
         }
         return ((packedField & 0x1F) << 24) + (transparentIndex << 16) + delayTime;
+    }
+
+    public boolean hasNextFrame() {
+        mBuf.mark();
+        try {
+            // @formatter:off
+            for (;;) {
+                // @formatter:on
+                int ch = read();
+                switch (ch) {
+                    case 0x2C -> { // Image Separator
+                        return true;
+                    }
+                    case 0x21 -> { // Extension Introducer
+                        readByte();
+                        skipExtension();
+                    }
+                    case -1, 0x3B -> {  // EOF or Trailer
+                        return false;
+                    }
+                    default -> {
+                        return false;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            return false;
+        } finally {
+            mBuf.reset();
+        }
     }
 
     private int syncNextFrame() throws IOException {
@@ -254,64 +284,63 @@ public final class GIFDecoder {
 
     // GIF specification states that restore to background should fill the frame
     // with background color, but actually all modern programs fill with transparent color.
-    private void restoreToBackground(byte[] image, int left, int top, int width, int height) {
+    private void restoreToBackground(int[] image, int left, int top, int width, int height) {
         for (int y = 0; y < height; ++y) {
-            int iPos = ((top + y) * mScreenWidth + left) * 4;
-            for (int x = 0; x < width; iPos += 4, ++x) {
-                image[iPos + 3] = 0;
+            int iPos = ((top + y) * mScreenWidth + left);
+            for (int x = 0; x < width; iPos++, ++x) {
+                image[iPos] &= 0xFFFFFF;
             }
         }
     }
 
-    private void decodePalette(byte[] srcImage, byte[] palette, int transparentIndex,
+    private void decodePalette(byte[] srcImage, int[] palette, int transparentIndex,
                                int left, int top, int width, int height, int disposalCode,
                                ByteBuffer pixels) {
         // Restore to previous
         if (disposalCode == 3) {
-            pixels.put(mImage);
+            pixels.asIntBuffer().put(mImage);
             for (int y = 0; y < height; ++y) {
                 int iPos = ((top + y) * mScreenWidth + left) * 4;
                 int i = y * width;
                 if (transparentIndex < 0) {
                     for (int x = 0; x < width; ++x) {
                         int index = 0xFF & srcImage[i + x];
-                        pixels.put(iPos, palette, index * 4, 4);
+                        pixels.putInt(iPos, palette[index]);
                         iPos += 4;
                     }
                 } else {
                     for (int x = 0; x < width; ++x) {
                         int index = 0xFF & srcImage[i + x];
                         if (index != transparentIndex) {
-                            pixels.put(iPos, palette, index * 4, 4);
+                            pixels.putInt(iPos, palette[index]);
                         }
                         iPos += 4;
                     }
                 }
             }
-            pixels.rewind();
         } else {
-            final byte[] image = mImage;
+            final int[] image = mImage;
             for (int y = 0; y < height; ++y) {
-                int iPos = ((top + y) * mScreenWidth + left) * 4;
+                int iPos = ((top + y) * mScreenWidth + left);
                 int i = y * width;
                 if (transparentIndex < 0) {
                     for (int x = 0; x < width; ++x) {
                         int index = 0xFF & srcImage[i + x];
-                        System.arraycopy(palette, index * 4, image, iPos, 4);
-                        iPos += 4;
+                        image[iPos] = palette[index];
+                        iPos++;
                     }
                 } else {
                     for (int x = 0; x < width; ++x) {
                         int index = 0xFF & srcImage[i + x];
                         if (index != transparentIndex) {
-                            System.arraycopy(palette, index * 4, image, iPos, 4);
+                            image[iPos] = palette[index];
                         }
-                        iPos += 4;
+                        iPos++;
                     }
                 }
             }
 
-            pixels.put(image).rewind();
+            pixels.asIntBuffer().put(image);
             // Restore to background color
             if (disposalCode == 2) {
                 restoreToBackground(mImage, left, top, width, height);
