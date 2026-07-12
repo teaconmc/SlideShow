@@ -42,6 +42,7 @@ public final class GIFBitmapProvider implements BitmapProvider {
     private final String mRecommendedName;
 
     private final int mCPUMemorySize;
+    private final boolean mSingleFrame;
 
     public GIFBitmapProvider(String name, byte[] data) throws IOException {
         try {
@@ -56,6 +57,7 @@ public final class GIFBitmapProvider implements BitmapProvider {
             mCPUMemorySize = data.length + (width * height * (4 + 4 + 1));
             mFrame = MemoryUtil.memAlloc(width * height * 4);
             mFrameDelayTime = mDecoder.decodeNextFrame(mFrame);
+            mSingleFrame = !mDecoder.hasNextFrame();
 
             // we successfully decoded the first frame, then create a texture
             var device = RenderSystem.getDevice();
@@ -64,7 +66,7 @@ public final class GIFBitmapProvider implements BitmapProvider {
             encoder.writeToTexture(mTexture, mFrame.rewind(), RGBA, 0, 0, 0, 0, width, height);
             mRenderType = SlideRenderSetup.createSlideType(mTexture);
             mRecommendedName = name;
-        } catch (IOException e) {
+        } catch (Exception e) {
             this.close();
             throw e;
         }
@@ -72,6 +74,9 @@ public final class GIFBitmapProvider implements BitmapProvider {
 
     @Override
     public RenderType updateAndGet(long tick, float partialTick) {
+        if (mSingleFrame) {
+            return mRenderType;
+        }
         var timeMillis = (long) ((tick + partialTick) * 50);
         if (mFrameStartTime == 0) {
             mFrameStartTime = timeMillis;
