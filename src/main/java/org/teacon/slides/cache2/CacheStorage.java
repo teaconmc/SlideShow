@@ -31,10 +31,7 @@ import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -295,10 +292,10 @@ public final class CacheStorage implements Closeable {
         return result;
     }
 
-    private static void load(Path file, ConcurrentMap<ProjectorURL, CacheEntry> entries) {
+    static void load(Path file, ConcurrentMap<ProjectorURL, CacheEntry> entries) {
         try (var reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             // Parse into an isolated map before replacing the live cache index.
-            var config = TomlFormat.instance().createConfig();
+            var config = TomlFormat.instance().createConfig(LinkedHashMap::new);
             CacheEntry.PARSER.parse(reader, config, ParsingMode.REPLACE);
             // Reject stale or incompatible index versions.
             if (!(config.get("version") instanceof Number n) || n.intValue() != INDEX_VERSION) {
@@ -313,7 +310,7 @@ public final class CacheStorage implements Closeable {
                 }
             }
             // Publish the fully parsed index only after successful deserialization.
-            entries.clear();
+            entries.keySet().retainAll(map.keySet());
             entries.putAll(map);
         } catch (IOException ex) {
             // Keep the current in-memory index when the stored index cannot be loaded.
@@ -321,41 +318,29 @@ public final class CacheStorage implements Closeable {
         }
     }
 
-    static synchronized boolean save(ConcurrentMap<ProjectorURL, CacheEntry> entries, Path file) {
-        // Serialize only entries that are eligible for persistence.
-        var configs = new ArrayList<Config>();
-        for (var entry : entries.values()) {
-            var config = Config.inMemory();
-            if (CacheEntry.save(entry, config)) {
-                configs.add(config);
+    static boolean save(ConcurrentMap<ProjectorURL, CacheEntry> entries, Path file) {
+        // Serialize only entries that are eligible for persistence, ordered by URL.
+        var entryConfigs = new TreeMap<ProjectorURL, Config>(Comparator.comparing(ProjectorURL::toUrl));
+        var rootConfig = TomlFormat.instance().createConfig(LinkedHashMap::new);
+        for (var entry : entries.entrySet()) {
+            var entryConfig = rootConfig.createSubConfig();
+            if (CacheEntry.save(entry.getValue(), entryConfig)) {
+                entryConfigs.put(entry.getKey(), entryConfig);
             }
         }
         // Write a versioned snapshot of the cache index.
-        var root = TomlFormat.instance().createConfig();
-        root.set("version", INDEX_VERSION);
-        root.set("entries", configs);
-        try {
-            writeIndex(root, file);
+        rootConfig.set("version", INDEX_VERSION);
+        rootConfig.set("entries", new ArrayList<>(entryConfigs.values()));
+        try (var temp = TempDownloadFile.create(file.getParent())) {
+            try (var writer = Files.newBufferedWriter(temp.path(), StandardCharsets.UTF_8)) {
+                CacheEntry.WRITER.write(rootConfig, writer);
+            }
+            temp.move(file);
             return true;
         } catch (IOException ex) {
             // Preserve in-memory state when the index write fails.
             LOGGER.warn("Failed to save cache entries to {}", file, ex);
             return false;
-        }
-    }
-
-    private static void writeIndex(Config root, Path file) throws IOException {
-        // Write to a sibling temporary file before replacing the index atomically.
-        var temporary = Files.createTempFile(file.getParent(), "storage-entries-", ".toml");
-        try {
-            try (var writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
-                CacheEntry.WRITER.write(root, writer);
-            }
-            Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException ex) {
-            // Remove incomplete index output before propagating the write failure.
-            Files.deleteIfExists(temporary);
-            throw ex;
         }
     }
 

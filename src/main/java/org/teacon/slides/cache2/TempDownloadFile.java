@@ -3,7 +3,6 @@ package org.teacon.slides.cache2;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
-import com.mojang.datafixers.util.Pair;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import org.teacon.slides.SlideShow;
@@ -12,10 +11,10 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
-import java.net.URI;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -65,13 +64,12 @@ public final class TempDownloadFile implements Closeable {
         var location = this.retrieve();
         try {
             Files.move(location, destination, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            this.consume(location);
         } catch (AtomicMoveNotSupportedException e) {
-            throw new IOException("Atomic move unsupported for " + location + " => " + destination, e);
+            Files.move(location, destination, StandardCopyOption.REPLACE_EXISTING);
         }
+        this.consume(location);
     }
 
-    /** The current temporary location, used while a no-store entry remains live. */
     public Path path() throws IOException {
         return this.retrieve();
     }
@@ -81,7 +79,7 @@ public final class TempDownloadFile implements Closeable {
         var location = transferred.retrieve();
         var pending = client.sendAsync(request, ignored -> new HashFileSubscriber(Entry.HASH_FUNCTION, location));
         var result = pending.<Entry>newIncompleteFuture();
-        result.whenComplete((ignored, throwable) -> {
+        result.whenComplete((ignored, ignoredThrowable) -> {
             if (result.isCancelled()) {
                 pending.cancel(true);
             }
