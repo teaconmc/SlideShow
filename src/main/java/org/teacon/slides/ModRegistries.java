@@ -55,12 +55,14 @@ public final class ModRegistries {
     public static final Identifier PROJECTOR_ID = SlideShow.id("projector");
     public static final Identifier SLIDE_ITEM_ID = SlideShow.id("slide_item");
     public static final Identifier SLIDE_ENTRY_ID = SlideShow.id("slide_entry");
+    public static final Identifier SLIDE_LIGHTNESS_ID = SlideShow.id("slide_lightness");
 
     public static final TagKey<Item> SLIDE_ITEMS = ItemTags.create(SlideShow.id("slide_items"));
 
     public static final DeferredHolder<Block, ProjectorBlock> PROJECTOR_BLOCK;
     public static final DeferredHolder<Item, SlideItem> SLIDE_ITEM;
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<SlideItem.Entry>> SLIDE_ENTRY;
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> SLIDE_LIGHTNESS;
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ProjectorBlockEntity>> PROJECTOR_BLOCK_ENTITY;
     public static final DeferredHolder<MenuType<?>, MenuType<ProjectorContainerMenu>> PROJECTOR_MENU;
     public static final DeferredHolder<MenuType<?>, MenuType<SlideItemContainerMenu>> SLIDE_ITEM_MENU;
@@ -69,6 +71,7 @@ public final class ModRegistries {
         SLIDE_ITEM = DeferredHolder.create(Registries.ITEM, SLIDE_ITEM_ID);
         PROJECTOR_BLOCK = DeferredHolder.create(Registries.BLOCK, PROJECTOR_ID);
         SLIDE_ENTRY = DeferredHolder.create(Registries.DATA_COMPONENT_TYPE, SLIDE_ENTRY_ID);
+        SLIDE_LIGHTNESS = DeferredHolder.create(Registries.DATA_COMPONENT_TYPE, SLIDE_LIGHTNESS_ID);
         PROJECTOR_BLOCK_ENTITY = DeferredHolder.create(Registries.BLOCK_ENTITY_TYPE, PROJECTOR_ID);
         PROJECTOR_MENU = DeferredHolder.create(Registries.MENU, PROJECTOR_ID);
         SLIDE_ITEM_MENU = DeferredHolder.create(Registries.MENU, SLIDE_ITEM_ID);
@@ -79,7 +82,8 @@ public final class ModRegistries {
         event.register(Registries.ITEM, SLIDE_ITEM_ID, () -> new SlideItem(SLIDE_ITEM_ID));
         event.register(Registries.BLOCK, PROJECTOR_ID, () -> new ProjectorBlock(PROJECTOR_ID));
         event.register(Registries.ITEM, PROJECTOR_ID, () -> new ProjectorItem(PROJECTOR_ID));
-        event.register(Registries.DATA_COMPONENT_TYPE, SLIDE_ENTRY_ID, SlideItem.Entry::createComponentType);
+        event.register(Registries.DATA_COMPONENT_TYPE, SLIDE_ENTRY_ID, SlideItem::createEntryComponentType);
+        event.register(Registries.DATA_COMPONENT_TYPE, SLIDE_LIGHTNESS_ID, SlideItem::createLightnessComponentType);
         event.register(Registries.BLOCK_ENTITY_TYPE, PROJECTOR_ID, ProjectorBlockEntity::create);
         event.register(Registries.MENU, PROJECTOR_ID, ProjectorContainerMenu::create);
         event.register(Registries.MENU, SLIDE_ITEM_ID, SlideItemContainerMenu::create);

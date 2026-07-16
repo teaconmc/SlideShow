@@ -69,6 +69,8 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
             handItems = List.of(mc.player.getMainHandItem().getItem(), mc.player.getOffhandItem().getItem());
         }
         state.renderOutline = handItems.contains(ModRegistries.PROJECTOR_BLOCK.get().asItem());
+        // lightness
+        state.lightness = Math.min(ProjectorBlock.LIGHTNESS, blockEntity.getCurrentLightness().intValue());
         // model
         var blockState = blockEntity.getBlockState();
         if (blockEntity.hasLevel() && state.renderOutline) {
@@ -93,7 +95,7 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
     @Override
     public void submit(ProjectorRenderState state, PoseStack stack, SubmitNodeCollector snc, CameraRenderState camera) {
         // lightness
-        var light = LightCoordsUtil.withBlock(state.lightCoords, ProjectorBlock.LIGHTNESS);
+        var light = LightCoordsUtil.withBlock(state.lightCoords, state.lightness);
         // render slide and outline
         stack.pushPose();
         var last = stack.last();

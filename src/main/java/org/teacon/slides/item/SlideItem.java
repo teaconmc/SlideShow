@@ -13,11 +13,13 @@ import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.stats.Stats;
+import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.MenuProvider;
@@ -52,6 +54,8 @@ import static org.apache.commons.lang3.StringUtils.abbreviateMiddle;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class SlideItem extends Item {
+    public static final int LIGHTNESS_DEF = 15;
+
     public static final Entry ENTRY_DEF = new Entry(new UUID(0L, 0L), Size.ENTRY_DEF, Position.ENTRY_DEF);
 
     public SlideItem(Identifier identifier) {
@@ -59,6 +63,7 @@ public final class SlideItem extends Item {
                 .stacksTo(1)
                 .rarity(Rarity.RARE)
                 .component(ModRegistries.SLIDE_ENTRY, ENTRY_DEF)
+                .component(ModRegistries.SLIDE_LIGHTNESS, LIGHTNESS_DEF)
                 .setId(ResourceKey.create(Registries.ITEM, identifier)));
     }
 
@@ -108,6 +113,16 @@ public final class SlideItem extends Item {
         return new SimpleMenuProvider((c, i, p) -> new SlideItemContainerMenu(c, packet), item.getDisplayName());
     }
 
+    public static DataComponentType<Entry> createEntryComponentType() {
+        var builder = DataComponentType.<Entry>builder();
+        return builder.persistent(Entry.CODEC).networkSynchronized(Entry.STREAM_CODEC).cacheEncoding().build();
+    }
+
+    public static DataComponentType<Integer> createLightnessComponentType() {
+        var builder = DataComponentType.<Integer>builder();
+        return builder.persistent(ExtraCodecs.NON_NEGATIVE_INT).networkSynchronized(ByteBufCodecs.VAR_INT).build();
+    }
+
     @FieldsAreNonnullByDefault
     @MethodsReturnNonnullByDefault
     @ParametersAreNonnullByDefault
@@ -130,10 +145,6 @@ public final class SlideItem extends Item {
                     Position.STREAM_CODEC, Entry::position, Entry::new);
         }
 
-        public static DataComponentType<Entry> createComponentType() {
-            var builder = DataComponentType.<Entry>builder();
-            return builder.persistent(CODEC).networkSynchronized(STREAM_CODEC).cacheEncoding().build();
-        }
     }
 
     @FieldsAreNonnullByDefault

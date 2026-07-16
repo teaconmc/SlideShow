@@ -91,10 +91,10 @@ public final class ProjectorContainerMenu extends AbstractContainerMenu {
 
         var itemsToDisplay = new SlideItemStackHandler(
                 () -> tileNextCurrent.setLeft(Optional.empty()),
-                (f, l) -> tileNextCurrent.setLeft(Optional.of(f)));
+                (f, l, n) -> tileNextCurrent.setLeft(Optional.of(f)));
         var itemsDisplayed = new SlideItemStackHandler(
                 () -> tileNextCurrent.setRight(Optional.empty()),
-                (f, l) -> tileNextCurrent.setRight(Optional.of(l)));
+                (f, l, n) -> tileNextCurrent.setRight(Optional.of(l)));
 
         for (var i = 0; i < ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY; ++i) {
             this.addSlot(new ResourceHandlerSlot(itemsToDisplay, itemsToDisplay::set, i, 8 + (i % 12) * 18, 8 + (i / 12) * 18));
