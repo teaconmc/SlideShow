@@ -1,7 +1,7 @@
 package org.teacon.slides.renderer;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.datafixers.util.Either;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
@@ -15,6 +15,7 @@ import org.teacon.slides.SlideShow;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 import static com.mojang.blaze3d.textures.FilterMode.LINEAR;
 import static com.mojang.blaze3d.textures.FilterMode.NEAREST;
@@ -33,9 +34,9 @@ public final class SlideRenderSetup extends RenderSetup {
     private static final boolean AFFECTS_CRUMBLING = false;
     private static final boolean SORT_ON_UPLOAD = true;
 
-    private final Either<GpuTexture, Identifier> texture;
+    private final Either<GpuTextureView, Identifier> texture;
 
-    private SlideRenderSetup(GpuTexture slide) {
+    private SlideRenderSetup(GpuTextureView slide) {
         super(SLIDE_PIPELINE, new HashMap<>(),
                 USE_LIGHTMAP, NO_OVERLAY, NO_LAYERING, MAIN_TARGET,
                 DEFAULT_TEXTURING, NONE, AFFECTS_CRUMBLING, SORT_ON_UPLOAD, 1536);
@@ -51,12 +52,11 @@ public final class SlideRenderSetup extends RenderSetup {
 
     @Override
     public Map<String, TextureAndSampler> getTextures() {
-        var device = RenderSystem.getDevice();
         var samplers = RenderSystem.getSamplerCache();
         return Util.make(new HashMap<>(2), map -> {
-            var view = this.texture.map(device::createTextureView, icon -> {
+            var view = this.texture.map(Function.identity(), icon -> {
                 var textureManager = Minecraft.getInstance().getTextureManager();
-                return device.createTextureView(textureManager.getTexture(icon).getTexture());
+                return textureManager.getTexture(icon).getTextureView();
             });
             map.put("Sampler0", new TextureAndSampler(view, samplers.getRepeat(NEAREST, false)));
             var lightmap = Minecraft.getInstance().gameRenderer.lightmap();
@@ -64,7 +64,7 @@ public final class SlideRenderSetup extends RenderSetup {
         });
     }
 
-    public static RenderType createSlideType(GpuTexture slideTexture) {
+    public static RenderType createSlideType(GpuTextureView slideTexture) {
         return RenderType.create(SlideShow.ID, new SlideRenderSetup(slideTexture));
     }
 

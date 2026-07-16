@@ -2,6 +2,7 @@ package org.teacon.slides.renderer.bitmap;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.client.renderer.rendertype.RenderType;
@@ -32,6 +33,8 @@ public final class GIFBitmapProvider implements BitmapProvider {
     private final GIFDecoder mDecoder;
 
     private final GpuTexture mTexture;
+    private final GpuTextureView mTextureView;
+
     private final RenderType mRenderType;
 
     private long mFrameStartTime;
@@ -62,9 +65,10 @@ public final class GIFBitmapProvider implements BitmapProvider {
             // we successfully decoded the first frame, then create a texture
             var device = RenderSystem.getDevice();
             mTexture = device.createTexture(name, USAGE_COPY_DST + USAGE_TEXTURE_BINDING, RGBA8, width, height, 1, 1);
+            mTextureView = device.createTextureView(mTexture);
             var encoder = device.createCommandEncoder();
             encoder.writeToTexture(mTexture, mFrame.rewind(), RGBA, 0, 0, 0, 0, width, height);
-            mRenderType = SlideRenderSetup.createSlideType(mTexture);
+            mRenderType = SlideRenderSetup.createSlideType(mTextureView);
             mRecommendedName = name;
         } catch (IOException | RuntimeException e) {
             this.close();
@@ -123,10 +127,15 @@ public final class GIFBitmapProvider implements BitmapProvider {
 
     @Override
     public void close() {
+        // noinspection DuplicatedCode
         var frame = mFrame;
         if (frame != null) {
             mFrame = null;
             try {
+                // noinspection ConstantValue
+                if (mTextureView != null) {
+                    mTextureView.close();
+                }
                 // noinspection ConstantValue
                 if (mTexture != null) {
                     mTexture.close();
