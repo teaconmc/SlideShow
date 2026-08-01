@@ -141,13 +141,13 @@ public final class TextureSequence {
                     while (layer < this.elements.size()) {
                         var element = this.elements.get(layer);
                         if (this.front) {
-                            element.submitQuad(snc, stack,
+                            element.render(snc, stack,
                                     viewportMicros, offsetMicros, scaleHint, layer, alpha, red, green, blue,
                                     light, tick, partial);
                         }
                         layer = ~layer;
                         if (this.back) {
-                            element.submitQuad(snc, stack,
+                            element.render(snc, stack,
                                     viewportMicros, offsetMicros, scaleHint, layer, alpha, red, green, blue,
                                     light, tick, partial);
                         }
@@ -197,10 +197,10 @@ public final class TextureSequence {
     }
 
     private sealed interface Elem permits Background, IconCentered, Texture {
-        void submitQuad(SubmitNodeCollector snc, PoseStack stack,
-                        Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
-                        int layer, int alpha, int red, int green, int blue,
-                        int[] light, long tick, float partialTick);
+        void render(SubmitNodeCollector snc, PoseStack stack,
+                    Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
+                    int layer, int alpha, int red, int green, int blue,
+                    int[] light, long tick, float partialTick);
     }
 
     private static boolean hasVisibleArea(Vector2i viewportMicros, Vector2i offsetMicros,
@@ -297,19 +297,18 @@ public final class TextureSequence {
 
     private record Texture(BitmapProvider provider, Concrete concrete) implements Elem {
         @Override
-        public void submitQuad(SubmitNodeCollector snc, PoseStack stack,
-                               Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
-                               int layer, int alpha, int red, int green, int blue,
-                               int[] light, long tick, float partial) {
+        public void render(SubmitNodeCollector snc, PoseStack stack,
+                           Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
+                           int layer, int alpha, int red, int green, int blue, int[] light, long tick, float partial) {
             var top = this.concrete.topMicros();
             var right = this.concrete.rightMicros();
             var bottom = this.concrete.bottomMicros();
             var left = this.concrete.leftMicros();
-            if (!hasVisibleArea(viewportMicros, offsetMicros, left, top, right, bottom)) {
-                return;
+            var hasVisibleArea = hasVisibleArea(viewportMicros, offsetMicros, left, top, right, bottom);
+            if (hasVisibleArea) {
+                submitClippedQuad(snc, stack, this.provider.updateAndGet(tick, partial), viewportMicros, offsetMicros,
+                        left, top, right, bottom, 0F, 0F, 1F, 1F, layer, alpha, red, green, blue, light);
             }
-            submitClippedQuad(snc, stack, this.provider.updateAndGet(tick, partial), viewportMicros, offsetMicros,
-                    left, top, right, bottom, 0F, 0F, 1F, 1F, layer, alpha, red, green, blue, light);
         }
     }
 
@@ -326,10 +325,10 @@ public final class TextureSequence {
         }
 
         @Override
-        public void submitQuad(SubmitNodeCollector snc, PoseStack stack,
-                               Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
-                               int layer, int alpha, int red, int green, int blue,
-                               int[] light, long tick, float partial) {
+        public void render(SubmitNodeCollector snc, PoseStack stack,
+                           Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
+                           int layer, int alpha, int red, int green, int blue,
+                           int[] light, long tick, float partial) {
             var left = viewportMicros.x * (1F - 19F / scaleHint.x) / 2F;
             var top = viewportMicros.y * (1F - 16F / scaleHint.y) / 2F;
             var right = viewportMicros.x * (1F + 19F / scaleHint.x) / 2F;
@@ -349,10 +348,9 @@ public final class TextureSequence {
         }
 
         @Override
-        public void submitQuad(SubmitNodeCollector snc, PoseStack stack,
-                               Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
-                               int layer, int alpha, int red, int green, int blue,
-                               int[] light, long tick, float partial) {
+        public void render(SubmitNodeCollector snc, PoseStack stack,
+                           Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
+                           int layer, int alpha, int red, int green, int blue, int[] light, long tick, float partial) {
             var x3 = (float) viewportMicros.x;
             var y3 = (float) viewportMicros.y;
             var x1 = x3 * 9F / scaleHint.x;
