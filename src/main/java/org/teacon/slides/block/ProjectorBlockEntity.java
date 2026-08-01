@@ -369,9 +369,12 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     }
 
     public AABB getRenderBoundingBox() {
+        var state = this.getBlockState();
+        var tm = new TransformMicros(state, mSizeMicros, mSlideOffsetMicros);
+
         var pose = new Matrix4f();
         var normal = new Matrix3f();
-        this.transformToSlideSpaceMicros(pose, normal);
+        tm.transformToSlideSpaceMicros(pose, normal);
 
         var v00 = new Vector4f(0F, 0F, 0F, 1F).mul(pose);
         var v01 = new Vector4f(1E6F, 0F, 1E6F, 1F).mul(pose);
@@ -381,11 +384,6 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         var projectorAABB = new AABB(0, 0, 0, 1, 1, 1).inflate(0.5);
         var slideAABB = base.inflate(nHalf.x(), nHalf.y(), nHalf.z());
         return projectorAABB.minmax(slideAABB).move(this.getBlockPos());
-    }
-
-    public void transformToSlideSpaceMicros(Matrix4f pose, Matrix3f normal) {
-        var tm = new TransformMicros(this.getBlockState(), mSizeMicros, mSlideOffsetMicros);
-        tm.transformToSlideSpaceMicros(pose, normal);
     }
 
     public int moveSlideItems(int offset) {
@@ -441,6 +439,14 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
             var rotation = state.getValue(ProjectorBlock.ROTATION);
             var direction = state.getValue(BlockStateProperties.FACING);
             this(direction, rotation, sizeMicros.x, sizeMicros.y, offsetMicros.x, offsetMicros.y, offsetMicros.z);
+        }
+
+        public int xMarginMicros() {
+            return Math.floorMod(xOffsetMicros, 1000000);
+        }
+
+        public int yMarginMicros() {
+            return Math.floorMod(yOffsetMicros - ySizeMicros, 1000000);
         }
 
         public void transformToSlideSpaceMicros(Matrix4f pose, Matrix3f normal) {

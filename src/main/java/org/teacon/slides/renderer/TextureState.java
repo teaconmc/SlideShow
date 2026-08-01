@@ -205,7 +205,7 @@ public final class TextureState {
     }
 
     public static SequencedCollection<String> getRecommendedNames(SlideItem.Entry entry) {
-        var sequence = new TextureSequence(1, 1, new ProjectorBlockEntity.ColorTransform(), false);
+        var sequence = new TextureSequence(1, 1, 0, 0, new ProjectorBlockEntity.ColorTransform(), false);
         appendTextureSequence(entry, sequence);
         return sequence.getRecommends();
     }

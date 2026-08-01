@@ -37,18 +37,21 @@ public final class TextureSequence {
     private final boolean hideWhenBlocked;
     private final boolean hideWhenLoading;
     private final Vector2i sizeMicros = new Vector2i();
+    private final Vector2i marginMicros = new Vector2i();
     private final TreeSet<String> recommends = new TreeSet<>();
     private final ArrayList<Elem> elements = new ArrayList<>(2);
 
-    public TextureSequence(int xSizeMicros, int ySizeMicros, ProjectorBlockEntity.ColorTransform ct, boolean flipped) {
-        this.color = ct.color;
+    public TextureSequence(int xSizeMicros, int ySizeMicros, int xMarginMicros, int yMarginMicros,
+                           ProjectorBlockEntity.ColorTransform projectorColorTransform, boolean flipped) {
+        this.color = projectorColorTransform.color;
         this.sizeMicros.set(xSizeMicros, ySizeMicros);
-        this.back = !flipped || ct.doubleSided;
-        this.front = flipped || ct.doubleSided;
-        this.hideWhenEmpty = ct.hideEmptySlideIcon;
-        this.hideWhenFailed = ct.hideFailedSlideIcon;
-        this.hideWhenBlocked = ct.hideBlockedSlideIcon;
-        this.hideWhenLoading = ct.hideLoadingSlideIcon;
+        this.marginMicros.set(xMarginMicros, yMarginMicros);
+        this.back = !flipped || projectorColorTransform.doubleSided;
+        this.front = flipped || projectorColorTransform.doubleSided;
+        this.hideWhenEmpty = projectorColorTransform.hideEmptySlideIcon;
+        this.hideWhenFailed = projectorColorTransform.hideFailedSlideIcon;
+        this.hideWhenBlocked = projectorColorTransform.hideBlockedSlideIcon;
+        this.hideWhenLoading = projectorColorTransform.hideLoadingSlideIcon;
     }
 
     public void addBackground() {
@@ -90,8 +93,7 @@ public final class TextureSequence {
     public void addTexture(BitmapProvider provider, Concrete.Size size, Concrete.Position position) {
         this.recommends.add(provider.getRecommendedName());
         var textureSize = Util.make(new Vector2i(), provider::getSize);
-        var concrete = Concrete.from(size, position, this.sizeMicros, textureSize);
-        this.elements.add(new Texture(provider, concrete, 0, 0, textureSize.x, textureSize.y));
+        this.elements.add(new Texture(provider, Concrete.from(size, position, this.sizeMicros, textureSize)));
     }
 
     public SequencedCollection<String> getRecommends() {
@@ -164,11 +166,12 @@ public final class TextureSequence {
     }
 
     private sealed interface Elem permits Background, IconCentered, Texture {
-        void render(SubmitNodeCollector snc, PoseStack stack, Vector2i viewportMicros, Vector2i scaleHint,
+        void render(SubmitNodeCollector snc, PoseStack stack,
+                    Vector2i viewportMicros, Vector2i scaleHint,
                     int layer, int alpha, int red, int green, int blue, int light, long tick, float partialTick);
     }
 
-    private record Texture(BitmapProvider provider, Concrete concrete, int x, int y, int w, int h) implements Elem {
+    private record Texture(BitmapProvider provider, Concrete concrete) implements Elem {
         @Override
         public void render(SubmitNodeCollector snc, PoseStack stack, Vector2i viewportMicros, Vector2i scaleHint,
                            int layer, int alpha, int red, int green, int blue, int light, long tick, float partial) {

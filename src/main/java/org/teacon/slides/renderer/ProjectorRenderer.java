@@ -76,20 +76,22 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
         if (blockEntity.hasLevel() && state.renderOutline) {
             this.blockModelResolver.update(state.renderModel, blockState, BLOCK_DISPLAY_CONTEXT);
         }
-        // construct sequence instance
+        // construct transform instance
         var sizeMicros = blockEntity.getSizeMicros();
-        var colorTransform = blockEntity.getColorTransform();
+        var offsetMicros = blockEntity.getOffsetMicros();
+        state.transformMicros = new ProjectorBlockEntity.TransformMicros(blockState, sizeMicros, offsetMicros);
+        // construct sequence instance
+        var ct = blockEntity.getColorTransform();
+        int xMarginMicros = state.transformMicros.xMarginMicros();
+        int yMarginMicros = state.transformMicros.yMarginMicros();
         var flipped = blockState.getValue(ProjectorBlock.ROTATION).isFlipped();
-        state.sequence = new TextureSequence(sizeMicros.x, sizeMicros.y, colorTransform, flipped);
+        state.sequence = new TextureSequence(sizeMicros.x, sizeMicros.y, xMarginMicros, yMarginMicros, ct, flipped);
         // preload next slide
         var entries = blockEntity.getNextCurrentEntries();
         entries.left.ifPresent(e -> TextureState.appendTextureSequence(e, state.sequence));
         state.sequence.clear();
         // render current slide
         entries.right.ifPresent(e -> TextureState.appendTextureSequence(e, state.sequence));
-        // construct transform instance
-        var offsetMicros = blockEntity.getOffsetMicros();
-        state.transformMicros = new ProjectorBlockEntity.TransformMicros(blockState, sizeMicros, offsetMicros);
     }
 
     @Override
