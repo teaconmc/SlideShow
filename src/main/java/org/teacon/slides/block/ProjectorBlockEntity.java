@@ -36,7 +36,6 @@ import net.neoforged.neoforge.transfer.item.ItemResource;
 import net.neoforged.neoforge.transfer.item.ItemStacksResourceHandler;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.tuple.MutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.joml.*;
 import org.slf4j.Logger;
 import org.teacon.slides.ModRegistries;
@@ -53,6 +52,7 @@ import java.lang.Math;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
 @FieldsAreNonnullByDefault
@@ -301,8 +301,8 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         }
     }
 
-    private void onItemsToDisplayChanged(SlideItem.Entry first, SlideItem.Entry last, int lightness) {
-        mNextCurrentEntries.setLeft(Optional.of(first));
+    private void onItemsToDisplayChanged(SlideItemStackHandler.Entry entry) {
+        mNextCurrentEntries.setLeft(Optional.of(entry.first));
         if (this.level != null && !this.level.isClientSide()) {
             this.setChanged();
             var state = this.getBlockState();
@@ -310,9 +310,9 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
         }
     }
 
-    private void onItemsDisplayedChanged(SlideItem.Entry first, SlideItem.Entry last, int lightness) {
-        mCurrentLightness.setValue(lightness);
-        mNextCurrentEntries.setRight(Optional.of(last));
+    private void onItemsDisplayedChanged(SlideItemStackHandler.Entry entry) {
+        mCurrentLightness.setValue(entry.lightness);
+        mNextCurrentEntries.setRight(Optional.of(entry.last));
         if (this.level != null && !this.level.isClientSide()) {
             this.setChanged();
             var state = this.getBlockState();
@@ -449,6 +449,14 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
             return Math.floorMod(yOffsetMicros - ySizeMicros, 1000000);
         }
 
+        public int xBlockFitCount() {
+            return Math.ceilDiv(xOffsetMicros + xSizeMicros, 1000000) - Math.floorDiv(xOffsetMicros, 1000000);
+        }
+
+        public int yBlockFitCount() {
+            return Math.ceilDiv(yOffsetMicros, 1000000) - Math.floorDiv(yOffsetMicros - ySizeMicros, 1000000);
+        }
+
         public void transformToSlideSpaceMicros(Matrix4f pose, Matrix3f normal) {
             // matrix 1: translation to block center
             pose.translate(1F / 2F, 1F / 2F, 1F / 2F);
@@ -479,15 +487,14 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
     }
 
     public static final class SlideItemStackHandler extends ItemStacksResourceHandler {
-        private @Nullable Pair<SlideItem.Entry, SlideItem.Entry> itemEntryPair;
-        private final SlideItemStackListener whenChanged;
+        private @Nullable Entry itemLightnessEntry;
+        private final Consumer<Entry> whenChanged;
         private final Runnable whenErased;
 
-        public SlideItemStackHandler(Runnable whenErased, SlideItemStackListener whenChanged) {
+        public SlideItemStackHandler(Runnable whenErased, Consumer<Entry> whenChanged) {
             super(ProjectorBlock.SLIDE_ITEM_HANDLER_CAPACITY);
             this.whenChanged = whenChanged;
             this.whenErased = whenErased;
-            this.itemEntryPair = null;
         }
 
         @Override
@@ -526,18 +533,18 @@ public final class ProjectorBlockEntity extends BlockEntity implements MenuProvi
                     afterFirstItem = true;
                 }
             }
-            var itemEntryPair = afterFirstItem ? Pair.of(firstItemEntry, lastItemEntry) : null;
-            if (itemEntryPair != null && !itemEntryPair.equals(this.itemEntryPair)) {
-                this.whenChanged.accept(firstItemEntry, lastItemEntry, lastLightness);
+            var itemLightnessEntry = afterFirstItem ? new Entry(firstItemEntry, lastItemEntry, lastLightness) : null;
+            if (itemLightnessEntry != null && !itemLightnessEntry.equals(this.itemLightnessEntry)) {
+                this.whenChanged.accept(itemLightnessEntry);
             }
-            if (itemEntryPair == null && this.itemEntryPair != null) {
+            if (itemLightnessEntry == null && this.itemLightnessEntry != null) {
                 this.whenErased.run();
             }
-            this.itemEntryPair = itemEntryPair;
+            this.itemLightnessEntry = itemLightnessEntry;
         }
-    }
 
-    public interface SlideItemStackListener {
-        void accept(SlideItem.Entry firstItem, SlideItem.Entry lastItem, int lastLightness);
+        public record Entry(SlideItem.Entry first, SlideItem.Entry last, int lightness) {
+            // nothing here
+        }
     }
 }

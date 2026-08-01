@@ -7,6 +7,7 @@ import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
 import org.joml.Vector2i;
@@ -100,7 +101,8 @@ public final class TextureSequence {
         return Collections.unmodifiableSequencedCollection(this.recommends);
     }
 
-    public void render(SubmitNodeCollector snc, PoseStack stack, int light, long tick, float partialTick) {
+    public void submitContent(SubmitNodeCollector snc, PoseStack stack,
+                              int[] lightCoords, int lightCoordsRowOffset, long tick, float partial) {
         var viewportMicros = this.sizeMicros;
         var alpha = this.color >>> 24;
         if (alpha > 0) {
@@ -112,24 +114,53 @@ public final class TextureSequence {
             var red = (this.color >> 16) & 255;
             var green = (this.color >> 8) & 255;
             var blue = this.color & 255;
-            var layer = 0;
-            while (layer < this.elements.size()) {
-                var element = this.elements.get(layer);
-                if (this.front) {
-                    element.render(snc, stack, viewportMicros, scaleHint,
-                            layer, alpha, red, green, blue, light, tick, partialTick);
+            var offsetMicros = new Vector2i();
+            var light = new int[4];
+            var lightIndex = lightCoordsRowOffset + 1;
+            for (var y = -this.marginMicros.y; y < viewportMicros.y; y += 1000000) {
+                for (var x = -this.marginMicros.x; x < viewportMicros.x; x += 1000000) {
+                    offsetMicros.set(x, y);
+                    var centerLight = lightCoords[lightIndex];
+                    light[0] = LightCoordsUtil.smoothBlend(
+                            lightCoords[lightIndex - lightCoordsRowOffset - 1],
+                            lightCoords[lightIndex - lightCoordsRowOffset],
+                            lightCoords[lightIndex - 1], centerLight);
+                    light[1] = LightCoordsUtil.smoothBlend(
+                            lightCoords[lightIndex - lightCoordsRowOffset],
+                            lightCoords[lightIndex - lightCoordsRowOffset + 1],
+                            lightCoords[lightIndex + 1], centerLight);
+                    light[2] = LightCoordsUtil.smoothBlend(
+                            lightCoords[lightIndex - 1],
+                            lightCoords[lightIndex + lightCoordsRowOffset - 1],
+                            lightCoords[lightIndex + lightCoordsRowOffset], centerLight);
+                    light[3] = LightCoordsUtil.smoothBlend(
+                            lightCoords[lightIndex + 1],
+                            lightCoords[lightIndex + lightCoordsRowOffset],
+                            lightCoords[lightIndex + lightCoordsRowOffset + 1], centerLight);
+                    var layer = 0;
+                    while (layer < this.elements.size()) {
+                        var element = this.elements.get(layer);
+                        if (this.front) {
+                            element.submitQuad(snc, stack,
+                                    viewportMicros, offsetMicros, scaleHint, layer, alpha, red, green, blue,
+                                    light, tick, partial);
+                        }
+                        layer = ~layer;
+                        if (this.back) {
+                            element.submitQuad(snc, stack,
+                                    viewportMicros, offsetMicros, scaleHint, layer, alpha, red, green, blue,
+                                    light, tick, partial);
+                        }
+                        layer = -layer;
+                    }
+                    ++lightIndex;
                 }
-                layer = ~layer;
-                if (this.back) {
-                    element.render(snc, stack, viewportMicros, scaleHint,
-                            layer, alpha, red, green, blue, light, tick, partialTick);
-                }
-                layer = -layer;
+                lightIndex += 2;
             }
         }
     }
 
-    public void renderOutline(SubmitNodeCollector snc, PoseStack stack, int light, long tick, float partialTick) {
+    public void submitClipOutline(SubmitNodeCollector snc, PoseStack stack, int light, long tick, float partialTick) {
         snc.submitCustomGeometry(stack, RenderTypes.outline(BACKGROUND_ID), (pose, consumer) -> {
             var x = this.sizeMicros.x;
             var y = this.sizeMicros.y;
@@ -166,77 +197,119 @@ public final class TextureSequence {
     }
 
     private sealed interface Elem permits Background, IconCentered, Texture {
-        void render(SubmitNodeCollector snc, PoseStack stack,
-                    Vector2i viewportMicros, Vector2i scaleHint,
-                    int layer, int alpha, int red, int green, int blue, int light, long tick, float partialTick);
+        void submitQuad(SubmitNodeCollector snc, PoseStack stack,
+                        Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
+                        int layer, int alpha, int red, int green, int blue,
+                        int[] light, long tick, float partialTick);
+    }
+
+    private static boolean hasVisibleArea(Vector2i viewportMicros, Vector2i offsetMicros,
+                                          double left, double top, double right, double bottom) {
+        var x0 = Math.clamp(offsetMicros.x, 0, viewportMicros.x);
+        var y0 = Math.clamp(offsetMicros.y, 0, viewportMicros.y);
+        var x1 = Math.clamp((long) offsetMicros.x + 1000000, 0, viewportMicros.x);
+        var y1 = Math.clamp((long) offsetMicros.y + 1000000, 0, viewportMicros.y);
+        return left < x1 && right > x0 && top < y1 && bottom > y0;
+    }
+
+    private static void submitClippedQuad(SubmitNodeCollector snc,
+                                          PoseStack stack, RenderType renderType,
+                                          Vector2i viewportMicros, Vector2i offsetMicros,
+                                          double left, double top, double right, double bottom,
+                                          float uAtLeft, float vAtTop, float uAtRight, float vAtBottom,
+                                          int layer, int alpha, int red, int green, int blue, int[] light) {
+        var clippedLeft = Math.max(left, Math.clamp(offsetMicros.x, 0, viewportMicros.x));
+        var clippedTop = Math.max(top, Math.clamp(offsetMicros.y, 0, viewportMicros.y));
+        var clippedRight = Math.min(right, Math.clamp((long) offsetMicros.x + 1000000, 0, viewportMicros.x));
+        var clippedBottom = Math.min(bottom, Math.clamp((long) offsetMicros.y + 1000000, 0, viewportMicros.y));
+        var x0 = (float) clippedLeft;
+        var y0 = (float) clippedTop;
+        var x1 = (float) clippedRight;
+        var y1 = (float) clippedBottom;
+        var z0 = 4096F * layer + 2048F;
+        var u0 = (float) Mth.clampedMap(clippedLeft, left, right, uAtLeft, uAtRight);
+        var v0 = (float) Mth.clampedMap(clippedTop, top, bottom, vAtTop, vAtBottom);
+        var u1 = (float) Mth.clampedMap(clippedRight, left, right, uAtLeft, uAtRight);
+        var v1 = (float) Mth.clampedMap(clippedBottom, top, bottom, vAtTop, vAtBottom);
+        var x0Weight = Mth.inverseLerp(x0, offsetMicros.x, offsetMicros.x + 1E6F);
+        var y0Weight = Mth.inverseLerp(y0, offsetMicros.y, offsetMicros.y + 1E6F);
+        var x1Weight = Mth.inverseLerp(x1, offsetMicros.x, offsetMicros.x + 1E6F);
+        var y1Weight = Mth.inverseLerp(y1, offsetMicros.y, offsetMicros.y + 1E6F);
+        var x0WeightInv = 1F - x0Weight;
+        var y0WeightInv = 1F - y0Weight;
+        var x1WeightInv = 1F - x1Weight;
+        var y1WeightInv = 1F - y1Weight;
+        // noinspection DuplicatedCode
+        var lightAtTopLeft = LightCoordsUtil.smoothWeightedBlend(light[0], light[1], light[2], light[3],
+                x0WeightInv * y0WeightInv, x0Weight * y0WeightInv, x0WeightInv * y0Weight, x0Weight * y0Weight);
+        var lightAtTopRight = LightCoordsUtil.smoothWeightedBlend(light[0], light[1], light[2], light[3],
+                x1WeightInv * y0WeightInv, x1Weight * y0WeightInv, x1WeightInv * y0Weight, x1Weight * y0Weight);
+        // noinspection DuplicatedCode
+        var lightAtBottomLeft = LightCoordsUtil.smoothWeightedBlend(light[0], light[1], light[2], light[3],
+                x0WeightInv * y1WeightInv, x0Weight * y1WeightInv, x0WeightInv * y1Weight, x0Weight * y1Weight);
+        var lightAtBottomRight = LightCoordsUtil.smoothWeightedBlend(light[0], light[1], light[2], light[3],
+                x1WeightInv * y1WeightInv, x1Weight * y1WeightInv, x1WeightInv * y1Weight, x1Weight * y1Weight);
+        if (layer >= 0 && clippedLeft < clippedRight && clippedTop < clippedBottom) {
+            snc.submitCustomGeometry(stack, renderType, (pose, consumer) -> {
+                // noinspection DuplicatedCode
+                consumer.addVertex(pose, x0, z0, y1)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u0, v1).setLight(lightAtBottomLeft).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, 1, 0);
+                consumer.addVertex(pose, x1, z0, y1)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u1, v1).setLight(lightAtBottomRight).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, 1, 0);
+                // noinspection DuplicatedCode
+                consumer.addVertex(pose, x1, z0, y0)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u1, v0).setLight(lightAtTopRight).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, 1, 0);
+                consumer.addVertex(pose, x0, z0, y0)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u0, v0).setLight(lightAtTopLeft).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, 1, 0);
+            });
+        }
+        if (layer < 0 && clippedLeft < clippedRight && clippedTop < clippedBottom) {
+            snc.submitCustomGeometry(stack, renderType, (pose, consumer) -> {
+                // noinspection DuplicatedCode
+                consumer.addVertex(pose, x0, z0, y0)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u0, v0).setLight(lightAtTopLeft).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, -1, 0);
+                consumer.addVertex(pose, x1, z0, y0)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u1, v0).setLight(lightAtTopRight).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, -1, 0);
+                // noinspection DuplicatedCode
+                consumer.addVertex(pose, x1, z0, y1)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u1, v1).setLight(lightAtBottomRight).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, -1, 0);
+                consumer.addVertex(pose, x0, z0, y1)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u0, v1).setLight(lightAtBottomLeft).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, -1, 0);
+            });
+        }
     }
 
     private record Texture(BitmapProvider provider, Concrete concrete) implements Elem {
         @Override
-        public void render(SubmitNodeCollector snc, PoseStack stack, Vector2i viewportMicros, Vector2i scaleHint,
-                           int layer, int alpha, int red, int green, int blue, int light, long tick, float partial) {
-            // get vertex consumer
-            // calculate image boundaries without clipping
+        public void submitQuad(SubmitNodeCollector snc, PoseStack stack,
+                               Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
+                               int layer, int alpha, int red, int green, int blue,
+                               int[] light, long tick, float partial) {
             var top = this.concrete.topMicros();
             var right = this.concrete.rightMicros();
             var bottom = this.concrete.bottomMicros();
             var left = this.concrete.leftMicros();
-            // clip image boundaries
-            var x0 = (float) Math.clamp(left, 0D, viewportMicros.x);
-            var y0 = (float) Math.clamp(top, 0D, viewportMicros.y);
-            var x1 = (float) Math.clamp(right, 0D, viewportMicros.x);
-            var y1 = (float) Math.clamp(bottom, 0D, viewportMicros.y);
-            var z0 = 4096F * layer + 2048F;
-            // calculate uv for rendering
-            var u0 = left == right ? 0F : (float) Mth.clamp(Mth.inverseLerp(0D, left, right), 0D, 1D);
-            var v0 = top == bottom ? 0F : (float) Mth.clamp(Mth.inverseLerp(0D, top, bottom), 0D, 1D);
-            var u1 = left == right ? 1F : (float) Mth.clamp(Mth.inverseLerp(viewportMicros.x, left, right), 0D, 1D);
-            var v1 = top == bottom ? 1F : (float) Mth.clamp(Mth.inverseLerp(viewportMicros.y, top, bottom), 0D, 1D);
-            // perform render
-            var renderType = this.provider.updateAndGet(tick, partial);
-            if (layer >= 0) {
-                snc.submitCustomGeometry(stack, renderType, (pose, consumer) -> {
-                    // noinspection DuplicatedCode
-                    consumer.addVertex(pose, x0, z0, y1)
-                            .setColor(red, green, blue, alpha)
-                            .setUv(u0, v1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, y1)
-                            .setColor(red, green, blue, alpha)
-                            .setUv(u1, v1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    // noinspection DuplicatedCode
-                    consumer.addVertex(pose, x1, z0, y0)
-                            .setColor(red, green, blue, alpha)
-                            .setUv(u1, v0).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x0, z0, y0)
-                            .setColor(red, green, blue, alpha)
-                            .setUv(u0, v0).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                });
-            } else {
-                snc.submitCustomGeometry(stack, renderType, (pose, consumer) -> {
-                    // noinspection DuplicatedCode
-                    consumer.addVertex(pose, x0, z0, y0)
-                            .setColor(red, green, blue, alpha)
-                            .setUv(u0, v0).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, y0)
-                            .setColor(red, green, blue, alpha)
-                            .setUv(u1, v0).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    // noinspection DuplicatedCode
-                    consumer.addVertex(pose, x1, z0, y1)
-                            .setColor(red, green, blue, alpha)
-                            .setUv(u1, v1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x0, z0, y1)
-                            .setColor(red, green, blue, alpha)
-                            .setUv(u0, v1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                });
+            if (!hasVisibleArea(viewportMicros, offsetMicros, left, top, right, bottom)) {
+                return;
             }
+            submitClippedQuad(snc, stack, this.provider.updateAndGet(tick, partial), viewportMicros, offsetMicros,
+                    left, top, right, bottom, 0F, 0F, 1F, 1F, layer, alpha, red, green, blue, light);
         }
     }
 
@@ -253,403 +326,60 @@ public final class TextureSequence {
         }
 
         @Override
-        public void render(SubmitNodeCollector snc, PoseStack stack, Vector2i viewportMicros, Vector2i scaleHint,
-                           int layer, int alpha, int red, int green, int blue, int light, long tick, float partial) {
-            var x1 = viewportMicros.x * (1F - 19F / scaleHint.x) / 2F;
-            var y1 = viewportMicros.y * (1F - 16F / scaleHint.y) / 2F;
-            var x2 = viewportMicros.x * (1F + 19F / scaleHint.x) / 2F;
-            var y2 = viewportMicros.y * (1F + 16F / scaleHint.y) / 2F;
-            var z0 = 4096F * layer + 2048F;
-            if (layer >= 0) {
-                snc.submitCustomGeometry(stack, this.iconRenderType, (pose, consumer) -> {
-                    consumer.addVertex(pose, x1, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                });
-            } else {
-                snc.submitCustomGeometry(stack, this.iconRenderType, (pose, consumer) -> {
-                    consumer.addVertex(pose, x1, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                });
-            }
+        public void submitQuad(SubmitNodeCollector snc, PoseStack stack,
+                               Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
+                               int layer, int alpha, int red, int green, int blue,
+                               int[] light, long tick, float partial) {
+            var left = viewportMicros.x * (1F - 19F / scaleHint.x) / 2F;
+            var top = viewportMicros.y * (1F - 16F / scaleHint.y) / 2F;
+            var right = viewportMicros.x * (1F + 19F / scaleHint.x) / 2F;
+            var bottom = viewportMicros.y * (1F + 16F / scaleHint.y) / 2F;
+            submitClippedQuad(snc, stack, this.iconRenderType, viewportMicros, offsetMicros,
+                    left, top, right, bottom, 0F, 0F, 1F, 1F, layer, alpha, 255, 255, 255, light);
         }
     }
 
     private enum Background implements Elem {
         DEFAULT(BACKGROUND_ID);
 
-        private final RenderType iconRenderType;
+        private final RenderType backgroundRenderType;
 
         Background(Identifier background) {
-            this.iconRenderType = SlideRenderSetup.createIconType(background);
+            this.backgroundRenderType = SlideRenderSetup.createIconType(background);
         }
 
         @Override
-        public void render(SubmitNodeCollector snc, PoseStack stack, Vector2i viewportMicros, Vector2i scaleHint,
-                           int layer, int alpha, int red, int green, int blue, int light, long tick, float partial) {
-            var x3 = viewportMicros.x;
-            var y3 = viewportMicros.y;
-            var x2 = x3 * (1F - 9F / scaleHint.x);
-            var y2 = y3 * (1F - 9F / scaleHint.y);
+        public void submitQuad(SubmitNodeCollector snc, PoseStack stack,
+                               Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
+                               int layer, int alpha, int red, int green, int blue,
+                               int[] light, long tick, float partial) {
+            var x3 = (float) viewportMicros.x;
+            var y3 = (float) viewportMicros.y;
             var x1 = x3 * 9F / scaleHint.x;
             var y1 = y3 * 9F / scaleHint.y;
-            var z0 = 4096F * layer + 2048F;
-            var u2 = 1F - 9F / 19F;
+            var x2 = x3 - x1;
+            var y2 = y3 - y1;
             var u1 = 9F / 19F;
-            // below is the generation code
-            /*
-             * #!/usr/bin/python3
-             *
-             * xs = [('0F', '0F'), ('x1', 'u1'), ('x2', 'u2'), ('x3', '1F')]
-             * ys = [('0F', '0F'), ('y1', 'u1'), ('y2', 'u2'), ('y3', '1F')]
-             *
-             * fmt = '\n'.join([
-             *     '        consumer.addVertex(pose, {}, {}, {})',
-             *     '                .setColor(255, 255, 255, alpha)',
-             *     '                .setUv({}, {}).setLight(light).setOverlay(NO_OVERLAY)',
-             *     '                .setNormal(pose, 0, {}, 0);',
-             * ])
-             *
-             * print('if (layer >= 0) {')
-             * print('    snc.submitCustomGeometry(stack, this.iconRenderType, (pose, consumer) -> {')
-             * for i in range(3):
-             *     for j in range(3):
-             *         a, b, c, d = xs[i], xs[i + 1], ys[j], ys[j + 1]
-             *         for k, l in [(a, d), (b, d), (b, c), (a, c)]:
-             *             print(fmt.format(k[0], 'z0', l[0], k[1], l[1], 1))
-             * print('    });')
-             * print('} else {')
-             * print('    snc.submitCustomGeometry(stack, this.iconRenderType, (pose, consumer) -> {')
-             * for i in range(3):
-             *     for j in range(3):
-             *         a, b, c, d = xs[i], xs[i + 1], ys[j], ys[j + 1]
-             *         for k, l in [(a, c), (b, c), (b, d), (a, d)]:
-             *             print(fmt.format(k[0], 'z0', l[0], k[1], l[1], -1))
-             * print('    });')
-             * print('}')
-             */
-            if (layer >= 0) {
-                snc.submitCustomGeometry(stack, this.iconRenderType, (pose, consumer) -> {
-                    consumer.addVertex(pose, 0F, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, 0F)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, 0F, z0, 0F)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, 0F, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, 0F, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, 0F, z0, y3)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, y3)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, 0F, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, 0F)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, 0F)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, y3)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, y3)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x1, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x3, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x3, z0, 0F)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, 0F)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x3, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x3, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, y3)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x3, z0, y3)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x3, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                    consumer.addVertex(pose, x2, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, 1, 0);
-                });
-            } else {
-                snc.submitCustomGeometry(stack, this.iconRenderType, (pose, consumer) -> {
-                    consumer.addVertex(pose, 0F, z0, 0F)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, 0F)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, 0F, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, 0F, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, 0F, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, 0F, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, y3)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, 0F, z0, y3)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(0F, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, 0F)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, 0F)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, y3)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x1, z0, y3)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u1, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, 0F)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x3, z0, 0F)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, 0F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x3, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x3, z0, y1)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, u1).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x3, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x3, z0, y2)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, u2).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x3, z0, y3)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(1F, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                    consumer.addVertex(pose, x2, z0, y3)
-                            .setColor(255, 255, 255, alpha)
-                            .setUv(u2, 1F).setLight(light).setOverlay(NO_OVERLAY)
-                            .setNormal(pose, 0, -1, 0);
-                });
-            }
+            var u2 = 1F - u1;
+            // Render the nine-slice background as individually clipped cells.
+            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
+                    0F, 0F, x1, y1, 0F, 0F, u1, u1, layer, alpha, 255, 255, 255, light);
+            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
+                    x1, 0F, x2, y1, u1, 0F, u2, u1, layer, alpha, 255, 255, 255, light);
+            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
+                    x2, 0F, x3, y1, u2, 0F, 1F, u1, layer, alpha, 255, 255, 255, light);
+            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
+                    0F, y1, x1, y2, 0F, u1, u1, u2, layer, alpha, 255, 255, 255, light);
+            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
+                    x1, y1, x2, y2, u1, u1, u2, u2, layer, alpha, 255, 255, 255, light);
+            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
+                    x2, y1, x3, y2, u2, u1, 1F, u2, layer, alpha, 255, 255, 255, light);
+            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
+                    0F, y2, x1, y3, 0F, u2, u1, 1F, layer, alpha, 255, 255, 255, light);
+            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
+                    x1, y2, x2, y3, u1, u2, u2, 1F, layer, alpha, 255, 255, 255, light);
+            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
+                    x2, y2, x3, y3, u2, u2, 1F, 1F, layer, alpha, 255, 255, 255, light);
         }
     }
 }

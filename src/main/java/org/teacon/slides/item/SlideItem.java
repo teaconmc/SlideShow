@@ -33,6 +33,7 @@ import net.minecraft.world.level.Level;
 import org.jspecify.annotations.Nullable;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.SlideShow;
+import org.teacon.slides.block.ProjectorBlock;
 import org.teacon.slides.calc.Concrete.Position;
 import org.teacon.slides.calc.Concrete.Size;
 import org.teacon.slides.inventory.SlideItemContainerMenu;
@@ -54,7 +55,7 @@ import static org.apache.commons.lang3.StringUtils.abbreviateMiddle;
 @MethodsReturnNonnullByDefault
 @ParametersAreNonnullByDefault
 public final class SlideItem extends Item {
-    public static final int LIGHTNESS_DEF = 15;
+    public static final int LIGHTNESS_DEF = ProjectorBlock.LIGHTNESS;
 
     public static final Entry ENTRY_DEF = new Entry(new UUID(0L, 0L), Size.ENTRY_DEF, Position.ENTRY_DEF);
 
