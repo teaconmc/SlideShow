@@ -6,6 +6,7 @@ import com.mojang.datafixers.util.Either;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.rendertype.RenderSetup;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.resources.Identifier;
@@ -23,7 +24,6 @@ import static net.minecraft.client.renderer.rendertype.LayeringTransform.NO_LAYE
 import static net.minecraft.client.renderer.rendertype.OutputTarget.MAIN_TARGET;
 import static net.minecraft.client.renderer.rendertype.RenderSetup.OutlineProperty.NONE;
 import static net.minecraft.client.renderer.rendertype.TextureTransform.DEFAULT_TEXTURING;
-import static org.teacon.slides.ModClientRegistries.SLIDE_PIPELINE;
 
 @FieldsAreNonnullByDefault
 @MethodsReturnNonnullByDefault
@@ -37,14 +37,16 @@ public final class SlideRenderSetup extends RenderSetup {
     private final Either<GpuTextureView, Identifier> texture;
 
     private SlideRenderSetup(GpuTextureView slide) {
-        super(SLIDE_PIPELINE, new HashMap<>(),
+        // Uses vanilla block render pipelines to be compatible with Iris Shaders.
+        super(RenderPipelines.TRANSLUCENT_BLOCK, new HashMap<>(),
                 USE_LIGHTMAP, NO_OVERLAY, NO_LAYERING, MAIN_TARGET,
                 DEFAULT_TEXTURING, NONE, AFFECTS_CRUMBLING, SORT_ON_UPLOAD, 1536);
         this.texture = Either.left(slide);
     }
 
     private SlideRenderSetup(Identifier icon) {
-        super(SLIDE_PIPELINE, new HashMap<>(),
+        // Uses vanilla block render pipelines to be compatible with Iris Shaders.
+        super(RenderPipelines.TRANSLUCENT_BLOCK, new HashMap<>(),
                 USE_LIGHTMAP, NO_OVERLAY, NO_LAYERING, MAIN_TARGET,
                 DEFAULT_TEXTURING, NONE, AFFECTS_CRUMBLING, SORT_ON_UPLOAD, 1536);
         this.texture = Either.right(icon);
@@ -65,10 +67,10 @@ public final class SlideRenderSetup extends RenderSetup {
     }
 
     public static RenderType createSlideType(GpuTextureView slideTexture) {
-        return RenderType.create(SlideShow.ID, new SlideRenderSetup(slideTexture));
+        return new SlideRenderType(SlideShow.ID, new SlideRenderSetup(slideTexture));
     }
 
     public static RenderType createIconType(Identifier iconLocation) {
-        return RenderType.create(SlideShow.ID + "_icon", new SlideRenderSetup(iconLocation));
+        return new SlideRenderType(SlideShow.ID + "_icon", new SlideRenderSetup(iconLocation));
     }
 }
