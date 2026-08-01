@@ -5,6 +5,7 @@ import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import com.mojang.logging.annotations.FieldsAreNonnullByDefault;
 import com.mojang.logging.annotations.MethodsReturnNonnullByDefault;
+import net.minecraft.util.Util;
 import org.teacon.slides.SlideShow;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -15,10 +16,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -29,8 +28,7 @@ public final class TempDownloadFile implements Closeable {
     private final AtomicReference<Path> location;
 
     private TempDownloadFile(Path dir) throws IOException {
-        var prefix = String.join("-", SlideShow.ID.split("_")) + "-";
-        this.location = new AtomicReference<>(Files.createTempFile(Files.createDirectories(dir), prefix, ".tmp"));
+        this.location = new AtomicReference<>(this.initialize(dir));
     }
 
     private TempDownloadFile(TempDownloadFile old) throws IOException {
@@ -39,6 +37,11 @@ public final class TempDownloadFile implements Closeable {
             throw new IOException("the temp file has been closed of transferred to another one");
         }
         this.location = new AtomicReference<>(location);
+    }
+
+    private Path initialize(Path dir) throws IOException {
+        var prefix = String.join("-", SlideShow.ID.split("_")) + "-";
+        return Files.createTempFile(Files.createDirectories(dir), prefix, ".tmp");
     }
 
     private Path retrieve() throws IOException {
@@ -62,12 +65,15 @@ public final class TempDownloadFile implements Closeable {
 
     public void move(Path destination) throws IOException {
         var location = this.retrieve();
+        var backup = this.initialize(location.getParent());
         try {
-            Files.move(location, destination, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        } catch (AtomicMoveNotSupportedException e) {
-            Files.move(location, destination, StandardCopyOption.REPLACE_EXISTING);
+            var done = Util.safeReplaceOrMoveFile(destination, location, backup, false);
+            if (done) {
+                this.consume(location);
+            }
+        } finally {
+            Files.deleteIfExists(backup);
         }
-        this.consume(location);
     }
 
     public Path path() throws IOException {
