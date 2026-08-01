@@ -37,7 +37,6 @@ import org.joml.Matrix4f;
 import org.joml.Vector4d;
 import org.teacon.slides.ModRegistries;
 import org.teacon.slides.inventory.ProjectorContainerMenu;
-import org.teacon.slides.item.SlideItem;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -193,17 +192,6 @@ public final class ProjectorBlock extends Block implements EntityBlock {
     @Override
     public BlockEntity newBlockEntity(BlockPos blockPos, BlockState blockState) {
         return Objects.requireNonNull(ModRegistries.PROJECTOR_BLOCK_ENTITY.get().create(blockPos, blockState));
-    }
-
-    @Override
-    public boolean hasDynamicLightEmission(BlockState state) {
-        return true;
-    }
-
-    @Override
-    public int getLightEmission(BlockState state, BlockGetter level, BlockPos pos) {
-        var blockEntity = level.getBlockEntity(pos, ModRegistries.PROJECTOR_BLOCK_ENTITY.get());
-        return blockEntity.map(p -> p.getCurrentLightness().intValue()).orElse(SlideItem.LIGHTNESS_DEF);
     }
 
     @Override
