@@ -94,26 +94,31 @@ public final class ProjectorRenderer implements BlockEntityRenderer<ProjectorBlo
         var flipped = blockState.getValue(ProjectorBlock.ROTATION).isFlipped();
         var base = new Vector4f(-5E5F - xMargin, flipped ? 1F : -1F, -5E5F - yMargin, 1F).mul(state.poseMatrix);
         // lightness
-        state.lightCoordsRowOffset = lightCoordsRowOffset;
-        state.lightCoordsArray = new int[Math.max(1, lightCoordsRowOffset * lightCoordsHeight)];
         var light = Math.min(ProjectorBlock.LIGHTNESS, blockEntity.getCurrentLightness().intValue());
-        if (xBlockFitCount > 0 && yBlockFitCount > 0 && blockEntity.getLevel() != null) {
-            var blockCursor = new BlockPos.MutableBlockPos(base.x(), base.y(), base.z()).move(state.blockPos);
-            var columnMove = Direction.rotate(state.poseMatrix, Direction.EAST);
-            var rowMove = Direction.rotate(state.poseMatrix, Direction.SOUTH);
-            var rowCursor = blockCursor.mutable();
-            for (var row = 0; row < lightCoordsHeight; ++row) {
-                for (var column = 0; column < lightCoordsRowOffset; ++column) {
-                    var blockLight = LevelRenderer.getLightCoords(blockEntity.getLevel(), blockCursor);
-                    var finalLight = LightCoordsUtil.lightCoordsWithEmission(blockLight, light);
-                    state.lightCoordsArray[column + row * lightCoordsRowOffset] = finalLight;
-                    blockCursor.move(columnMove);
-                }
-                rowCursor.move(rowMove);
-                blockCursor.set(rowCursor);
-            }
+        if (light == LightCoordsUtil.block(LightCoordsUtil.FULL_BRIGHT)) {
+            state.lightCoordsRowOffset = 0;
+            state.lightCoordsArray = new int[0];
         } else {
-            Arrays.fill(state.lightCoordsArray, LightCoordsUtil.lightCoordsWithEmission(state.lightCoords, light));
+            state.lightCoordsRowOffset = lightCoordsRowOffset;
+            state.lightCoordsArray = new int[Math.max(9, lightCoordsRowOffset * lightCoordsHeight)];
+            if (xBlockFitCount > 0 && yBlockFitCount > 0 && blockEntity.getLevel() != null) {
+                var blockCursor = new BlockPos.MutableBlockPos(base.x(), base.y(), base.z()).move(state.blockPos);
+                var columnMove = Direction.rotate(state.poseMatrix, Direction.EAST);
+                var rowMove = Direction.rotate(state.poseMatrix, Direction.SOUTH);
+                var rowCursor = blockCursor.mutable();
+                for (var row = 0; row < lightCoordsHeight; ++row) {
+                    for (var column = 0; column < lightCoordsRowOffset; ++column) {
+                        var blockLight = LevelRenderer.getLightCoords(blockEntity.getLevel(), blockCursor);
+                        var finalLight = LightCoordsUtil.lightCoordsWithEmission(blockLight, light);
+                        state.lightCoordsArray[column + row * lightCoordsRowOffset] = finalLight;
+                        blockCursor.move(columnMove);
+                    }
+                    rowCursor.move(rowMove);
+                    blockCursor.set(rowCursor);
+                }
+            } else {
+                Arrays.fill(state.lightCoordsArray, LightCoordsUtil.lightCoordsWithEmission(state.lightCoords, light));
+            }
         }
         // construct sequence instance
         var ct = blockEntity.getColorTransform();

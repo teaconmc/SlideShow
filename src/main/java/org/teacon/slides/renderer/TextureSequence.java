@@ -106,56 +106,27 @@ public final class TextureSequence {
         var viewportMicros = this.sizeMicros;
         var alpha = this.color >>> 24;
         if (alpha > 0) {
+            var layer = 0;
+            var red = (this.color >> 16) & 255;
+            var green = (this.color >> 8) & 255;
+            var blue = this.color & 255;
             var viewportMin = Math.min(viewportMicros.x, viewportMicros.y);
             var widthMicrosSq = (float) viewportMicros.x * viewportMicros.x;
             var heightMicrosSq = (float) viewportMicros.y * viewportMicros.y;
             var factor = viewportMin / (24 + Mth.fastInvCubeRoot(390625E4F / (widthMicrosSq + heightMicrosSq)));
             var scaleHint = new Vector2i(Math.round(viewportMicros.x / factor), Math.round(viewportMicros.y / factor));
-            var red = (this.color >> 16) & 255;
-            var green = (this.color >> 8) & 255;
-            var blue = this.color & 255;
-            var offsetMicros = new Vector2i();
-            var light = new int[4];
-            var lightIndex = lightCoordsRowOffset + 1;
-            for (var y = -this.marginMicros.y; y < viewportMicros.y; y += 1000000) {
-                for (var x = -this.marginMicros.x; x < viewportMicros.x; x += 1000000) {
-                    offsetMicros.set(x, y);
-                    var centerLight = lightCoords[lightIndex];
-                    light[0] = LightCoordsUtil.smoothBlend(
-                            lightCoords[lightIndex - lightCoordsRowOffset - 1],
-                            lightCoords[lightIndex - lightCoordsRowOffset],
-                            lightCoords[lightIndex - 1], centerLight);
-                    light[1] = LightCoordsUtil.smoothBlend(
-                            lightCoords[lightIndex - lightCoordsRowOffset],
-                            lightCoords[lightIndex - lightCoordsRowOffset + 1],
-                            lightCoords[lightIndex + 1], centerLight);
-                    light[2] = LightCoordsUtil.smoothBlend(
-                            lightCoords[lightIndex - 1],
-                            lightCoords[lightIndex + lightCoordsRowOffset - 1],
-                            lightCoords[lightIndex + lightCoordsRowOffset], centerLight);
-                    light[3] = LightCoordsUtil.smoothBlend(
-                            lightCoords[lightIndex + 1],
-                            lightCoords[lightIndex + lightCoordsRowOffset],
-                            lightCoords[lightIndex + lightCoordsRowOffset + 1], centerLight);
-                    var layer = 0;
-                    while (layer < this.elements.size()) {
-                        var element = this.elements.get(layer);
-                        if (this.front) {
-                            element.render(snc, stack,
-                                    viewportMicros, offsetMicros, scaleHint, layer, alpha, red, green, blue,
-                                    light, tick, partial);
-                        }
-                        layer = ~layer;
-                        if (this.back) {
-                            element.render(snc, stack,
-                                    viewportMicros, offsetMicros, scaleHint, layer, alpha, red, green, blue,
-                                    light, tick, partial);
-                        }
-                        layer = -layer;
-                    }
-                    ++lightIndex;
+            while (layer < this.elements.size()) {
+                var element = this.elements.get(layer);
+                if (this.front) {
+                    element.render(snc, stack, viewportMicros, this.marginMicros, scaleHint,
+                            layer, alpha, red, green, blue, lightCoords, lightCoordsRowOffset, tick, partial);
                 }
-                lightIndex += 2;
+                layer = ~layer;
+                if (this.back) {
+                    element.render(snc, stack, viewportMicros, this.marginMicros, scaleHint,
+                            layer, alpha, red, green, blue, lightCoords, lightCoordsRowOffset, tick, partial);
+                }
+                layer = -layer;
             }
         }
     }
@@ -198,9 +169,9 @@ public final class TextureSequence {
 
     private sealed interface Elem permits Background, IconCentered, Texture {
         void render(SubmitNodeCollector snc, PoseStack stack,
-                    Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
+                    Vector2i viewportMicros, Vector2i marginMicros, Vector2i scaleHint,
                     int layer, int alpha, int red, int green, int blue,
-                    int[] light, long tick, float partialTick);
+                    int[] lightCoords, int lightCoordsRowOffset, long tick, float partialTick);
     }
 
     private static boolean hasVisibleArea(Vector2i viewportMicros, Vector2i offsetMicros,
@@ -210,6 +181,98 @@ public final class TextureSequence {
         var x1 = Math.clamp((long) offsetMicros.x + 1000000, 0, viewportMicros.x);
         var y1 = Math.clamp((long) offsetMicros.y + 1000000, 0, viewportMicros.y);
         return left < x1 && right > x0 && top < y1 && bottom > y0;
+    }
+
+    private static void calculateQuadLight(int[] lightCoords, int lightCoordsRowOffset,
+                                           Vector2i marginMicros, Vector2i offsetMicros, int[] lightOutput) {
+        var column = Math.floorDiv(offsetMicros.x + marginMicros.x, 1000000) + 1;
+        var row = Math.floorDiv(offsetMicros.y + marginMicros.y, 1000000) + 1;
+        var topRow = (row - 1) * lightCoordsRowOffset;
+        var centerRow = topRow + lightCoordsRowOffset;
+        var bottomRow = centerRow + lightCoordsRowOffset;
+        var centerLight = lightCoords[centerRow + column];
+        lightOutput[0] = LightCoordsUtil.smoothBlend(
+                lightCoords[topRow + column - 1],
+                lightCoords[topRow + column],
+                lightCoords[centerRow + column - 1], centerLight);
+        lightOutput[1] = LightCoordsUtil.smoothBlend(
+                lightCoords[topRow + column],
+                lightCoords[topRow + column + 1],
+                lightCoords[centerRow + column + 1], centerLight);
+        lightOutput[2] = LightCoordsUtil.smoothBlend(
+                lightCoords[centerRow + column - 1],
+                lightCoords[bottomRow + column - 1],
+                lightCoords[bottomRow + column], centerLight);
+        lightOutput[3] = LightCoordsUtil.smoothBlend(
+                lightCoords[centerRow + column + 1],
+                lightCoords[bottomRow + column],
+                lightCoords[bottomRow + column + 1], centerLight);
+    }
+
+    private static void submitFullTexture(SubmitNodeCollector snc, PoseStack stack,
+                                          RenderType renderType, Vector2i viewportMicros,
+                                          double left, double top, double right, double bottom,
+                                          float uAtLeft, float vAtTop, float uAtRight, float vAtBottom,
+                                          int layer, int alpha, int red, int green, int blue, int light) {
+        var clippedLeft = Math.clamp(left, 0D, viewportMicros.x);
+        var clippedTop = Math.clamp(top, 0D, viewportMicros.y);
+        var clippedRight = Math.clamp(right, 0D, viewportMicros.x);
+        var clippedBottom = Math.clamp(bottom, 0D, viewportMicros.y);
+        // noinspection DuplicatedCode
+        var x0 = (float) clippedLeft;
+        var y0 = (float) clippedTop;
+        var x1 = (float) clippedRight;
+        var y1 = (float) clippedBottom;
+        var z0 = 4096F * layer + 2048F;
+        var u0 = (float) Mth.clampedMap(clippedLeft, left, right, uAtLeft, uAtRight);
+        var v0 = (float) Mth.clampedMap(clippedTop, top, bottom, vAtTop, vAtBottom);
+        var u1 = (float) Mth.clampedMap(clippedRight, left, right, uAtLeft, uAtRight);
+        var v1 = (float) Mth.clampedMap(clippedBottom, top, bottom, vAtTop, vAtBottom);
+        // noinspection DuplicatedCode
+        if (layer >= 0 && clippedLeft < clippedRight && clippedTop < clippedBottom) {
+            snc.submitCustomGeometry(stack, renderType, (pose, consumer) -> {
+                // noinspection DuplicatedCode
+                consumer.addVertex(pose, x0, z0, y1)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u0, v1).setLight(light).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, 1, 0);
+                consumer.addVertex(pose, x1, z0, y1)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u1, v1).setLight(light).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, 1, 0);
+                // noinspection DuplicatedCode
+                consumer.addVertex(pose, x1, z0, y0)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u1, v0).setLight(light).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, 1, 0);
+                consumer.addVertex(pose, x0, z0, y0)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u0, v0).setLight(light).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, 1, 0);
+            });
+        }
+        if (layer < 0 && clippedLeft < clippedRight && clippedTop < clippedBottom) {
+            snc.submitCustomGeometry(stack, renderType, (pose, consumer) -> {
+                // noinspection DuplicatedCode
+                consumer.addVertex(pose, x0, z0, y0)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u0, v0).setLight(light).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, -1, 0);
+                consumer.addVertex(pose, x1, z0, y0)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u1, v0).setLight(light).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, -1, 0);
+                // noinspection DuplicatedCode
+                consumer.addVertex(pose, x1, z0, y1)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u1, v1).setLight(light).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, -1, 0);
+                consumer.addVertex(pose, x0, z0, y1)
+                        .setColor(red, green, blue, alpha)
+                        .setUv(u0, v1).setLight(light).setOverlay(NO_OVERLAY)
+                        .setNormal(pose, 0, -1, 0);
+            });
+        }
     }
 
     private static void submitClippedQuad(SubmitNodeCollector snc,
@@ -222,6 +285,7 @@ public final class TextureSequence {
         var clippedTop = Math.max(top, Math.clamp(offsetMicros.y, 0, viewportMicros.y));
         var clippedRight = Math.min(right, Math.clamp((long) offsetMicros.x + 1000000, 0, viewportMicros.x));
         var clippedBottom = Math.min(bottom, Math.clamp((long) offsetMicros.y + 1000000, 0, viewportMicros.y));
+        // noinspection DuplicatedCode
         var x0 = (float) clippedLeft;
         var y0 = (float) clippedTop;
         var x1 = (float) clippedRight;
@@ -249,6 +313,7 @@ public final class TextureSequence {
                 x0WeightInv * y1WeightInv, x0Weight * y1WeightInv, x0WeightInv * y1Weight, x0Weight * y1Weight);
         var lightAtBottomRight = LightCoordsUtil.smoothWeightedBlend(light[0], light[1], light[2], light[3],
                 x1WeightInv * y1WeightInv, x1Weight * y1WeightInv, x1WeightInv * y1Weight, x1Weight * y1Weight);
+        // noinspection DuplicatedCode
         if (layer >= 0 && clippedLeft < clippedRight && clippedTop < clippedBottom) {
             snc.submitCustomGeometry(stack, renderType, (pose, consumer) -> {
                 // noinspection DuplicatedCode
@@ -298,16 +363,29 @@ public final class TextureSequence {
     private record Texture(BitmapProvider provider, Concrete concrete) implements Elem {
         @Override
         public void render(SubmitNodeCollector snc, PoseStack stack,
-                           Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
-                           int layer, int alpha, int red, int green, int blue, int[] light, long tick, float partial) {
+                           Vector2i viewportMicros, Vector2i marginMicros, Vector2i scaleHint,
+                           int layer, int alpha, int red, int green, int blue,
+                           int[] lightCoords, int lightCoordsRowOffset, long tick, float partialTick) {
             var top = this.concrete.topMicros();
             var right = this.concrete.rightMicros();
             var bottom = this.concrete.bottomMicros();
             var left = this.concrete.leftMicros();
-            var hasVisibleArea = hasVisibleArea(viewportMicros, offsetMicros, left, top, right, bottom);
-            if (hasVisibleArea) {
-                submitClippedQuad(snc, stack, this.provider.updateAndGet(tick, partial), viewportMicros, offsetMicros,
-                        left, top, right, bottom, 0F, 0F, 1F, 1F, layer, alpha, red, green, blue, light);
+            var type = this.provider.updateAndGet(tick, partialTick);
+            if (lightCoords.length == 0) {
+                submitFullTexture(snc, stack, type, viewportMicros, left, top, right, bottom,
+                        0F, 0F, 1F, 1F, layer, alpha, red, green, blue, LightCoordsUtil.FULL_BRIGHT);
+            } else {
+                var light = new int[4];
+                var offsetMicros = new Vector2i();
+                for (var y = -marginMicros.y; y < viewportMicros.y; y += 1000000) {
+                    for (var x = -marginMicros.x; x < viewportMicros.x; x += 1000000) {
+                        calculateQuadLight(lightCoords, lightCoordsRowOffset, marginMicros, offsetMicros.set(x, y), light);
+                        if (hasVisibleArea(viewportMicros, offsetMicros, left, top, right, bottom)) {
+                            submitClippedQuad(snc, stack, type, viewportMicros, offsetMicros,
+                                    left, top, right, bottom, 0F, 0F, 1F, 1F, layer, alpha, red, green, blue, light);
+                        }
+                    }
+                }
             }
         }
     }
@@ -326,15 +404,28 @@ public final class TextureSequence {
 
         @Override
         public void render(SubmitNodeCollector snc, PoseStack stack,
-                           Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
+                           Vector2i viewportMicros, Vector2i marginMicros, Vector2i scaleHint,
                            int layer, int alpha, int red, int green, int blue,
-                           int[] light, long tick, float partial) {
+                           int[] lightCoords, int lightCoordsRowOffset, long tick, float partialTick) {
             var left = viewportMicros.x * (1F - 19F / scaleHint.x) / 2F;
             var top = viewportMicros.y * (1F - 16F / scaleHint.y) / 2F;
             var right = viewportMicros.x * (1F + 19F / scaleHint.x) / 2F;
             var bottom = viewportMicros.y * (1F + 16F / scaleHint.y) / 2F;
-            submitClippedQuad(snc, stack, this.iconRenderType, viewportMicros, offsetMicros,
-                    left, top, right, bottom, 0F, 0F, 1F, 1F, layer, alpha, 255, 255, 255, light);
+            var type = this.iconRenderType;
+            if (lightCoords.length == 0) {
+                submitFullTexture(snc, stack, type, viewportMicros, left, top, right, bottom,
+                        0F, 0F, 1F, 1F, layer, alpha, 255, 255, 255, LightCoordsUtil.FULL_BRIGHT);
+            } else {
+                var light = new int[4];
+                var offsetMicros = new Vector2i();
+                for (var y = -marginMicros.y; y < viewportMicros.y; y += 1000000) {
+                    for (var x = -marginMicros.x; x < viewportMicros.x; x += 1000000) {
+                        calculateQuadLight(lightCoords, lightCoordsRowOffset, marginMicros, offsetMicros.set(x, y), light);
+                        submitClippedQuad(snc, stack, type, viewportMicros, offsetMicros,
+                                left, top, right, bottom, 0F, 0F, 1F, 1F, layer, alpha, 255, 255, 255, light);
+                    }
+                }
+            }
         }
     }
 
@@ -349,8 +440,9 @@ public final class TextureSequence {
 
         @Override
         public void render(SubmitNodeCollector snc, PoseStack stack,
-                           Vector2i viewportMicros, Vector2i offsetMicros, Vector2i scaleHint,
-                           int layer, int alpha, int red, int green, int blue, int[] light, long tick, float partial) {
+                           Vector2i viewportMicros, Vector2i marginMicros, Vector2i scaleHint,
+                           int layer, int alpha, int red, int green, int blue,
+                           int[] lightCoords, int lightCoordsRowOffset, long tick, float partialTick) {
             var x3 = (float) viewportMicros.x;
             var y3 = (float) viewportMicros.y;
             var x1 = x3 * 9F / scaleHint.x;
@@ -359,25 +451,54 @@ public final class TextureSequence {
             var y2 = y3 - y1;
             var u1 = 9F / 19F;
             var u2 = 1F - u1;
-            // Render the nine-slice background as individually clipped cells.
-            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
-                    0F, 0F, x1, y1, 0F, 0F, u1, u1, layer, alpha, 255, 255, 255, light);
-            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
-                    x1, 0F, x2, y1, u1, 0F, u2, u1, layer, alpha, 255, 255, 255, light);
-            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
-                    x2, 0F, x3, y1, u2, 0F, 1F, u1, layer, alpha, 255, 255, 255, light);
-            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
-                    0F, y1, x1, y2, 0F, u1, u1, u2, layer, alpha, 255, 255, 255, light);
-            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
-                    x1, y1, x2, y2, u1, u1, u2, u2, layer, alpha, 255, 255, 255, light);
-            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
-                    x2, y1, x3, y2, u2, u1, 1F, u2, layer, alpha, 255, 255, 255, light);
-            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
-                    0F, y2, x1, y3, 0F, u2, u1, 1F, layer, alpha, 255, 255, 255, light);
-            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
-                    x1, y2, x2, y3, u1, u2, u2, 1F, layer, alpha, 255, 255, 255, light);
-            submitClippedQuad(snc, stack, this.backgroundRenderType, viewportMicros, offsetMicros,
-                    x2, y2, x3, y3, u2, u2, 1F, 1F, layer, alpha, 255, 255, 255, light);
+            var type = this.backgroundRenderType;
+            if (lightCoords.length == 0) {
+                submitFullTexture(snc, stack, type, viewportMicros, 0F, 0F, x1, y1,
+                        0F, 0F, u1, u1, layer, alpha, 255, 255, 255, LightCoordsUtil.FULL_BRIGHT);
+                submitFullTexture(snc, stack, type, viewportMicros, x1, 0F, x2, y1,
+                        u1, 0F, u2, u1, layer, alpha, 255, 255, 255, LightCoordsUtil.FULL_BRIGHT);
+                submitFullTexture(snc, stack, type, viewportMicros, x2, 0F, x3, y1,
+                        u2, 0F, 1F, u1, layer, alpha, 255, 255, 255, LightCoordsUtil.FULL_BRIGHT);
+                submitFullTexture(snc, stack, type, viewportMicros, 0F, y1, x1, y2,
+                        0F, u1, u1, u2, layer, alpha, 255, 255, 255, LightCoordsUtil.FULL_BRIGHT);
+                submitFullTexture(snc, stack, type, viewportMicros, x1, y1, x2, y2,
+                        u1, u1, u2, u2, layer, alpha, 255, 255, 255, LightCoordsUtil.FULL_BRIGHT);
+                submitFullTexture(snc, stack, type, viewportMicros, x2, y1, x3, y2,
+                        u2, u1, 1F, u2, layer, alpha, 255, 255, 255, LightCoordsUtil.FULL_BRIGHT);
+                submitFullTexture(snc, stack, type, viewportMicros, 0F, y2, x1, y3,
+                        0F, u2, u1, 1F, layer, alpha, 255, 255, 255, LightCoordsUtil.FULL_BRIGHT);
+                submitFullTexture(snc, stack, type, viewportMicros, x1, y2, x2, y3,
+                        u1, u2, u2, 1F, layer, alpha, 255, 255, 255, LightCoordsUtil.FULL_BRIGHT);
+                submitFullTexture(snc, stack, type, viewportMicros, x2, y2, x3, y3,
+                        u2, u2, 1F, 1F, layer, alpha, 255, 255, 255, LightCoordsUtil.FULL_BRIGHT);
+            } else {
+                var light = new int[4];
+                var offsetMicros = new Vector2i();
+                for (var y = -marginMicros.y; y < viewportMicros.y; y += 1000000) {
+                    for (var x = -marginMicros.x; x < viewportMicros.x; x += 1000000) {
+                        calculateQuadLight(lightCoords, lightCoordsRowOffset, marginMicros, offsetMicros.set(x, y), light);
+                        // Render the nine-slice background as individually clipped cells.
+                        submitClippedQuad(snc, stack, type, viewportMicros, offsetMicros,
+                                0F, 0F, x1, y1, 0F, 0F, u1, u1, layer, alpha, 255, 255, 255, light);
+                        submitClippedQuad(snc, stack, type, viewportMicros, offsetMicros,
+                                x1, 0F, x2, y1, u1, 0F, u2, u1, layer, alpha, 255, 255, 255, light);
+                        submitClippedQuad(snc, stack, type, viewportMicros, offsetMicros,
+                                x2, 0F, x3, y1, u2, 0F, 1F, u1, layer, alpha, 255, 255, 255, light);
+                        submitClippedQuad(snc, stack, type, viewportMicros, offsetMicros,
+                                0F, y1, x1, y2, 0F, u1, u1, u2, layer, alpha, 255, 255, 255, light);
+                        submitClippedQuad(snc, stack, type, viewportMicros, offsetMicros,
+                                x1, y1, x2, y2, u1, u1, u2, u2, layer, alpha, 255, 255, 255, light);
+                        submitClippedQuad(snc, stack, type, viewportMicros, offsetMicros,
+                                x2, y1, x3, y2, u2, u1, 1F, u2, layer, alpha, 255, 255, 255, light);
+                        submitClippedQuad(snc, stack, type, viewportMicros, offsetMicros,
+                                0F, y2, x1, y3, 0F, u2, u1, 1F, layer, alpha, 255, 255, 255, light);
+                        submitClippedQuad(snc, stack, type, viewportMicros, offsetMicros,
+                                x1, y2, x2, y3, u1, u2, u2, 1F, layer, alpha, 255, 255, 255, light);
+                        submitClippedQuad(snc, stack, type, viewportMicros, offsetMicros,
+                                x2, y2, x3, y3, u2, u2, 1F, 1F, layer, alpha, 255, 255, 255, light);
+                    }
+                }
+            }
         }
     }
 }
