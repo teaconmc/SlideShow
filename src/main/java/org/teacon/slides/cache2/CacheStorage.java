@@ -56,6 +56,7 @@ public final class CacheStorage implements Closeable {
     private final ConcurrentMap<ProjectorURL, CacheEntry> entries;
     private final ConcurrentMap<ProjectorURL, CompletableFuture<ImageSource>> requests;
     private final ConcurrentMap<ProjectorURL, Closeable> transientResources;
+    private final Object imageCommitLock = new Object();
     private final AtomicBoolean closed = new AtomicBoolean();
 
     public CacheStorage(HttpClient client, Executor providerExecutor, Path folder) {
@@ -171,7 +172,9 @@ public final class CacheStorage implements Closeable {
                     closeQuietly(result.location());
                     throw new IllegalStateException("Cache storage is closed");
                 }
-                return this.commit(url, old, result);
+                synchronized (this.imageCommitLock) {
+                    return this.commit(url, old, result);
+                }
             }, this.clientExecutor);
             committed.whenComplete((ignoredResult, throwable) -> {
                 // Clean up the downloaded temp file when commit fails or is cancelled.
