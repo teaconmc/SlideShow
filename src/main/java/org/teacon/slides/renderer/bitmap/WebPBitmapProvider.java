@@ -98,17 +98,7 @@ public final class WebPBitmapProvider implements BitmapProvider {
                     throw new IOException("Inconsistent frame alpha status");
                 }
                 if (bgBlend) {
-                    for (var i = 3; i < frameDataByteCount; i += 4) {
-                        var alpha = frameData[i] & 0xFF;
-                        var newAlphaMul255 = alpha * 255 + bgAlpha * (255 - alpha);
-                        var newRedMulAlphaMul255 = frameData[i - 3] * alpha * 255 + bgRed * bgAlpha * (255 - alpha);
-                        var newGreenMulAlphaMul255 = frameData[i - 2] * alpha * 255 + bgGreen * bgAlpha * (255 - alpha);
-                        var newBlueMulAlphaMul255 = frameData[i - 1] * alpha * 255 + bgBlue * bgAlpha * (255 - alpha);
-                        frameData[i] = (byte) divAndClamp(newAlphaMul255, 255);
-                        frameData[i - 3] = (byte) divAndClamp(newRedMulAlphaMul255, newAlphaMul255);
-                        frameData[i - 2] = (byte) divAndClamp(newGreenMulAlphaMul255, newAlphaMul255);
-                        frameData[i - 1] = (byte) divAndClamp(newBlueMulAlphaMul255, newAlphaMul255);
-                    }
+                    blendFrameDataWithBackground(frameData, bgAlpha, bgRed, bgGreen, bgBlue);
                 }
             }
 
@@ -135,8 +125,18 @@ public final class WebPBitmapProvider implements BitmapProvider {
         }
     }
 
-    private int divAndClamp(int dividend, int divisor) {
-        return Mth.clamp((dividend + divisor / 2) / divisor, 0, 255);
+    private static void blendFrameDataWithBackground(byte[] data, int bgAlpha, int bgRed, int bgGreen, int bgBlue) {
+        for (var i = 3; i < data.length; i += 4) {
+            var alpha = data[i] & 0xFF;
+            var newAlphaMul255 = alpha * 255 + bgAlpha * (255 - alpha);
+            var newRedMulAlphaMul255 = (data[i - 3] & 0xFF) * alpha * 255 + bgRed * bgAlpha * (255 - alpha);
+            var newGreenMulAlphaMul255 = (data[i - 2] & 0xFF) * alpha * 255 + bgGreen * bgAlpha * (255 - alpha);
+            var newBlueMulAlphaMul255 = (data[i - 1] & 0xFF) * alpha * 255 + bgBlue * bgAlpha * (255 - alpha);
+            data[i] = (byte) Mth.clamp((newAlphaMul255 + 255 / 2) / 255, 0, 255);
+            data[i - 3] = (byte) Mth.clamp((newRedMulAlphaMul255 + newAlphaMul255 / 2) / newAlphaMul255, 0, 255);
+            data[i - 2] = (byte) Mth.clamp((newGreenMulAlphaMul255 + newAlphaMul255 / 2) / newAlphaMul255, 0, 255);
+            data[i - 1] = (byte) Mth.clamp((newBlueMulAlphaMul255 + newAlphaMul255 / 2) / newAlphaMul255, 0, 255);
+        }
     }
 
     @Override
